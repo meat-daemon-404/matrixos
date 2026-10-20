@@ -463,15 +463,81 @@ iframe 高度 = max(内容高, 可用高)       // 必须 >= 内容高，否则 
 在线上 hub 点开任一微站，读 iframe 内状态胶囊：
 
 ```
-["MatrixID · offline", "iframe 内嵌", "面板 · local", "SDK · 未就位", "通道自检"]
+["MatrixID · offline", "iframe 内嵌", "面板 · local", "SDK · 已就位", "accepts · 1 类", ...]
 → MatrixID ready? false   offline? true
+```
+
+状态详情文案（精确）：
+```
+iframe 通道 · MatrixID degraded · IFRAME_HANDSHAKE_TIMEOUT：
+  未能从 MatrixOS 主控台获得一次性登录凭证（mx_idt）
 ```
 
 即 **hub 内嵌态下微站从未进入 `ready`**。
 
-### 归因：`HostBridge` 的两个既有缺陷（代码级证据）
+### 精确断点（postMessage 全量抓包，2026-10-21）
 
-**Bug A —— host 侧的 `post()` 把消息发给了自己，永远到不了 iframe**
+在浏览器里用 `addInitScript` 拦截 `window.postMessage` 与其 `message` 事件，得到完整流量：
+
+```
+hub 主窗口收到：  bridge.hello / layout.resize / sso.idt.request
+iframe 内收到：   bridge.hello / bridge.hello.ack
+```
+
+**结论**：`sso.idt.request` **已成功送达 hub**，但 **hub 只回了 `bridge.hello.ack`，从未回 `sso.idt.ack`** → 微站等到超时 → `IFRAME_HANDSHAKE_TIMEOUT`。
+
+### 根因：协议两端，**SDK 侧齐全、hub 侧从未接线**
+
+`packages/matrix-sdk/src/auth/sso.ts` 的 `issueIdtForTenant(bridge, { http, authorize, debug })`
+**完整实现了整条链路**：
+```ts
+return bridge.on('sso.idt.request', (payload) => {
+  // appId 校验 → authorize(appId) 白名单 → POST /v1/auth/idt
+  // → 拿到 mx_idt → bridge.post('sso.idt.ack', { mx_idt, appId })
+});
+```
+并已从 `index.ts` / `sdk.ts:493` 导出。
+
+但 **hub 应用代码里没有任何地方调用它**：
+```
+grep -r 'issueIdtForTenant|sso.idt' apps/orbital-hub/src
+→ 唯一命中 InstrumentPanel.tsx:263 的一句注释「SSO 走 mx_idt postMessage」
+```
+
+**后端端点也是齐的**（`services/matrix-core/app/api/routes/auth.py`）：
+```
+L388  @router.post("/idt", ...)         ← hub 签发 mx_idt
+L357  @router.post("/exchange", ...)    ← 微站用 mx_idt 换 mx_at
+```
+
+即 **这是纯前端缺口**：因为 hub 从未监听 `sso.idt.request`，整条 mx_idt 交换从未启动过。
+
+### 上游还有两起部署事故（本轮一并修复，会让 SSO 更早失败）
+
+| 事故 | 表现 | 根因 |
+| :--- | :--- | :--- |
+| **A. hub 产物被构建进 localhost** | 线上 iframe src 曾是 `http://127.0.0.1:3010` —— 用户浏览器根本连不到 | `apps/orbital-hub/.env.example` 含 `NEXT_PUBLIC_MICROSITE_LOCAL_MODE=true`，被 Next DefinePlugin 在**构建期**静态替换进产物 |
+| **B. 部分微站产物缺 HUB_ORIGINS 注入** | 微站 `OriginAllowList` 静默丢弃 hub 的 `bridge.hello` | 并行会话反复重建导致产物时序不一致：实测同一批产物 01 站含 `mx-orbital.pages.dev`、08/11 站不含 |
+
+两者都已修复（用生产值重建 hub + `build-static-site.mjs --all` 统一重建 18 站），
+并新增 `scripts/assert-artifact-env.mjs` 把「产物里到底构建进了什么值」变成可断言项。
+
+### 处置状态
+
+| 项 | 状态 |
+| :--- | :--- |
+| Bug A（host `post()` 发给自己） | ✅ 已修（`HostBridgeOptions.tenantWindow`） |
+| Bug B（tenant 读不到 `referrer`） | ✅ 已修（`DocumentLike.referrer` + env 拷贝）；线上已验证 `document.referrer = https://mx-orbital.pages.dev/` |
+| 部署事故 A / B | ✅ 已修并加断言 |
+| **hub 侧 `issueIdtForTenant` 接线** | 🔧 **进行中**（本节的真正断点） |
+| 线上验证 `MatrixID · ready` | ⏳ 待接线完成后复验 |
+
+> ⚠️ 排查这一节时踩过的坑值得记：**「SDK · 未就位」与「桥握手失败」是两个不同层面的问题**，
+> 一度混为一谈。实际时间线上是三层依次暴露：
+> ① 微站 SDK 接入层（`resolveSdk()` 拿不到实例）→ 显示「未就位」；
+> ② 微站产物缺 HUB_ORIGINS 注入 → `bridge.hello` 被静默丢弃（SDK 已就位但握手不通）；
+> ③ hub 侧从未接线 `sso.idt.request` → 握手通了但 mx_idt 永不签发。
+> **每修掉一层才会露出下一层**，所以「修了一次还是 offline」不代表修复无效。
 
 `packages/matrix-sdk/src/iframe/bridge.ts`（HEAD 版本 `:149-150`、`:324`）：
 ```js
