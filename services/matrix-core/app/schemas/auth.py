@@ -41,6 +41,20 @@ class TokenExchangeRequest(BaseModel):
     refresh_token: str | None = None
 
 
+class RefreshRequest(BaseModel):
+    """POST /v1/auth/refresh 的请求体。
+
+    **刻意不复用 ``TokenExchangeRequest``**：那个模型要求 ``grant_type``，
+    但 ``/refresh`` 这个端点本身就是 refresh 语义，再让调用方填一次
+    ``grant_type="refresh_token"`` 属于冗余契约，且会让
+    ``{"refresh_token": "..."}`` 这种最自然的请求 422。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    refresh_token: str | None = None
+
+
 class TokenResponse(BaseModel):
     """令牌响应（RFC 6749 形态 + MatrixOS 扩展字段）。"""
 

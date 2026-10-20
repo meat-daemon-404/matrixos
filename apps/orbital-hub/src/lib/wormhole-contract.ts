@@ -57,6 +57,16 @@ export const VERIFICATION_TONE: Readonly<
   Retracted_Warning: 'danger',
 };
 
+/**
+ * 虫洞目标节点的 DOM 标记属性。
+ *
+ * 松手投送用 `document.elementFromPoint()` 反查这个属性来决定投给哪个站，
+ * 而不是在 JS 里复算每个目标的圆心与半径 —— 后者等于把环形布局抄两份，
+ * 改一次 ring 尺寸就会静默漂移。放在这里（而不是组件里）是因为投递方
+ * （OrbitalHub）与渲染方（WormholeRing）都要用它，组件间互相 import 会成环。
+ */
+export const WORMHOLE_TARGET_ATTR = 'data-wormhole-target';
+
 export interface ValidationIssue {
   /** 违规的字段路径，如 'payload.evidence_anchors[0].source_doi_or_url' */
   readonly path: string;

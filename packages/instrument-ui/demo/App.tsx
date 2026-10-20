@@ -203,21 +203,39 @@ export function App(): ReactNode {
   }, []);
 
   /* ---- 对比度面板 ---- */
+  /**
+   * 全部**被当作文字色使用**的令牌清单（与 tokens.css 的 Text / Accent 段一一对应）。
+   *
+   * V7 教训：这里原本只列了 7 个前景色，恰好漏掉 `--iu-text-faint`，
+   * 而它当时是 3.75:1 且被 18 处当正文用 —— 守卫漏项 = 守卫失效。
+   * 现在按令牌全量登记，新增文字色必须同步加进来。
+   */
+  const TEXT_TOKENS = [
+    { name: 'text', color: '#f1f5f9' },
+    { name: 'text-strong', color: '#ffffff' },
+    { name: 'text-secondary', color: '#cbd5e1' },
+    { name: 'text-muted', color: '#94a3b8' },
+    { name: 'text-faint', color: '#7d8ba1' },
+    { name: 'instrument', color: '#06b6d4' },
+    { name: 'instrument-text', color: '#22d3ee' },
+    { name: 'positive', color: '#10b981' },
+    { name: 'positive-text', color: '#34d399' },
+    { name: 'warning', color: '#f59e0b' },
+    { name: 'warning-text', color: '#fbbf24' },
+    { name: 'danger-text', color: '#fb7185' },
+    { name: 'action-text', color: '#818cf8' },
+  ] as const;
+
   const contrastRows = useMemo(() => {
-    const foregrounds = [
-      { name: 'text', color: '#f1f5f9' },
-      { name: 'text-muted', color: '#94a3b8' },
-      { name: 'instrument', color: '#06b6d4' },
-      { name: 'positive', color: '#10b981' },
-      { name: 'warning', color: '#f59e0b' },
-      { name: 'danger-text', color: '#fb7185' },
-      { name: 'action-text', color: '#818cf8' },
-    ] as const;
-    return foregrounds.map((fg) => {
+    return TEXT_TOKENS.map((fg) => {
       const ratio = Math.min(...SURFACE_LIST.map((bg) => contrastRatio(fg.color, bg)));
       return { ...fg, ratio, level: wcagLevel(ratio) };
     });
   }, []);
+
+  /** 有多少个令牌没有达到 AA 正文线（4.5:1）。0 才算通过。 */
+  const failingTokens = contrastRows.filter((row) => row.ratio < 4.5).length;
+
 
   return (
     <div className="dz-page">
@@ -331,7 +349,7 @@ export function App(): ReactNode {
       </Section>
 
       {/* ------------------------------------------------------------------ */}
-      <Section index="03" title="PrecisionBalance · 精密三盘电子天平" note="砝码堆叠可视化「这一分怎么来的」；总分用 CSS 里程表推进，不做 JS 逐帧数字递增。">
+      <Section index="03" title="PrecisionBalance · 精密三盘电子天平" note="砝码堆叠可视化「这一分怎么来的」；总分用**一次 480ms 的 rAF 缓动**推进（有界、跑完即断，非常驻逐帧），reduced-motion 下直接显示终值。盘体浮沉/液面/砝码落位全是 CSS。" >
         <Card title="云衡 · 综测核算" sub="16 站 · 三盘配重" center wide>
           <PrecisionBalance
             pans={BALANCE_PANS}
@@ -447,8 +465,8 @@ export function App(): ReactNode {
       </Section>
 
       {/* ------------------------------------------------------------------ */}
-      <Section index="09" title="WCAG AA 守卫" note="对 tokens.css 的四种表面取最差对比度。任何新增色值只要不达 4.5:1 就会在这里标红。" >
-        <Card title="Contrast audit" sub="foreground vs 最差表面" wide>
+      <Section index="09" title="WCAG AA 守卫" note="对 tokens.css 的 5 种表面取最差对比度，逐个验全部文字令牌（13 个）。任何新增文字色只要不达 4.5:1 就会在这里标红 —— V7 曾漏掉 --iu-text-faint 导致 3.75:1 长期隐形，现已全量登记。" >
+        <Card title="Contrast audit" sub={failingTokens === 0 ? '全部通过 AA 4.5:1' : `⚠ ${failingTokens} 项未达 AA`} wide>
           <div className="dz-contrast">
             {contrastRows.map((row) => (
               <div className="dz-contrast-row" key={row.name}>

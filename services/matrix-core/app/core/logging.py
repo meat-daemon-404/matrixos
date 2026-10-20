@@ -26,6 +26,20 @@ def _add_static_fields(_logger: Any, _name: str, event_dict: dict[str, Any]) -> 
     return event_dict
 
 
+def _add_logger_name(logger: Any, _name: str, event_dict: dict[str, Any]) -> dict[str, Any]:
+    """写入 logger 名——**不能用** ``structlog.stdlib.add_logger_name``。
+
+    那个 processor 直接读 ``logger.name``，而我们用的是 ``PrintLoggerFactory``
+    （直接写 stdout，不经 stdlib logging 拦截），``PrintLogger`` 没有 ``name``
+    属性，一旦调用就会在启动日志处抛 ``AttributeError`` 让整个 lifespan 失败。
+    这里做属性缺失兜底，任何 logger 工厂下都安全。
+    """
+    name = getattr(logger, "name", None)
+    if name:
+        event_dict.setdefault("logger", name)
+    return event_dict
+
+
 def configure_logging(level: str | None = None, json_output: bool | None = None) -> None:
     """配置 structlog + 标准库 logging（幂等，可重复调用）。"""
     settings = get_settings()
@@ -35,7 +49,7 @@ def configure_logging(level: str | None = None, json_output: bool | None = None)
     shared_processors: list[Any] = [
         structlog.contextvars.merge_contextvars,
         structlog.stdlib.add_log_level,
-        structlog.stdlib.add_logger_name,
+        _add_logger_name,
         structlog.processors.TimeStamper(fmt="iso", utc=True),
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,

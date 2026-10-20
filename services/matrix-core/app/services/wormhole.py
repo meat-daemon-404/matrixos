@@ -208,11 +208,18 @@ async def create_receipt(
     target_accepts_payload_type: bool = True,
     envelope: Any | None = None,
     payload_data_hash: str | None = None,
+    envelope_payload_raw: Any | None = None,
 ) -> ReceiptResult:
     """落一条虫洞收据，并签发一次性 mx_idt（供目标站换 mx_at）。
 
     ``envelope`` 若提供，则**在内存中**重算哈希做二次校验，随后立即丢弃；
     正文绝不进入返回值、审计或数据库。
+
+    ``envelope_payload_raw`` 是**线上原样收到的** ``envelope.payload`` JSON。
+    完整性校验必须针对它，而不是 ``envelope.payload.model_dump()``：pydantic
+    会把未提供的可选字段（``pdf_page`` / ``bbox``）补成 ``None`` 再 dump，
+    于是"客户端算哈希的字节"与"服务端重算的字节"规范化后不一致，合规客户端
+    会被误判成传输篡改。传了 raw 就用 raw，没传才回落到 ``exclude_none``。
 
     幂等语义：同一 ``trace_id`` 重投不新建收据（trace 是投送的唯一标识），
     但仍签发新的 mx_idt —— 因为 idt 是一次性消耗品，重试往往是「上次的
@@ -237,15 +244,20 @@ async def create_receipt(
 
     if envelope is not None:
         # 二次校验：客户端哈希必须与服务端重算一致（防篡改）
-        recomputed = hash_payload(envelope.payload.model_dump())
+        raw_payload = (
+            envelope_payload_raw
+            if isinstance(envelope_payload_raw, dict)
+            else envelope.payload.model_dump(exclude_none=True)
+        )
+        recomputed = hash_payload(raw_payload)
         if recomputed != payload_hash:
             raise MatrixError(
                 ErrorCode.WORMHOLE_INVALID_ENVELOPE,
                 "payload_hash 与 envelope 重算结果不一致（正文可能在传输中被修改）",
             )
-        data_hash = hash_payload_data(envelope.payload.data)
+        data_hash = hash_payload_data(raw_payload.get("data", {}))
         levels, highest = count_levels(
-            [anchor.model_dump() for anchor in envelope.payload.evidence_anchors]
+            [anchor.model_dump(exclude_none=True) for anchor in envelope.payload.evidence_anchors]
         )
         evidence_count = len(envelope.payload.evidence_anchors)
 

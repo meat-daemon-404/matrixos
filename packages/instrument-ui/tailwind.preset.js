@@ -84,7 +84,8 @@ const preset = {
           strong: '#ffffff',
           secondary: '#cbd5e1',
           muted: '#94a3b8',
-          faint: '#64748b',
+          // 与 tokens.css 的 --iu-text-faint 同步：原 #64748b 仅 3.75:1，不达 AA。
+          faint: '#7d8ba1',
         },
 
         /* ---- 边框 ---- */

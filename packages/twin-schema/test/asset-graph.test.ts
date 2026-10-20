@@ -14,6 +14,8 @@ import {
   ASSET_RELATION,
   ASSET_TYPE,
   EMBEDDING_DIMENSIONS,
+  OFFICIAL_MICROSITE_KEY,
+  ORBIT_STATION,
   WORMHOLE_INLINE_PAYLOAD_LIMIT_BYTES,
   assetChunkSchema,
   assetEdgeSchema,
@@ -155,12 +157,38 @@ describe('AssetNode · 结构性负例', () => {
     expect(assetNodeSchema.safeParse({ ...validAssetNode(), station_id: 'curve_lab' }).success).toBe(false);
   });
 
-  it('station_id 误填 7 站轨道的值（xingmen 恰好也合法，但 study 太短会失败）', () => {
-    // 这是一个真实的语义陷阱：`station_id` 的定义域是**微站 key**，
-    // 不是 7 站生涯闭环。二者在字符串层有交集（如 xingmen 两处都合法），
-    // 类型层无法区分，只能靠文档与 code review。见 README「已知坑」。
-    expect(assetNodeSchema.safeParse({ ...validAssetNode(), station_id: 'study' }).success).toBe(false);
-    expect(assetNodeSchema.safeParse({ ...validAssetNode(), station_id: 'xingmen' }).success).toBe(true);
+  it('station_id 的文法只挡下 7 站里含下划线的 3 个，另外 4 个与微站 key 同形', () => {
+    // ⚠️ 原假设是错的，记录在此防止有人改回去：
+    // 本条用例原本断言 `station_id: 'study'` 会失败，理由写的是「study 太短」。
+    // 但 MICROSITE_KEY_PATTERN 是 /^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$/，
+    // 总长度 3..32，而 'study' 是 5 个字符 —— 它本来就**应该**通过。
+    // 所以当初的失败不是实现有 bug，是断言把「7 站名」整体误当成了「非法微站 key」。
+    //
+    // 真实的边界：7 个轨道名中只有含下划线的 3 个会被文法挡下
+    // （正则不含下划线），剩下 4 个与微站 key 完全同形，station_id 无从拒绝。
+    const ORBIT_NAMES_INDISTINGUISHABLE_FROM_MICROSITE_KEYS = ['study', 'spark', 'xingmen', 'workshop'];
+    const ORBIT_NAMES_REJECTED_BY_GRAMMAR = ['pat_hot', 'cloud_balance', 'pre_job'];
+
+    for (const station_id of ORBIT_NAMES_INDISTINGUISHABLE_FROM_MICROSITE_KEYS) {
+      expect(assetNodeSchema.safeParse({ ...validAssetNode(), station_id }).success, station_id).toBe(true);
+    }
+    for (const station_id of ORBIT_NAMES_REJECTED_BY_GRAMMAR) {
+      expect(assetNodeSchema.safeParse({ ...validAssetNode(), station_id }).success, station_id).toBe(false);
+    }
+  });
+
+  it('spark 是两套定义域的真实重名（契约层矛盾，正则无法解决）', () => {
+    // ORBIT_STATION 含 'spark'，OFFICIAL_MICROSITE_KEY 也含 'spark'。
+    // 于是 station_id: 'spark' 同时是「合法微站 key」与「合法轨道层级名」，
+    // 同一个字符串在两套定义域里都成立——类型系统和正则都无从区分。
+    //
+    // 这不是实现缺陷，而是两份冻结契约的定义域本身重叠
+    // （dispatch-contract / matrix-app-manifest 的 orbit_station 用 7 站枚举，
+    //  manifest 的 app_id 与 asset_node.station_id 用同一条微站正则）。
+    // 只能靠文档约定 + code review 兜底。见 README「已知坑 · 定义域重叠」。
+    expect(ORBIT_STATION).toContain('spark');
+    expect(OFFICIAL_MICROSITE_KEY).toContain('spark');
+    expect(assetNodeSchema.safeParse({ ...validAssetNode(), station_id: 'spark' }).success).toBe(true);
   });
 
   it('version 为 0 → 失败（minimum: 1）', () => {

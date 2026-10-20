@@ -10,6 +10,10 @@
  *
  * 阈值来源：docs/01-plan/05-risks.md §R-T03 的触发信号
  *   帧率 < 45fps / 内存 > 800MB / 长任务 > 100ms
+ *
+ * 显示原则：**区分"实测"与"预算"**。
+ *   `活跃 iframe 1 / 3` 里，1 是实测（数真实 DOM），3 是挂载总数；
+ *   `活名额 1` 是策略给出的预算。三者含义不同，混在一起会让人以为探针在自相矛盾。
  */
 
 import { describeSample } from '../lib/performance-probe';
@@ -23,7 +27,12 @@ export interface PerformanceProbePanelProps {
     readonly memoryCeilingMB: number;
     readonly longTaskCeilingMs: number;
   };
+  /** 实测活跃 iframe 数（数真实 DOM，不是按挂载列表推算） */
   readonly liveIframes: number;
+  /** 策略允许的活名额（由 degradation-policy 裁决） */
+  readonly liveBudget: number;
+  /** 当前降级原因（空数组 = 未降级） */
+  readonly reasons?: readonly string[];
   readonly onReset?: () => void;
 }
 
@@ -32,9 +41,12 @@ export function PerformanceProbePanel({
   strategyLabel,
   thresholds,
   liveIframes,
+  liveBudget,
+  reasons = [],
   onReset,
 }: PerformanceProbePanelProps) {
   const sample = verdict?.sample ?? null;
+  const degraded = reasons.length > 0;
 
   return (
     <aside className="probe-panel" aria-label="性能探针（S2-01e）">
@@ -42,7 +54,7 @@ export function PerformanceProbePanel({
         <b>S2-01e</b>
         <span>性能探针</span>
         <span className="panel-head-spacer" />
-        <span>{strategyLabel}</span>
+        <span data-tone={degraded ? 'warn' : undefined}>{strategyLabel}</span>
       </div>
 
       <div className="probe-row">
@@ -78,10 +90,10 @@ export function PerformanceProbePanel({
         </span>
       </div>
 
-      <div className="probe-row">
-        <span>活跃 iframe</span>
+      <div className="probe-row" title="活跃 iframe 数来自真实 DOM 查询；活名额是策略给出的预算">
+        <span>iframe 实测 / 预算</span>
         <span>
-          {liveIframes} / 3
+          {liveIframes} / {liveBudget}
           <span style={{ color: 'var(--color-text-faint)' }}> 懒加载</span>
         </span>
       </div>
@@ -97,6 +109,14 @@ export function PerformanceProbePanel({
           正在采集第 1 个采样窗口（1s）…
         </div>
       )}
+
+      {degraded ? (
+        <div className="probe-reasons" title="降级策略给出的原因（ADR-09：降级必须可见）">
+          {reasons.map((reason, index) => (
+            <span key={index}>· {reason}</span>
+          ))}
+        </div>
+      ) : null}
 
       {onReset ? (
         <button type="button" className="btn" onClick={onReset} style={{ alignSelf: 'flex-start' }}>

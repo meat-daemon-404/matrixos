@@ -11,9 +11,10 @@
  *   降级是**可见的**：快照面板有「静态快照 · 非实时」角标 + 降级原因 + 升级按钮，
  *   符合 ADR-09「L2 状态必须显式可见，不允许静默降级」。
  *
- * 谁决定降级：不是这个组件，而是传入的 `strategy`。
- *   探针在 page 层跑，判定的结果通过 strategy 下发 —— 这样 S2-01e 要单独跑基线
- *   不触发降级时，只要不接探针即可，组件本身不带"自作主张"的行为。
+ * 谁决定降级：不是这个组件，而是传入的 `strategy` + `liveBudget`。
+ *   两者都由 `lib/degradation-policy.ts` 从探针判定 / 设备档位 / 全屏入站 /
+ *   手动开关这四个输入**纯函数式**算出，page 层只做分发。本组件严格按预算
+ *   分配活名额，一不多给（会与探针计数打架）也不少给（会白白损失功能）。
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -34,6 +35,15 @@ export interface InstrumentRackProps {
   readonly mountedIds: readonly string[];
   readonly focusedId: string | null;
   readonly strategy: RenderStrategy;
+  /**
+   * 允许同时存活的 iframe 数（由 lib/degradation-policy 唯一裁决）。
+   *
+   * 上一版这里是组件自己从 strategy 推的（"焦点优先，再允许手动升级到 2 个"），
+   * 结果与探针的 `getLiveIframeCount`（按 min(n, 1) 算）对不上：探针以为自己
+   * 在看 1 个 iframe，实际屏幕上有 2 个在跑。采样和降级依据就此失真。
+   * 现在预算由外部单点下发，本组件只负责**严格按预算分配**，不自行加码。
+   */
+  readonly liveBudget: number;
   /** 降级原因，透传给快照面板显示 */
   readonly snapshotReason: string;
   readonly resolveSrc: (station: MicrositeStation) => string;
@@ -51,6 +61,7 @@ export function InstrumentRack({
   mountedIds,
   focusedId,
   strategy,
+  liveBudget,
   snapshotReason,
   resolveSrc,
   onUnmount,
@@ -59,8 +70,12 @@ export function InstrumentRack({
   onFirstLive,
 }: InstrumentRackProps) {
   /**
-   * 用户手动升级过的面板 id。降级只对"没被手动升级"的面板生效 ——
-   * 否则用户点「升级为全量」，下一个探针窗口又把它打回快照，会像 bug。
+   * 用户手动升级过的面板 id。
+   *
+   * 语义收窄了一档：手动升级**不能突破 liveBudget**（上一版允许最多 2 个活，
+   * 但那正是与探针打架的根源）。它现在的作用是把"哪个面板占用那唯一的活名额"
+   * 从焦点面板改判给用户点的那一个 —— 用户想看的仪器优先拿到预算，
+   * 而不是让用户以为升级成功了、实际性能被自己搞崩。
    */
   const [promotedIds, setPromotedIds] = useState<readonly string[]>([]);
 
@@ -79,29 +94,45 @@ export function InstrumentRack({
   );
 
   /**
-   * 决定每个面板的模式。
+   * 决定每个面板的模式 —— 严格按 liveBudget 分配，一个不多。
    *
-   * 降级规则（当 strategy = one-live-rest-snapshot）：
-   *   - 焦点面板优先当"那 1 个全量"；没有焦点就取第一个；
-   *   - 被用户手动升级的面板也给全量（但最多共 2 个，防止用户把 3 个都点活
-   *     反而把性能又打回原形 —— 那时探针会再降级，来回抖）。
+   * 名额分配顺序：
+   *   1. 用户手动升级过的面板（最近点的那个优先，所以反向遍历 promotedIds）；
+   *   2. 焦点面板；
+   *   3. 第一个面板（兜底，保证只要预算 ≥1 就有一台活的）。
+   *
+   * 为什么用"最近升级优先"而不是"按挂载顺序"：用户点了「⚡ 升级为全量挂载」，
+   * 期待的是**这一台**亮起来。如果按顺序分配，他点第 3 台时第 1 台抢走名额，
+   * 界面看起来毫无反应 —— 那比不提供这个按钮更糟。
    */
   const modes = useMemo<Record<string, PanelMode>>(() => {
-    if (strategy === 'all-live') {
-      return Object.fromEntries(stations.map((station) => [station.id, 'live' as PanelMode]));
+    if (stations.length === 0) return {};
+
+    const budget = Math.max(0, Math.min(liveBudget, stations.length));
+
+    if (budget === 0) {
+      // all-snapshot：全屏入站态，一个 iframe 都不留
+      return Object.fromEntries(stations.map((station) => [station.id, 'snapshot' as PanelMode]));
     }
 
-    const anchorId =
-      focusedId && stations.some((station) => station.id === focusedId)
-        ? focusedId
-        : (stations[0]?.id ?? null);
-
+    const presentIds = new Set(stations.map((station) => station.id));
     const liveIds = new Set<string>();
-    if (anchorId) liveIds.add(anchorId);
-    // 手动升级：最多再给 1 个名额
-    for (const id of promotedIds) {
-      if (liveIds.size >= 2) break;
-      if (stations.some((station) => station.id === id)) liveIds.add(id);
+
+    // 1. 手动升级优先，最近点击的排前面
+    for (let index = promotedIds.length - 1; index >= 0 && liveIds.size < budget; index -= 1) {
+      const id = promotedIds[index];
+      if (id && presentIds.has(id)) liveIds.add(id);
+    }
+
+    // 2. 焦点面板
+    if (liveIds.size < budget && focusedId && presentIds.has(focusedId)) {
+      liveIds.add(focusedId);
+    }
+
+    // 3. 兜底：按挂载顺序补满
+    for (const station of stations) {
+      if (liveIds.size >= budget) break;
+      liveIds.add(station.id);
     }
 
     return Object.fromEntries(
@@ -110,7 +141,7 @@ export function InstrumentRack({
         (liveIds.has(station.id) ? 'live' : 'snapshot') as PanelMode,
       ]),
     );
-  }, [strategy, stations, focusedId, promotedIds]);
+  }, [stations, liveBudget, focusedId, promotedIds]);
 
   const handlePromote = useCallback(
     (stationId: string) => {
@@ -121,6 +152,10 @@ export function InstrumentRack({
   );
 
   const count = stations.length;
+  const liveCount = useMemo(
+    () => Object.values(modes).filter((mode) => mode === 'live').length,
+    [modes],
+  );
 
   return (
     <section className="instrument-rack" aria-label="折射仪器架">
@@ -137,10 +172,27 @@ export function InstrumentRack({
           title={
             strategy === 'all-live'
               ? '全部面板为全量 iframe'
-              : '性能探针判定超预算，已降级为 1 全量 + 2 静态快照（R-T03 预设方案）'
+              : strategy === 'all-snapshot'
+                ? '全屏入站：所有面板让位为静态快照，避免 iframe 叠加'
+                : '性能探针判定超预算，已降级为 1 全量 + 静态快照（R-T03 预设方案）'
           }
         >
-          {strategy === 'all-live' ? '◉ 全量模式' : '◐ 降级模式 · 1 活 2 快照'}
+          {strategy === 'all-live'
+            ? '◉ 全量模式'
+            : strategy === 'all-snapshot'
+              ? '◌ 全部让位 · 全屏入站'
+              : '◐ 降级模式 · 1 活 2 快照'}
+        </span>
+        {/*
+          把「预算」直接摆出来。用户看到 "活 1 / 3" 才知道还有 2 台是快照、
+          以及点「升级为全量」是在争夺同一个名额 —— 否则他会以为按钮坏了。
+        */}
+        <span
+          className="btn"
+          style={{ cursor: 'default' }}
+          title={'当前允许同时存活的 iframe 数：' + liveBudget + '（由探针与设备档位共同裁决）'}
+        >
+          活 <b>{liveCount}</b> / {count}
         </span>
         <span className="btn" style={{ cursor: 'default' }} title="iframe 未激活时不创建 DOM">
           懒加载 · 可见才 hydrate
@@ -163,7 +215,14 @@ export function InstrumentRack({
               station={station}
               src={resolveSrc(station)}
               mode={modes[station.id] ?? 'dormant'}
-              snapshotReason={snapshotReason}
+              snapshotReason={
+                modes[station.id] === 'snapshot' && liveBudget < stations.length
+                  ? snapshotReason +
+                    ' · 本台为快照（当前预算 ' +
+                    liveBudget +
+                    ' 个活 iframe，点「升级」可把活名额让给本台）'
+                  : snapshotReason
+              }
               focused={focusedId === station.id}
               onFocus={() => onFocus(station.id)}
               onClose={() => onUnmount(station.id)}

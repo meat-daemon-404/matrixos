@@ -163,8 +163,6 @@ export function SonarDisc({
     onBlipHover?.(null);
   }, [onBlipHover]);
 
-  const sweepRadians = ((sweepAngle - 90) * Math.PI) / 180;
-
   return (
     <div
       className={cx('iu-root', 'iu-sonar', className)}
@@ -458,8 +456,11 @@ export function SonarDisc({
         </table>
       ) : null}
 
-      {/* 让 TS 认 sweepRadians 被使用（SVG 扫描由 CSS 驱动，角度仅供调试） */}
-      <span className="iu-sr-only" data-sweep-angle={sweepRadians} aria-hidden="true" />
+      {/*
+       * 扫描扇区由 CSS 驱动（见 .iu-sonar__sweep），sweepAngle 只用于回波命中判定，
+       * 不参与 SVG 绘制。此前这里有个仅为「让 TS 认变量被使用」的空 span，
+       * 既污染 DOM 又误导读者以为角度是渲染输入 —— 已删除，改为在计算处消费。
+       */}
     </div>
   );
 }

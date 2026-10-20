@@ -13,9 +13,10 @@
 
 from __future__ import annotations
 
+import json
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Query, status
+from fastapi import APIRouter, Query, Request, status
 
 from app.api.deps import SessionDep, SettingsDep, SignerDep
 from app.api.security import IdentityDep
@@ -37,21 +38,33 @@ router = APIRouter(prefix="/wormhole", tags=["wormhole"])
     response_model=WormholeReceiptResponse,
 )
 async def create_receipt(
+    request: Request,
     session: SessionDep,
     settings: SettingsDep,
     signer: SignerDep,
     identity: IdentityDep,
     payload: WormholeReceiptRequest,
-    raw_body: Annotated[dict[str, Any] | None, Body()] = None,
 ) -> WormholeReceiptResponse:
     """W2：服务端只存哈希与元数据，绝不存 payload 正文。
 
     请求体带 ``payload`` / ``data`` 等正文字段时返回 422
     （``wormhole.payload_forbidden``）——刻意不「忽略」，因为静默忽略会让
     调用方误以为正文已被接收。
+
+    **为什么读原始请求体而不是加一个 ``Body()`` 参数**：FastAPI 会把同一个
+    JSON body 的多个模型参数**合并**成一个 object schema 再生成本次请求的
+    校验模型——于是 ``WormholeReceiptRequest`` 的全部字段被误判为必填，
+    只传元数据的正常请求会 422，而 W2 的正文检查却永远拿不到 body。
+    读原始字节既保住了真实的模型校验，又让正文检查真正生效。
     """
-    if raw_body is not None:
-        wormhole_service.reject_payload_body(raw_body)
+    raw = await request.body()
+    if raw.strip():
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            parsed = None
+        if isinstance(parsed, dict):
+            wormhole_service.reject_payload_body(parsed)
 
     result = await wormhole_service.create_receipt(
         session,

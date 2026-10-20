@@ -4,7 +4,7 @@
 >
 > 覆盖「学业 → 科研 → 生涯」的 7 站闭环：学阶 Study · 星火 Spark · 情报 PAT-HOT · 星门 Xingmen · 学术星轨工坊 · 云衡 Asset · 预职 Pre-Job
 
-[![Status](https://img.shields.io/badge/status-planning-blue)](#项目状态)
+[![Status](https://img.shields.io/badge/status-stage--1--scaffold-yellow)](#当前实现状态)
 [![Version](https://img.shields.io/badge/spec-v3.0-6366f1)](#)
 [![License](https://img.shields.io/badge/license-TBD-lightgrey)](#)
 
@@ -167,27 +167,111 @@ MatrixOS/
 ├── docs/
 │   ├── 00-analysis/        # Bundle 解构与差距分析
 │   ├── 01-plan/            # 架构、路线图、WBS、ADR、风险
-│   └── 02-engineering/     # 开发约定、环境搭建
+│   └── 02-engineering/     # 开发约定、实现状态盘点
+├── packages/               # 3 个共享包（见「当前实现状态」）
+├── services/               # 3 个后端服务（Python）
+├── apps/                   # 总控台 + 18 微站 + 口袋小程序
 ├── scripts/                # 校验与工具脚本
 │   ├── verify.mjs          # 单一校验入口
+│   ├── doctor.mjs          # 环境 + 模块就绪度诊断
+│   ├── gen-site.mjs        # 18 微站骨架生成器
 │   ├── install-hooks.mjs   # 安装 pre-commit 钩子
 │   ├── validate-specs.mjs  # 契约 + 花名册 + 编码
 │   └── check-doc-links.mjs # 文档断链
-├── .github/                # Issue/PR 模板、协作规范
+├── .github/                # Issue/PR 模板、协作规范、CI 工作流
 └── README.md
 ```
 
-> **注意**：本仓库当前处于**规划阶段**。`bundle/` 是设计交付物（HTML 图谱 + 概念渲染图），**不含可运行的产品代码**。产品实现将从 Stage 1 开始逐步落入 `apps/` 与 `packages/`。
+> **注意**：`bundle/` 是设计交付物（HTML 图谱 + 概念渲染图），**不含可运行的产品代码**。
+> 产品实现已从 Stage 1 开始落入 `apps/`、`packages/`、`services/`，进度见下一节。
 
 ### 提交前校验
 
-本仓库**不使用 GitHub Actions**（原工作流因账户计费无法启动，已移除）。校验由本地 `pre-commit` 钩子承担，新克隆后装一次：
+本仓库的 **GitHub Actions 目前尚未生效**（账户计费受限，用户已申请学生认证，权益未到账）。
+`.github/workflows/verify.yml` 已就绪待生效，**在此之前校验由本地 `pre-commit` 钩子承担**，新克隆后装一次：
 
 ```bash
 node scripts/install-hooks.mjs
 ```
 
-之后每次 `git commit` 自动跑契约校验 + 断链检查 + 编码检查，不通过即拒绝提交。手动跑：`pnpm check`。详见 [`docs/02-engineering/01-dev-setup.md`](docs/02-engineering/01-dev-setup.md)。
+之后每次 `git commit` 自动跑契约校验 + 断链检查 + 编码检查，不通过即拒绝提交。手动跑：`pnpm check`。
+详见 [`docs/02-engineering/01-dev-setup.md`](docs/02-engineering/01-dev-setup.md)。
+
+---
+
+## 当前实现状态
+
+> 盘点日期：2026-10-20 · 完整明细见 [`docs/02-engineering/04-implementation-status.md`](docs/02-engineering/04-implementation-status.md)
+
+**一句话**：脚手架已铺满 9 个模块，逻辑层实现质量不错，但业务层（18 个微站的工具、小程序页面、pocket 接口）基本还是骨架。
+
+**「能构建」不等于「有功能」** —— 这是阅读本节最需要带上的判断。
+
+### 九模块就绪度
+
+| # | 模块 | 状态 | 源文件 | 测试 | 能构建 |
+| :-- | :--- | :--- | --: | --: | :-- |
+| 1 | `packages/twin-schema` | ✅ 已实现 | 15 | **162 passed** | ✅ |
+| 2 | `packages/matrix-sdk` | ✅ 已实现 | 20 | 1 passed | ✅ |
+| 3 | `packages/instrument-ui` | ✅ 已实现 | 46 | ❌ 0 | ✅ |
+| 4 | `services/matrix-core` | 🔶 部分实现 | 50 | ❌ 0 | n/a（Python） |
+| 5 | `services/copilot-router` | ✅ 已实现 | 18 | **179 passed · 81%** | n/a（Python） |
+| 6 | `services/openalex-pat-worker` | 🔶 部分实现 | 32 | 43 passed | n/a（Python） |
+| 7 | `apps/orbital-hub` | 🔶 部分实现 | 27 | ❌ 0 | ⚠️ 见下 |
+| 8 | `apps/wechat-pocket` | 🔶 部分实现 | 20 | ❌ 0 | ❌ 无 build 任务 |
+| 9 | `apps/micro-sites`（18 站） | 🔶 仅骨架 | 306 | ❌ 0 | ⚠️ 见下 |
+
+**自动化测试合计 385 个通过**（162 + 1 + 179 + 43），但集中在前 4 个模块 —— 有测试的模块只有 4/9。
+
+### 各模块做到了什么程度
+
+| 模块 | 已经能用的 | 还缺的 |
+| :--- | :--- | :--- |
+| **twin-schema** | 三份契约的 Schema + zod 校验，测试充分 | — |
+| **matrix-sdk** | SSO / 虫洞 / iframe 桥 / manifest 校验齐全 | 只有 1 个 smoke 用例；`security/origin` 等安全面零测试 |
+| **instrument-ui** | 10 个仪器组件 + 设计 token，vite 构建通过 | 零测试；`test` 脚本指向不存在的 `scripts/self-test.mjs` |
+| **matrix-core** | 鉴权（RS256/JWKS/黑名单）、资产（含乐观锁）、虫洞收据路由真实存在 | **零测试**；无 `/v1/pocket/*`；无 `/v1/pat/*` |
+| **copilot-router** | 路由/计费/缓存/降级/敏感度，179 测试 81% 覆盖 | `api.py` 与 `api_models.py` 覆盖率为 **0%** |
+| **openalex-pat-worker** | 热度/脉冲计算 + 43 个测试 | 未接入 matrix-core，目前是孤立服务 |
+| **orbital-hub** | 总控台组件齐全（星轨场、虫洞环、仪器架、Copilot 波） | **无队列接收器**；无测试 |
+| **wechat-pocket** | 逻辑层完整：鉴权/请求/缓存/sync 通道/QR 编码器 | **视图层为零**：0 个页面、0 个组件、0 张图标、无 `app.ts` |
+| **micro-sites** | 18 站骨架 + manifest 合规 + 命名符合 ADR-001 | 页面是占位骨架，**没有一个真实业务工具** |
+
+### 两个最容易被误判的点
+
+**1. 18 微站 ≠ 18 个可用工具。**
+18 个站点全部由 `scripts/gen-site.mjs` 生成，每个 `page.tsx` 都标着「骨架 / 占位」，
+渲染的是同一套占位柱状图（高度写死为 `[38, 62, 47, 81, 55, 70, 44, 92, 66, 51]`）。
+ADR-001 规定的 UI 形态（精密推子配重仪、五柱流体压差计、360° 极坐标声呐盘…）**一个都没实现**。
+
+**2. 小程序 `typecheck` 通过 ≠ 小程序能跑。**
+`apps/wechat-pocket/tsconfig.json` 只 include `miniprogram/**/*.ts`，
+而 `pages/`、`components/`、`pkg-queue/`、`assets/tabbar/` **全是空目录**，也没有 `app.ts`。
+微信开发者工具打开会直接报错。详见 [`apps/wechat-pocket/README.md`](apps/wechat-pocket/README.md)。
+
+### 构建与验证现状
+
+| 项 | 命令 | 结果 |
+| :--- | :--- | :--- |
+| 类型检查 | `npx turbo run typecheck` | ✅ **25/25**（23 个包 + 2 个依赖前置 build） |
+| 构建 | `npx turbo run build --concurrency=2` | ✅ **22/22** |
+| 构建（默认并发） | `npx turbo run build` | ⚠️ **不稳定**，实测 17–20/22，每次失败包不同 |
+| Python 语法 | `ast.parse` 全量 | ✅ 96 文件 0 失败 |
+| 契约 + 断链 | `node scripts/verify.mjs` | ✅ 2/2 |
+
+> ⚠️ **构建必须降并发**：19 个 Next.js 应用同时读写各自 `.next/`，在 Windows 上会撞出
+> `ENOENT` 假红灯。请统一使用 `--concurrency=2`。详见
+> [`docs/02-engineering/00-known-issues.md`](docs/02-engineering/00-known-issues.md#附构建不稳定非阻塞但会造成假红灯)。
+
+### 当前短板（按优先级）
+
+| 优先级 | 事项 |
+| :--- | :--- |
+| **P0** | `matrix-core` 补测试（承载鉴权与资产的核心服务零测试） |
+| **P0** | `wechat-pocket` 补 `app.ts` + 6 个页面 + 8 张 tabBar 图标（否则完全无法启动） |
+| **P1** | `matrix-core` 补 `/v1/pocket/*` 与 WSS（小程序目前 13 个端点全是 mock） |
+| **P1** | 统一用 `--concurrency=2` 构建，消除假红灯 |
+| **P2** | 修 `scripts/self-test.mjs` 缺失；补 `copilot-router` 的 `api.py` 测试 |
 
 ---
 
@@ -223,9 +307,12 @@ node scripts/install-hooks.mjs
 
 | ID | 问题 | 状态 |
 | :--- | :--- | :--- |
-| BLK-001 | GitHub Actions 因账户计费无法启动 | ✅ 已绕过（改用本地 pre-commit 钩子） |
+| BLK-001 | GitHub Actions 因账户计费无法启动 | 🔶 已绕过（本地钩子有效）；工作流已重建，**等学生认证权益到账** |
 | BLK-002 | `D:\MatrixOS` 无写入权限 | ✅ 已解决（UAC 提权修复 ACL） |
 | BLK-003 | Hindsight 记忆库额度耗尽 | ⚠️ 降级（不影响开发） |
+
+> BLK-001 说明：`.github/workflows/verify.yml` 与 `sync-labels.yml` 已入库待生效，
+> 但**至今一次都没成功运行过** —— 权益到账前，本地 pre-commit 钩子是唯一有效的强制门禁。
 
 ---
 
@@ -233,19 +320,22 @@ node scripts/install-hooks.mjs
 
 | 项 | 状态 |
 | :--- | :--- |
-| Bundle 分析 | 🔄 进行中 |
-| 工程规划 | 🔄 进行中 |
+| Bundle 分析 | ✅ 已完成 |
+| 工程规划 | ✅ 已完成（ADR-000/001 已裁决） |
 | 协作仓库 | ✅ 已上线 |
-| Stage 1 实现 | ⬜ 未开始 |
+| Stage 1 脚手架 | ✅ 9 个模块全部铺开 |
+| Stage 1 业务逻辑 | 🔄 逻辑层完成，业务层待补（见[当前实现状态](#当前实现状态)） |
+| CI 远端门禁 | 🔶 工作流已就绪，等 Actions 权益 |
 
 ---
 
 ## 参与协作
 
 1. 先读 [`docs/01-plan/01-architecture.md`](docs/01-plan/01-architecture.md) 建立全局理解
-2. 遵循 [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md) 的分支与提交规范
-3. 从 [Issues](../../issues) 中挑选带 `good-first-issue` 或对应 Stage 标签的任务
-4. 任务状态以 [Project 看板](../../projects) 为准
+2. 再读 [`docs/02-engineering/04-implementation-status.md`](docs/02-engineering/04-implementation-status.md) 弄清**现在到底有什么、缺什么**（别被"能构建"误导）
+3. 遵循 [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md) 的分支与提交规范
+4. 从 [Issues](../../issues) 中挑选带 `good-first-issue` 或对应 Stage 标签的任务
+5. 任务状态以 [Project 看板](../../projects) 为准
 
 ---
 

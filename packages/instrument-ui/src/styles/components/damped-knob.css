@@ -46,15 +46,19 @@
   overflow: visible;
 }
 
-/* 指针：拖拽时零延迟跟随（无过渡），松手后回弹走阻尼过渡 */
+/* 指针：拖拽时零延迟跟随（无过渡），松手后回弹走阻尼过渡。
+ *
+ * will-change 只在**拖拽期间**挂上（V7 修正：原先反了——常驻 will-change
+ * 让每颗旋钮永久占一层合成层，而真正需要它的拖拽时刻反而被 auto 摘掉）。
+ * 常态 auto 让浏览器在空闲时释放合成层。 */
 .iu-knob__needle {
   transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform;
+  will-change: auto;
 }
 
-.iu-knob__needle[data-dragging='true'] {
+.iu-knob__dial[data-iu-dragging='true'] .iu-knob__needle {
   transition: none;
-  will-change: auto;
+  will-change: transform;
 }
 
 .iu-knob__arc {

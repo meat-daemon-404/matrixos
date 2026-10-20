@@ -20,7 +20,7 @@
     "setup": "node scripts/install-hooks.mjs && node scripts/doctor.mjs",
     "setup:hooks": "node scripts/install-hooks.mjs",
     "gen:keys": "node scripts/gen-keys.mjs",
-    "build": "turbo run build",
+    "build": "node scripts/safe-build.mjs",
     "dev": "turbo run dev",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
@@ -28,7 +28,9 @@
     "clean": "turbo run clean && rimraf node_modules",
     "gen:site": "node scripts/gen-site.mjs",
     "db:up": "docker compose up -d postgres",
-    "db:down": "docker compose down"
+    "db:down": "docker compose down",
+    "build:raw": "turbo run build",
+    "gate:full": "node scripts/gate.mjs --full"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

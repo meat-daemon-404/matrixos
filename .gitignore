@@ -96,3 +96,15 @@ coverage.xml
 **/.pytest_cache/
 # ---- Next.js 自动生成（build 时会改写，不应入库）----
 next-env.d.ts
+# ---- 安全：外来渗透任务产物（非本项目，见 docs/02-engineering/SECURITY.md SEC-001）----
+assets.md
+evidence-index.md
+gate-log.md
+SCOPE.md
+cutover.sql
+# ---- 后端本地测试的临时密钥与库 ----
+.tmp_keys/
+.tmp_smoke.db
+*.sqlite
+*.sqlite3
+*.db

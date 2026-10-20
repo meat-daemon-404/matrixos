@@ -143,7 +143,7 @@ if (existsSync(whPath)) {
 }
 
 // --------------------------------------------------------------- bundle 存在
-console.log('\n[5/8] 交付物归档完整性');
+console.log('\n[5/9] 交付物归档完整性');
 const bundleChecks = [
   ['bundle/MatrixOS_v3_完整交互规范与UI图谱_高清版.html', 'HTML 交互规范图谱'],
   ['bundle/matrix_os_agent_execution_spec.md', 'Agent 执行规范'],
@@ -160,7 +160,7 @@ if (existsSync(rendersDir)) {
 } else fail('bundle/UI_Renders/ 不存在');
 
 // --------------------------------------------------------------- bundle 存在
-console.log('\n[6/8] 中文编码完整性（U+FFFD + BOM 扫描）');
+console.log('\n[6/9] 中文编码完整性（U+FFFD + BOM 扫描）');
 /**
  * 双重编码检查：
  *  1. U+FFFD —— PowerShell 5.1 在 GBK 代码页下处理 UTF-8 中文会静默损坏内容，
@@ -206,7 +206,7 @@ console.log('\n[6/8] 中文编码完整性（U+FFFD + BOM 扫描）');
 }
 
 // ------------------------------------------------------- 可疑产物防护
-console.log('\n[7/8] 注入产物防护');
+console.log('\n[7/9] 注入产物防护');
 /**
  * 2026-10-20 发现仓库内出现不属于本项目的「渗透测试」任务产物
  * （operation-state.json / pentest/ / route-audit.md）。详见
@@ -233,6 +233,55 @@ console.log('\n[7/8] 注入产物防护');
   }
   if (found === 0) ok('无可疑注入产物');
   else ok('上述产物已 gitignore，不进入版本库');
+}
+
+// ---------------------------------------------------- 源码混杂标记检查
+console.log('\n[8/9] 源码混杂标记（Markdown 围栏 / 合并冲突）');
+/**
+ * 2026-10-20 实际踩到：`apps/orbital-hub/src/components/InstrumentRack.tsx`
+ * 第 159 行混入了一个裸的 Markdown 代码围栏 ```，导致 TS1160
+ * "Unterminated template literal"，typecheck 与 build 双双失败。
+ *
+ * 这种「AI 写文件时把说明文字一起写进去」的污染，普通 lint 未必能抓。
+ * 这里对源码文件做逐行扫描。
+ *
+ * Python 文件豁免：docstring 里的 ``` 是合法图示（如 app/main.py 的分层说明）。
+ */
+{
+  const SCAN_DIRS = ['packages', 'apps', 'services', 'scripts'];
+  const CODE_EXT = /\.(ts|tsx|js|jsx|mjs|cjs|css)$/i;
+  const SKIP = /node_modules|\\dist\\|\.next|\.venv|__pycache__|\.turbo|\.pytest_cache/;
+  let scanned = 0;
+  let dirty = 0;
+
+  const walkCode = (dir) => {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (['node_modules', 'dist', '.next', '.venv', '__pycache__', '.turbo', '.pytest_cache'].includes(entry.name)) continue;
+        walkCode(p);
+      } else if (CODE_EXT.test(entry.name)) {
+        scanned++;
+        const lines = readFileSync(p, 'utf8').split(/\r?\n/);
+        lines.forEach((line, idx) => {
+          const t = line.trim();
+          if (t.startsWith('```')) {
+            dirty++;
+            fail(`${relative(ROOT, p)}:${idx + 1} 混入 Markdown 代码围栏 —— ${t.slice(0, 40)}`);
+          }
+          if (/^(<<<<<<<|>>>>>>>|=======)\s/.test(line) || /^(<<<<<<<|>>>>>>>)/.test(t)) {
+            dirty++;
+            fail(`${relative(ROOT, p)}:${idx + 1} 残留合并冲突标记`);
+          }
+        });
+      }
+    }
+  };
+
+  for (const d of SCAN_DIRS) walkCode(join(ROOT, d));
+
+  if (dirty === 0) ok(`扫描 ${scanned} 个源码文件，无 Markdown 围栏 / 无冲突标记`);
 }
 
 // ------------------------------------------------------------------ 汇总

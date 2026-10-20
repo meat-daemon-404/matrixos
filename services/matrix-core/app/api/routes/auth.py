@@ -22,7 +22,8 @@ from typing import Annotated
 from fastapi import APIRouter, Cookie, Query, Request, Response, status
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from app.api.deps import CurrentToken, SessionDep, SettingsDep, SignerDep
+from app.api.deps import SessionDep, SettingsDep, SignerDep
+from app.api.security import IdentityDep
 from app.core.config import Settings
 from app.core.errors import ErrorCode, MatrixError
 from app.core.sites import known_site_keys
@@ -38,6 +39,7 @@ from app.schemas.auth import (
     JwksResponse,
     LoginRequest,
     LogoutResponse,
+    RefreshRequest,
     TokenExchangeRequest,
     TokenResponse,
     UserInfoResponse,
@@ -334,7 +336,7 @@ async def refresh(
     settings: SettingsDep,
     signer: SignerDep,
     response: Response,
-    payload: TokenExchangeRequest | None = None,
+    payload: RefreshRequest | None = None,
     mx_rt: Annotated[str | None, Cookie(alias="mx_rt")] = None,
 ) -> TokenResponse:
     """接受两种来源：请求体 ``refresh_token`` 或 ``mx_rt`` Cookie。"""
@@ -412,7 +414,7 @@ async def issue_idt_endpoint(
     session: SessionDep,
     settings: SettingsDep,
     signer: SignerDep,
-    claims: CurrentToken,
+    identity: IdentityDep,
     payload: IdtIssueRequest,
 ) -> IdtIssueResponse:
     """需要已登录身份（mx_at），且只能为自己签发。"""
@@ -421,7 +423,7 @@ async def issue_idt_endpoint(
         session,
         settings=settings,
         signer=signer,
-        matrix_uid=claims.sub,
+        matrix_uid=identity.matrix_uid,
         target_station=payload.target_station,
         scope=payload.scope or None,
         trace_id=trace,
@@ -439,14 +441,19 @@ async def issue_idt_endpoint(
 
 
 @router.get("/userinfo", summary="最小身份信息（hub 首页展示）", response_model=UserInfoResponse)
-async def userinfo(session: SessionDep, claims: CurrentToken) -> UserInfoResponse:
-    user = await auth_service.get_user(session, claims.sub)
+async def userinfo(session: SessionDep, identity: IdentityDep) -> UserInfoResponse:
+    """走 ``IdentityDep`` 而非裸 ``CurrentToken``：登出后必须立即失效。
+
+    只验签是不够的——jti 黑名单与 ``auth_epoch`` 是「登出真的生效」的唯一凭据，
+    ``assert_access_token_live`` 才会去查它们。
+    """
+    user = identity.user
     return UserInfoResponse(
         matrix_uid=user.matrix_uid,
         display_name=user.display_name,
         entitlements=list(user.entitlements or []),
-        scope=list(claims.scope),
-        station_id=claims.station_id,
+        scope=identity.scope,
+        station_id=identity.station_id,
         epoch=user.auth_epoch,
     )
 
@@ -455,11 +462,11 @@ async def userinfo(session: SessionDep, claims: CurrentToken) -> UserInfoRespons
 async def logout(
     session: SessionDep,
     settings: SettingsDep,
-    claims: CurrentToken,
+    identity: IdentityDep,
     response: Response,
     mx_sess: Annotated[str | None, Cookie(alias="mx_sess")] = None,
 ) -> LogoutResponse:
-    await auth_service.logout_access_token(session, claims)
+    await auth_service.logout_access_token(session, identity.claims)
     await auth_service.drop_login_session(session, raw=mx_sess)
     await session.commit()
     _clear_cookies(response, settings)
@@ -474,10 +481,10 @@ async def logout(
 async def logout_all(
     session: SessionDep,
     settings: SettingsDep,
-    claims: CurrentToken,
+    identity: IdentityDep,
     response: Response,
 ) -> LogoutResponse:
-    user = await auth_service.get_user(session, claims.sub)
+    user = identity.user
     revoked = await auth_service.logout_all(session, user)
     await session.commit()
     _clear_cookies(response, settings)

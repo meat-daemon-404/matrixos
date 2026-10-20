@@ -115,9 +115,48 @@ export function startPerformanceProbe(options: ProbeOptions): ProbeHandle {
     if (durationMs > longestTaskMs) longestTaskMs = durationMs;
   });
 
+  /**
+   * 页面隐藏期间**不采样**，恢复可见时重置窗口。
+   *
+   * 单靠 `evaluate` 里豁免 fps 还不够：标签页在后台待 10 分钟再切回来，
+   * 第一个窗口的 elapsed 是 10 分钟、frameCount 只有几十，算出来的 fps 是
+   * 0.0x —— 那会立刻污染一条离谱的样本。正确处理是根本不计这一段：
+   * 隐藏时丢弃窗口，可见时把窗口起点拉到当前时刻重新开始数。
+   *
+   * 探针在隐藏期间仍然挂着 rAF（浏览器本就节流到近零成本），不额外加
+   * visibilitychange 监听器的注册/注销逻辑，只用一个标志位判断。
+   */
+  let lastTickAt = typeof performance !== 'undefined' ? performance.now() : 0;
+
   /** rAF 回调：只累加，不碰 DOM、不读布局 —— 保证探针自身开销可忽略。 */
   const tick = (now: number) => {
     if (stopped) return;
+
+    const hidden = typeof document !== 'undefined' && document.hidden === true;
+    if (hidden) {
+      // 后台：不累计帧、不结算窗口，把窗口起点跟着走
+      windowStartedAt = now;
+      lastTickAt = now;
+      frameCount = 0;
+      longestTaskMs = 0;
+      rafId = requestAnimationFrame(tick);
+      return;
+    }
+
+    /**
+     * 从后台切回来的第一帧：两帧之间的间隔异常大（> 4 个窗口）说明中间被节流了，
+     * 这段不算数。阈值取 4×windowMs 而不是 2×，是为了容忍正常的轻微卡顿。
+     */
+    if (now - lastTickAt > windowMs * 4) {
+      windowStartedAt = now;
+      frameCount = 0;
+      longestTaskMs = 0;
+      lastTickAt = now;
+      rafId = requestAnimationFrame(tick);
+      return;
+    }
+    lastTickAt = now;
+
     frameCount += 1;
 
     const elapsed = now - windowStartedAt;
@@ -197,18 +236,32 @@ export function startPerformanceProbe(options: ProbeOptions): ProbeHandle {
  *   breach —— 任一维度确实超标（内存维度缺数据时跳过，不当作达标也不当作超标）
  *
  * 为什么 fps 阈值对"隐藏标签页"要特殊处理：标签页不可见时 rAF 会被节流到 ~1fps，
- * 那不是性能问题而是浏览器的正确行为。调用方应在 document.hidden 时不判定；
- * 这里额外做一道保护，把 liveIframes === 0 且 fps 极低的窗口判为 ok（没挂载就没有压力）。
+ * 那不是性能问题而是浏览器的正确行为。这里做一道保护：`liveIframes === 0` 时
+ * 不因帧率判 breach（没挂载就没有多 iframe 压力）。内存与长任务不豁免。
  */
 export function evaluate(sample: PerformanceSample, thresholds: ProbeThresholds): ProbeVerdict {
   const breaches: string[] = [];
   const warnings: string[] = [];
 
+  /**
+   * 没有挂载任何 iframe 时，帧率不构成降级理由。
+   *
+   * 为什么必须单列这一条：标签页切到后台，或窗口被遮挡时，浏览器会把 rAF
+   * 节流到 ~1fps —— 那是**正确行为**而不是性能问题。若不排除，用户切回来
+   * 就会看到一个莫名其妙已经降级的仪器架，且因为降级有粘性（不自动恢复），
+   * 他再也不会看到全量模式。同理，`liveIframes === 0` 时没有任何 iframe
+   * 在消耗资源，把星轨自身的 rAF 抖动算成"多 iframe 性能崩塌"是误诊。
+   *
+   * 内存与长任务维度**不豁免**：即使 0 iframe，堆爆了也说明页面本身有问题，
+   * 那是真实信号，应该照常报出来。
+   */
+  const fpsMeaningful = sample.liveIframes > 0;
+
   // ── 帧率 ────────────────────────────────────────────────────────────────
-  const fpsLow = sample.fps > 0 && sample.fps < thresholds.fpsFloor;
+  const fpsLow = fpsMeaningful && sample.fps > 0 && sample.fps < thresholds.fpsFloor;
   if (fpsLow) {
     breaches.push(`帧率 ${sample.fps}fps < ${thresholds.fpsFloor}fps`);
-  } else if (sample.fps > 0 && sample.fps < thresholds.fpsFloor * 1.15) {
+  } else if (fpsMeaningful && sample.fps > 0 && sample.fps < thresholds.fpsFloor * 1.15) {
     warnings.push(`帧率 ${sample.fps}fps 接近下限 ${thresholds.fpsFloor}fps`);
   }
 

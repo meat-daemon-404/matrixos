@@ -114,11 +114,21 @@ export function InstrumentPanel({
     }
   }, [onFirstLive, station.id]);
 
-  // 降级成快照时把 iframe 相关状态清掉，避免下次复活时闪一帧旧内容
+  /**
+   * 降级成快照 / 回升为 live 时把 iframe 相关状态清干净。
+   *
+   * 这里的 `visible` 必须一起重置，理由是一个真实会发生的手势：
+   * 用户挂了 3 台 → 探针降级 → 第 2、3 台变快照（iframe 被卸载）→
+   * 用户点第 3 台的「升级为全量」→ 预算落回 1，第 1 台让位、第 3 台转 live。
+   * 如果 `visible` 还留着上一轮的 true，iframe 会**立刻**创建；
+   * 而那一刻它可能刚被布局挤到可视区外，等于绕过了第二道防线。
+   * 重置成 false 后由 IntersectionObserver 重新判定，代价只是多一帧。
+   */
   useEffect(() => {
     if (mode !== 'live') {
       setIframeReady(false);
       setTimedOut(false);
+      setVisible(false);
       mountedAtRef.current = 0;
     }
   }, [mode]);

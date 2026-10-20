@@ -13,9 +13,11 @@
  *
  * 三个关键决策：
  *
- * 1. **降级由探针驱动，不由组件猜**（R-T03）。
- *    探针跑在这里，把 level 映射成 RenderStrategy 下发。这样「S2-01e 单独跑基线不降级」
- *    和「生产自动降级」是同一套代码的两种配置，不会出现两套逻辑各说各话。
+ * 1. **降级由探针驱动，且只在 `lib/degradation-policy.ts` 一处裁决**（R-T03）。
+ *    探针产判定，策略层把「探针判定 + 设备档位 + 全屏入站 + 手动开关」合成
+ *    一个 `{strategy, liveBudget, safeVisuals}`，仪器架严格按 budget 分配活名额。
+ *    为什么值得单独抽一层：上一版仪器架自己"允许手动升级到 2 个活 iframe"，
+ *    而探针按 `min(n,1)` 计数 —— 两边口径不一致，采样值和降级依据都会失真。
  *
  * 2. **全屏入站 → 声波坞坍缩**（A4）。
  *    两条入站路径都收敛成 `fullscreenStationId`：① 点面板的 ↗ 全屏独立打开（记一次）；
@@ -36,11 +38,18 @@ import {
   type PayloadType,
 } from '../lib/microsites.generated';
 import { readHubConfig, resolveMicrositeOrigin } from '../lib/hub-config';
-import { clampZoom, ZOOM_MAX, ZOOM_MIN } from '../lib/orbit-layout';
+import { clampZoom } from '../lib/orbit-layout';
 import { startPerformanceProbe, type ProbeHandle } from '../lib/performance-probe';
-import type { ProbeVerdict, RenderStrategy } from '../lib/hub-types';
+import {
+  decideDegradation,
+  detectDeviceTier,
+  strategyLabel,
+  type DeviceTier,
+} from '../lib/degradation-policy';
+import type { ProbeVerdict } from '../lib/hub-types';
 import {
   PAYLOAD_TYPE_LABEL,
+  WORMHOLE_TARGET_ATTR,
   canDispatch,
   createTraceId,
   validateEnvelope,
@@ -95,6 +104,20 @@ const SOURCE_CARDS: readonly SourceCard[] = [
     matrixUid: 'mxu_01H8Z9K2',
     sourceApp: 'mentor.matrixos.edu',
   },
+  {
+    /**
+     * 这条是**故意的负例**：证据 0 条。
+     * 契约 W1 要求 evidence_anchors minItems:1，所以它拖起来环就是红的、投不出去。
+     * 把它摆在界面上，是为了让「证据不可为空」这条合规红线**随时可被演示和验收**，
+     * 而不是只在文档里写着。
+     */
+    id: 'card-no-evidence',
+    label: '未附证据的草稿结论',
+    payloadType: 'comparison_matrix_row',
+    evidenceCount: 0,
+    matrixUid: 'mxu_01H8Z9K2',
+    sourceApp: 'matrix-cross.matrixos.edu',
+  },
 ];
 
 export function OrbitalHub() {
@@ -131,6 +154,12 @@ export function OrbitalHub() {
   const [manualSnapshot, setManualSnapshot] = useState(config.forceSnapshotMode);
   const probeRef = useRef<ProbeHandle | null>(null);
 
+  /**
+   * 设备档位：挂载后才探测（SSR 阶段没有 navigator，一律按 mid）。
+   * 不参与首屏 HTML，避免"服务端算 mid、客户端算 low"的水合不一致。
+   */
+  const [deviceTier, setDeviceTier] = useState<DeviceTier>('mid');
+
   // ── Toast ─────────────────────────────────────────────────────────────────
   const [toasts, setToasts] = useState<readonly ToastItem[]>([]);
   const toastSeq = useRef(0);
@@ -141,7 +170,7 @@ export function OrbitalHub() {
     setToasts((prev) => [...prev, { id, message, tone }].slice(-3));
     window.setTimeout(() => {
       setToasts((prev) => prev.filter((item) => item.id !== id));
-    }, 3600);
+    }, 4200);
   }, []);
 
   // ── 1. 恢复持久化的挂载组合（S2-03 验收：刷新后恢复） ────────────────────
@@ -152,6 +181,7 @@ export function OrbitalHub() {
       setFocusedId(saved.focusedId);
     }
     setRestored(true);
+    setDeviceTier(detectDeviceTier());
   }, []);
 
   useEffect(() => {
@@ -159,24 +189,46 @@ export function OrbitalHub() {
     savePersistedMount({ stationIds: mountedIds, focusedId });
   }, [mountedIds, focusedId, restored]);
 
-  // ── 2. 性能探针（S2-01e） ─────────────────────────────────────────────────
-  const liveIframeCountRef = useRef(0);
-  // 只统计"真会创建 iframe"的面板数：live 模式且未降级
-  const effectiveStrategy: RenderStrategy = manualSnapshot
-    ? 'one-live-rest-snapshot'
-    : probeBreached
-      ? 'one-live-rest-snapshot'
-      : 'all-live';
+  // ── 2. 全屏入站判定（必须在降级决策之前算出来） ──────────────────────────
+  /** 全屏入站：zoom 推到阈值以上且有选中站 → 声波坞自动坍缩（A4） */
+  const fullscreenStationId = useMemo(() => {
+    if (zoom >= ZOOM_FULLSCREEN_AT && selectedId) return selectedId;
+    return null;
+  }, [zoom, selectedId]);
 
-  liveIframeCountRef.current =
-    effectiveStrategy === 'all-live'
-      ? mountedIds.length
-      : Math.min(mountedIds.length, 1);
+  const autoCollapsed = fullscreenStationId !== null;
+
+  // ── 3. 降级策略（唯一裁决点） ─────────────────────────────────────────────
+  const decision = useMemo(
+    () =>
+      decideDegradation({
+        mountedCount: mountedIds.length,
+        probeLevel: verdict?.level ?? null,
+        probeBreached,
+        manualSnapshot,
+        deviceTier,
+        fullscreen: autoCollapsed,
+      }),
+    [mountedIds.length, verdict?.level, probeBreached, manualSnapshot, deviceTier, autoCollapsed],
+  );
+
+  /**
+   * 活跃 iframe 计数 —— **数真实 DOM**，不按 mountedIds 推算。
+   *
+   * 为什么改：懒加载意味着"已挂载" ≠ "已创建 iframe"（面板被挤到视口外时
+   * IntersectionObserver 不会让它 hydrate）。按 mountedIds 推算出来的数字会
+   * 比真实值大，于是探针以为压力来自 3 个 iframe，实际只有 1 个 ——
+   * 降级决策就建立在假数字上。查询本身只有 3 个节点，每秒一次，可忽略。
+   */
+  const countLiveIframes = useCallback((): number => {
+    if (typeof document === 'undefined') return 0;
+    return document.querySelectorAll('iframe.panel-iframe').length;
+  }, []);
 
   useEffect(() => {
     const probe = startPerformanceProbe({
       thresholds: config.probe,
-      getLiveIframeCount: () => liveIframeCountRef.current,
+      getLiveIframeCount: countLiveIframes,
       onSample: (next) => {
         setVerdict(next);
         if (next.level === 'breach') {
@@ -184,7 +236,7 @@ export function OrbitalHub() {
             if (!prev) {
               // 降级必须是可见的（ADR-09：不允许静默降级）
               pushToast(
-                '性能超预算（' + next.reasons.join('；') + '）→ 已降级为 1 全量 + 2 静态快照',
+                '性能超预算（' + next.reasons.join('；') + '）→ 已降级为 1 全量 + 静态快照',
                 'warn',
               );
             }
@@ -200,7 +252,7 @@ export function OrbitalHub() {
       probe.stop();
       probeRef.current = null;
     };
-  }, [config.probe, pushToast]);
+  }, [config.probe, pushToast, countLiveIframes]);
 
   const resetProbe = useCallback(() => {
     probeRef.current?.resetBreachStreak();
@@ -210,22 +262,29 @@ export function OrbitalHub() {
     pushToast('已重置探针判定，尝试恢复全量挂载', 'ok');
   }, [pushToast]);
 
-  // ── 3. 星轨交互 ───────────────────────────────────────────────────────────
+  // ── 4. 星轨交互 ───────────────────────────────────────────────────────────
   const handleZoomChange = useCallback((next: number) => {
     setZoom(clampZoom(next));
   }, []);
 
-  /** 全屏入站：zoom 推到阈值以上且有选中站 → 声波坞自动坍缩（A4） */
-  const fullscreenStationId = useMemo(() => {
-    if (zoom >= ZOOM_FULLSCREEN_AT && selectedId) return selectedId;
-    return null;
-  }, [zoom, selectedId]);
-
-  const autoCollapsed = fullscreenStationId !== null;
-
+  /**
+   * 全屏入站 → 坞自动坍缩（A4）。
+   *
+   * 只在**进入**全屏时收，退出全屏不自动弹回来：用户可能是主动把它收起来的，
+   * 自动弹开会抢走他的选择。想展开点呼吸球即可（球上有角标提示）。
+   */
+  const wasFullscreenRef = useRef(false);
   useEffect(() => {
-    if (autoCollapsed) setDockExpanded(false);
-  }, [autoCollapsed]);
+    if (autoCollapsed && !wasFullscreenRef.current) {
+      setDockExpanded(false);
+      const name = fullscreenStationId ? STATION_BY_ID[fullscreenStationId]?.name : null;
+      pushToast(
+        '全屏入站' + (name ? ' · ' + name : '') + '：声波坞已坍缩为右下角呼吸球',
+        'ok',
+      );
+    }
+    wasFullscreenRef.current = autoCollapsed;
+  }, [autoCollapsed, fullscreenStationId, pushToast]);
 
   const handleCapsuleClick = useCallback(
     (station: MicrositeStation, _event: React.MouseEvent) => {
@@ -247,7 +306,7 @@ export function OrbitalHub() {
     [],
   );
 
-  // ── 4. 仪器架交互 ─────────────────────────────────────────────────────────
+  // ── 5. 仪器架交互 ─────────────────────────────────────────────────────────
   const handleUnmount = useCallback((stationId: string) => {
     setMountedIds((prev) => prev.filter((id) => id !== stationId));
     setFocusedId((prev) => (prev === stationId ? null : prev));
@@ -257,12 +316,23 @@ export function OrbitalHub() {
   const handlePromote = useCallback(
     (stationId: string) => {
       const station = STATION_BY_ID[stationId];
+      if (decision.liveBudget <= 0) {
+        pushToast(
+          '当前为「全部让位」态（' + decision.reasons[0] + '），先退出全屏再升级',
+          'warn',
+        );
+        return;
+      }
       pushToast(
-        '已手动升级 ' + (station?.name ?? stationId) + ' 为全量挂载（探针可能再次降级）',
-        'warn',
+        '已把活名额让给 ' +
+          (station?.name ?? stationId) +
+          '（当前预算 ' +
+          decision.liveBudget +
+          ' 个活 iframe，其余面板转为快照）',
+        'ok',
       );
     },
-    [pushToast],
+    [pushToast, decision.liveBudget, decision.reasons],
   );
 
   const resolveSrc = useCallback(
@@ -282,7 +352,7 @@ export function OrbitalHub() {
     [config.originTemplate, config.usePlaceholder],
   );
 
-  // ── 5. 虫洞投送 ───────────────────────────────────────────────────────────
+  // ── 6. 虫洞投送 ───────────────────────────────────────────────────────────
   const wormholeTargets = useMemo<readonly WormholeTarget[]>(() => {
     if (!wormholePayload) return [];
     // W3：只列出声明过的目标；未声明的也列出来但 accepts=false（让用户看到"为什么不能投"）
@@ -292,39 +362,23 @@ export function OrbitalHub() {
     }));
   }, [wormholePayload, selectedId]);
 
-  const handleDragStart = useCallback(
-    (payload: {
-      payloadType: PayloadType;
-      summary: string;
-      evidenceCount: number;
-    }) => {
-      const card = SOURCE_CARDS.find((item) => item.payloadType === payload.payloadType);
-      setWormholePayload({
-        ...payload,
-        matrixUid: card?.matrixUid ?? 'mxu_unknown',
-        sourceApp: card?.sourceApp ?? 'unknown.matrixos.edu',
-      });
-      setWormholeError(undefined);
-      setWormholeOpen(true);
-    },
-    [],
-  );
-
-  const handleDragEnd = useCallback(() => {
-    // 松手时环体已经开着，让用户点目标完成投送；这里不自动提交
-    // （坐标命中判定在环面上，用 pointer 事件比算距离稳）
-  }, []);
-
-  const handleWormholeCancel = useCallback(() => {
-    setWormholeOpen(false);
-    setWormholePayload(null);
-    setWormholeTargetHover(null);
-    setWormholeError(undefined);
-  }, []);
-
+  /**
+   * 真正提交一次投送。**先校验，后收尾** —— 校验失败时环体保持张开并转红，
+   * 用户能看见原因，而不是"点了没反应"。
+   */
   const handleWormholeCommit = useCallback(
     (target: WormholeTarget) => {
       if (!wormholePayload) return;
+
+      // W3 目标声明检查（UI 层已禁用不合法的目标，这里再兜一道：
+      // 松手落点命中判定不经过按钮的 disabled 状态）
+      if (!canDispatch(wormholePayload.payloadType, target.station.accepts)) {
+        const message =
+          target.station.name + ' 未在 manifest 中声明接收 ' + wormholePayload.payloadType;
+        setWormholeError(message);
+        pushToast('投送被拒绝：目标站未声明该 payload_type（契约 W3）', 'error');
+        return;
+      }
 
       // 构造信封并**当场校验**（W1 红线在客户端兑现）
       const envelope = {
@@ -359,14 +413,6 @@ export function OrbitalHub() {
         return;
       }
 
-      if (!canDispatch(wormholePayload.payloadType, target.station.accepts)) {
-        setWormholeError(
-          target.station.name + ' 未在 manifest 中声明接收 ' + wormholePayload.payloadType,
-        );
-        pushToast('投送被拒绝：目标站未声明该 payload_type（契约 W3）', 'error');
-        return;
-      }
-
       /**
        * 真投送：SDK 与目标站的 postMessage 通道在此接入。
        * 当前骨架阶段**只做本地演示**，并在 toast 里说清楚"未真投送"，
@@ -388,7 +434,87 @@ export function OrbitalHub() {
     [pushToast, wormholePayload],
   );
 
-  // ── 6. 顶部状态条数据 ─────────────────────────────────────────────────────
+  const handleWormholeCancel = useCallback(() => {
+    setWormholeOpen(false);
+    setWormholePayload(null);
+    setWormholeTargetHover(null);
+    setWormholeError(undefined);
+  }, []);
+
+  const handleDragStart = useCallback(
+    (payload: {
+      payloadType: PayloadType;
+      summary: string;
+      evidenceCount: number;
+    }) => {
+      const card = SOURCE_CARDS.find(
+        (item) => item.payloadType === payload.payloadType && item.label === payload.summary,
+      );
+      setWormholePayload({
+        ...payload,
+        matrixUid: card?.matrixUid ?? 'mxu_unknown',
+        sourceApp: card?.sourceApp ?? 'unknown.matrixos.edu',
+      });
+      setWormholeError(undefined);
+      setWormholeOpen(true);
+    },
+    [],
+  );
+
+  /**
+   * 松手 → 命中判定 → 投送。这是 A3「拖卡片 → 张开环 → 松手投送」的最后一环。
+   *
+   * 用 `document.elementFromPoint` 而不是自己算各目标的圆心距离：
+   *  - 环形布局的目标位置由 CSS 百分比决定，JS 里再算一遍等于把布局逻辑抄两份，
+   *    迟早漂移（改一下 ring 尺寸就全错）；
+   *  - elementFromPoint 天然尊重 z-index / 遮挡 / transform，与用户看到的一致；
+   *  - 拖拽中的 ghost 是 pointer-events:none，不会挡住命中。
+   *
+   * 落在环外（即没命中任何目标）时**取消**而不是静默保留：拖出去松手是
+   * 通用的「放弃」手势，保留一个悬着的环会让人不知道自己在什么状态。
+   */
+  const handleDragEnd = useCallback(
+    (position: { readonly x: number; readonly y: number }) => {
+      if (typeof document === 'undefined') {
+        handleWormholeCancel();
+        return;
+      }
+
+      const element = document.elementFromPoint(position.x, position.y);
+      const targetElement = element?.closest('[' + WORMHOLE_TARGET_ATTR + ']');
+      const stationId = targetElement?.getAttribute(WORMHOLE_TARGET_ATTR) ?? null;
+
+      if (!stationId) {
+        pushToast('未落在任何目标站上，投送已取消', 'warn');
+        handleWormholeCancel();
+        return;
+      }
+
+      const target = wormholeTargets.find((item) => item.station.id === stationId);
+      if (!target) {
+        // 命中的节点已不在候选列表里（例如拖拽中选中站变了）：当作取消，别猜
+        pushToast('目标已失效，投送已取消', 'warn');
+        handleWormholeCancel();
+        return;
+      }
+
+      if (!target.accepts) {
+        setWormholeError(
+          target.station.name + ' 未在 manifest 中声明接收 ' + wormholePayload?.payloadType,
+        );
+        pushToast(
+          '投送被拒绝：' + target.station.name + ' 未声明该 payload_type（契约 W3）',
+          'error',
+        );
+        return;
+      }
+
+      handleWormholeCommit(target);
+    },
+    [handleWormholeCommit, handleWormholeCancel, pushToast, wormholeTargets, wormholePayload],
+  );
+
+  // ── 7. 顶部状态条数据 ─────────────────────────────────────────────────────
   const orbitDistribution = useMemo(
     () =>
       Object.entries(ORBIT_GROUP_DISTRIBUTION)
@@ -401,7 +527,12 @@ export function OrbitalHub() {
     verdict?.level === 'breach' ? 'danger' : verdict?.level === 'warn' ? 'warn' : undefined;
 
   return (
-    <div className="hub-shell">
+    <div
+      className="hub-shell"
+      // 精简视觉：低预算时收敛 backdrop-filter / 发光，削减合成开销
+      data-safe-visuals={decision.safeVisuals ? 'true' : 'false'}
+      data-strategy={decision.strategy}
+    >
       {/* ── 顶部状态条 ─────────────────────────────────────────────────────── */}
       <header className="hub-topbar">
         <div className="hub-brand">
@@ -416,12 +547,35 @@ export function OrbitalHub() {
         <span className="hub-stat" data-tone={probeTone}>
           探针 <b>{verdict ? verdict.sample.fps + 'fps' : '…'}</b>
         </span>
-        <span className="hub-stat" data-tone={effectiveStrategy === 'all-live' ? undefined : 'warn'}>
-          策略 <b>{effectiveStrategy === 'all-live' ? '全量' : '1 活 2 快照'}</b>
+        <span
+          className="hub-stat"
+          data-tone={decision.strategy === 'all-live' ? undefined : 'warn'}
+          title={decision.reasons.join('；') || '全部面板为全量 iframe'}
+        >
+          策略 <b>{strategyLabel(decision.strategy)}</b>
+        </span>
+        <span className="hub-stat" title={'设备档位：' + deviceTier + '（按 navigator.hardwareConcurrency 判定）'}>
+          设备 <b>{deviceTier}</b>
         </span>
         <span className="hub-stat" title="开发期 iframe 指向">
           源 <b>{config.usePlaceholder ? '占位页' : config.localMode ? '本地 dev' : '真实域名'}</b>
         </span>
+        <span className="hub-topbar-spacer" />
+        {/* 全屏入站时给一个明确的退出入口，否则用户只能靠拖滑块摸索 */}
+        {autoCollapsed ? (
+          <button
+            type="button"
+            className="btn"
+            data-tone="warn"
+            onClick={() => {
+              setZoom(2.5);
+              pushToast('已退出全屏入站，恢复三栏视图', 'ok');
+            }}
+            title="把星轨缩放拉回 2.5x，退出全屏入站"
+          >
+            ← 退出全屏入站
+          </button>
+        ) : null}
       </header>
 
       {/* ── 主区：左星轨 + 右仪器架 ────────────────────────────────────────── */}
@@ -438,12 +592,9 @@ export function OrbitalHub() {
           <InstrumentRack
             mountedIds={mountedIds}
             focusedId={focusedId}
-            strategy={effectiveStrategy}
-            snapshotReason={
-              manualSnapshot
-                ? '演示模式强制降级（NEXT_PUBLIC_HUB_FORCE_SNAPSHOT=true）'
-                : '探针判定超预算：' + (verdict?.reasons.join('；') ?? '性能采样触发')
-            }
+            strategy={decision.strategy}
+            liveBudget={decision.liveBudget}
+            snapshotReason={decision.reasons.join('；') || '多 iframe 性能超预算，已自动降级'}
             resolveSrc={resolveSrc}
             onMount={(station) => handleCapsuleClick(station, {} as React.MouseEvent)}
             onUnmount={handleUnmount}
@@ -480,7 +631,7 @@ export function OrbitalHub() {
       </div>
 
       {/* ── 底部：声波脉冲坞 ───────────────────────────────────────────────── */}
-      <div className="wave-dock-slot">
+      <div className="wave-dock-slot" data-collapsed={dockExpanded ? 'false' : 'true'}>
         <CopilotWaveDock
           expanded={dockExpanded}
           onExpandedChange={setDockExpanded}
@@ -537,9 +688,11 @@ export function OrbitalHub() {
       {/* ── 角落：性能探针面板 ─────────────────────────────────────────────── */}
       <PerformanceProbePanel
         verdict={verdict}
-        strategyLabel={effectiveStrategy === 'all-live' ? '全量' : '降级'}
+        strategyLabel={strategyLabel(decision.strategy)}
         thresholds={config.probe}
-        liveIframes={liveIframeCountRef.current}
+        liveIframes={verdict?.sample.liveIframes ?? 0}
+        liveBudget={decision.liveBudget}
+        reasons={decision.reasons}
         onReset={resetProbe}
       />
 

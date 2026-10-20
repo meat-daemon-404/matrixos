@@ -8,14 +8,35 @@
 
 | 项 | 内容 |
 | :--- | :--- |
-| **状态** | ✅ **已绕过**（2026-10-20，改用本地 pre-commit 钩子） |
+| **状态** | 🔶 **已绕过，等待权益发放**（工作流已重建并入库，尚未真正跑过一次） |
 | **发现时间** | 2026-10-20 |
-| **影响范围** | ~~所有 CI 工作流~~ → 已无 CI 工作流 |
-| **严重程度** | 低（本地钩子已完全覆盖校验职责） |
+| **影响范围** | `.github/workflows/verify.yml`、`.github/workflows/sync-labels.yml` |
+| **严重程度** | 低（本地 pre-commit 钩子已完全覆盖校验职责） |
 
-> ✅ **已处置**：`validate.yml` 已删除，校验改由本地 `pre-commit` 钩子承担，
-> 校验内容与原来完全一致且即时反馈。根因（账户计费）仍存在，但不再影响开发。
-> 详见下方「已采取的替代方案」。
+> 🔶 **状态更新（2026-10-20 复核）**：上一版本文档称「已删除 validate.yml，已无 CI 工作流」，
+> **该描述已过期**。当前实际情况是：
+>
+> 1. 旧工作流 `validate.yml` 确已删除；
+> 2. 但**新工作流已经建回来了** —— `.github/workflows/verify.yml`（校验契约/文档/编码）与
+>    `.github/workflows/sync-labels.yml`（同步标签），均已于 2026-10-20 入库；
+> 3. 用户已于 2026-10-20 提交**学生认证申请**，**权益尚未到账**；
+> 4. 因此这两个工作流**至今一次都没成功运行过** —— 它们是「已就绪但未生效」状态，
+>    不是「已绕过」。
+>
+> 真正的判定要等学生认证通过、push 一次并看到 workflow 变绿之后才能下。
+> 在此之前**本地钩子仍是唯一有效的强制门禁**，不能因为"repo 里有 workflow 文件"就以为 CI 在保护你。
+
+### 当前门禁矩阵
+
+| 门禁 | 载体 | 状态 | 是否真的在跑 |
+| :--- | :--- | :--- | :--- |
+| 契约 + 花名册 + 编码校验 | `scripts/validate-specs.mjs` | ✅ 可用 | ✅ 本地钩子每次提交都跑 |
+| Markdown 断链检查 | `scripts/check-doc-links.mjs` | ✅ 可用 | ✅ 本地钩子每次提交都跑 |
+| 统一入口 | `scripts/verify.mjs` | ✅ 可用 | ✅ `pnpm check` |
+| GitHub Actions 远端门禁 | `.github/workflows/verify.yml` | 🔶 已入库未生效 | ❌ 权益未到账 |
+| 标签同步 | `.github/workflows/sync-labels.yml` | 🔶 已入库未生效 | ❌ 需 Actions 权益 |
+
+> 实测：`node scripts/verify.mjs` 当前 **2/2 通过**（契约校验 + 88 个内部链接无断链）。
 
 ### 现象
 
@@ -57,9 +78,17 @@
 
 ### 已采取的替代方案（2026-10-20）
 
-**决定性动作：删除 `.github/workflows/validate.yml`。**
+**动作 1：删除 `.github/workflows/validate.yml`。**
 
 理由：一个每次推送都亮红灯、零步骤执行、什么都不做的 workflow 只会制造噪音和告警疲劳。既然根因在账户计费且短期无法解决，保留它没有任何收益。
+
+**动作 2（复核时补充）：重建 `.github/workflows/verify.yml` 与 `sync-labels.yml`。**
+
+用户已提交学生认证申请。为保证权益一到账 CI 就能立刻生效，工作流已提前写好并入库，
+文件头注明了「已就绪，等待 GitHub Actions 权益发放后自动生效」。
+
+> ⚠️ **代价**：在权益到账前，每次 push 仍会触发一次注定失败/跳过的运行。
+> 若告警疲劳成为问题，可临时把 `on:` 改为仅 `workflow_dispatch`，权益到账后再加回 `push`/`pull_request`。
 
 **替代实现——本地 pre-commit 钩子：**
 
@@ -94,7 +123,8 @@ node scripts/install-hooks.mjs
 
 ### 根因仍存在（但已不阻塞）
 
-账户计费问题本身没有解决。若将来想恢复 CI：
+账户计费问题本身没有解决。**当前路径：等学生认证权益到账**（用户已于 2026-10-20 提交申请）。
+若权益迟迟不到，仍有两条备选：
 
 1. 去 https://github.com/settings/billing 补缴欠款或提高 spending limit，**或**
 2. 转为公开仓库（标准 runner 免费）：
@@ -102,9 +132,19 @@ node scripts/install-hooks.mjs
    gh repo edit meat-daemon-404/matrixos --visibility public --accept-visibility-change-consequences
    ```
    ⚠️ 转公开后 `bundle/` 设计资料与全部规划文档将公开可见，需确认无敏感信息
-3. 恢复后从 git 历史取回工作流：`git show 1e0ae0d:.github/workflows/validate.yml > .github/workflows/validate.yml`
+3. 旧工作流仍可从 git 历史取回：`git show 1e0ae0d:.github/workflows/validate.yml > .github/workflows/validate.yml`
 
 > 恢复 CI 后建议**保留本地钩子**——两者不冲突，钩子负责即时拦截，CI 负责团队统一门禁。
+
+### 权益到账后的验收步骤
+
+别只看「workflow 文件存在」就认为 CI 生效了。权益到账后必须实际验证一次：
+
+1. push 一个 commit（或点 `workflow_dispatch` 手动触发）
+2. 确认运行状态是 **success**，而不是"4 秒失败 / 计费 0ms / runner_name 为空"
+3. 打开 job 日志，确认 `validate-specs` 与 `check-doc-links` 两个 step 都真的执行了
+4. 确认 `sync-labels.yml` 也跑通一次
+5. 全部通过后，把本条目状态从 🔶 改为 ✅，并更新根 README 的阻塞项表
 
 ---
 
@@ -216,6 +256,28 @@ Insufficient credits. Balance: $-0.07, Estimated cost: $0.0500
 
 | ID | 阻塞项 | 状态 | 需谁处理 |
 | :--- | :--- | :--- | :--- |
-| BLK-001 | GitHub Actions 计费 | ✅ 已绕过（改本地钩子） | — |
+| BLK-001 | GitHub Actions 计费 | 🔶 已绕过（本地钩子有效）；工作流已重建，**等学生认证权益到账** | 用户（等权益）/ 到账后验证一次 |
 | BLK-002 | D:\MatrixOS 权限 | ✅ 已解决 | — |
 | BLK-003 | Hindsight 额度 | ⚠️ 降级 | 用户（如需记忆功能） |
+
+**当前无阻塞开发的项。** 本地 pre-commit 钩子已能完整覆盖校验职责（实测 `node scripts/verify.mjs` 2/2 通过）。
+
+---
+
+## 附：构建不稳定（非阻塞，但会造成假红灯）
+
+> 记录于 2026-10-20，属于**工具链现象**而非代码缺陷，故不占用 BLK 编号。
+
+`npx turbo run build` 在默认并发下会随机失败，每次失败的包不同，错误统一是 `.next/` 内部文件 `ENOENT`。
+
+| 命令 | 实测结果 |
+| :--- | :--- |
+| `npx turbo run build` | 20/22、17/22（两次不同结果） |
+| `npx turbo run build --force` | 3/22 |
+| `npx turbo run build --concurrency=2` | **22/22**（连续两次） |
+
+**判定**：19 个 Next.js 应用同时读写各自 `.next/` 目录，在 Windows 文件系统上发生竞争。
+
+**约定**：本地与 CI 一律使用 `npx turbo run build --concurrency=2`。若看到 build 红灯，先确认是否用了默认并发，再判断是否真的是代码问题。
+
+详见 [实现状态盘点 §4](./04-implementation-status.md#4-构建稳定性一个必须记录的事实)。

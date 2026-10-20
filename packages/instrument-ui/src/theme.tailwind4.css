@@ -48,7 +48,10 @@
   --color-ink-strong: #ffffff;
   --color-ink-secondary: #cbd5e1;
   --color-ink-muted: #94a3b8;
-  --color-ink-faint: #64748b;
+  /* 与 tokens.css 的 --iu-text-faint 保持同步：原 #64748b 只有 3.75:1，
+   * 不达 AA 正文线（5.17:1）。两处必须一起改，否则用 Tailwind 类名的
+   * 页面会绕过 tokens 的修正。 */
+  --color-ink-faint: #7d8ba1;
 
   /* ---- 边框 ---- */
   --color-hairline: #1e293b;

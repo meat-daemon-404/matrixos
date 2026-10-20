@@ -20,6 +20,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MicrositeStation, PayloadType } from '../lib/microsites.generated';
+import { WORMHOLE_TARGET_ATTR } from '../lib/wormhole-contract';
 
 export type WormholeRingState = 'idle' | 'armed' | 'dragging' | 'valid' | 'invalid' | 'committing';
 
@@ -133,6 +134,12 @@ export function WormholeRing({
               key={target.station.id}
               type="button"
               className="wormhole-target"
+              /*
+               * 松手落点命中标记：OrbitalHub 在 pointerup 时用 elementFromPoint
+               * 反查这个属性来决定投给谁。放在 DOM 上而不是在 JS 里复算圆心，
+               * 是为了让"命中判定"与"用户看到的布局"永远是同一份事实（见 onDragEnd 注释）。
+               */
+              {...{ [WORMHOLE_TARGET_ATTR]: target.station.id }}
               data-selected={selectedTargetId === target.station.id ? 'true' : 'false'}
               style={
                 {

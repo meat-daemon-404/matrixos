@@ -118,10 +118,11 @@ section('TypeScript typecheck（turbo，全仓）');
 //
 // 默认跳过（慢，1-2 分钟），用 --full 显式开启。
 if (!QUICK && process.argv.includes('--full')) {
-  section('生产构建（turbo build）');
-  const r = run('build', 'npx', ['turbo', 'run', 'build', '--continue'], {
-    shell: process.platform === 'win32',
-  });
+  section('生产构建（turbo build，经构建锁串行）');
+  // 用 safe-build 而非直接 turbo run build：
+  // 多个构建进程并发写同一个 .next 目录会互相删建，造成 ENOENT 假红。
+  // 实测：并发跑时 22 个包只过 3 个；串行跑全部通过。
+  const r = run('build', process.execPath, [join(ROOT, 'scripts', 'safe-build.mjs')]);
   const text = r.out;
   const m = text.match(/Tasks:\s+(\d+) successful,\s+(\d+) total/);
   if (m) {
