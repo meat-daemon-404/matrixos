@@ -90,8 +90,9 @@ node scripts/check-doc-links.mjs
 
 | 项 | 内容 |
 | :--- | :--- |
-| **状态** | ⚠️ 已绕过，但需用户知晓 |
+| **状态** | ✅ **已解决**（2026-10-20） |
 | **发现时间** | 2026-10-20 |
+| **解决时间** | 2026-10-20 |
 | **影响范围** | 仓库物理位置 |
 
 ### 现象
@@ -105,7 +106,7 @@ UnauthorizedAccessException
 
 ### 根因（Windows NTFS 权限，非 DSH 沙箱）
 
-`D:\MatrixOS` 的访问控制列表：
+`D:\MatrixOS` 的访问控制列表**原本**为：
 
 | 身份 | 权限 |
 | :--- | :--- |
@@ -113,23 +114,57 @@ UnauthorizedAccessException
 | `NT AUTHORITY\SYSTEM` | FullControl |
 | `Everyone` | **仅 ReadAndExecute** |
 
-当前会话以**非管理员**身份运行（`IsAdmin: False`），因此只能读不能写。
+会话以**非管理员**身份运行（`IsAdmin: False`），因此只能读不能写。且当时用户对 `D:\MatrixOS` **无 `WRITE_DAC` 权限**，无法自行修复 ACL（`icacls /grant` 返回 Access is denied）。
 
-`D:\` 根目录同样受此限制，且当前用户对 `D:\MatrixOS` **无 `WRITE_DAC` 权限**，无法自行修复 ACL（`icacls /grant` 返回 Access is denied）。
+### 解决过程
 
-### 实际处置
-
-仓库建在 **`C:\Users\33352\Documents\MatrixOS`**（可写），已正常完成全部工作并推送至 GitHub。
-
-`D:\MatrixOS` 保持为空目录，未使用。
-
-### 如需迁回 D 盘（需用户以管理员身份操作）
+用户授权发起 UAC 提权，执行：
 
 ```powershell
-# 管理员 PowerShell
 icacls "D:\MatrixOS" /grant "LAPTOP-V4659JNG\33352:(OI)(CI)F"
-# 然后把 C:\Users\33352\Documents\MatrixOS 的内容移过去
 ```
+
+**提权执行结果**：`已成功处理 1 个文件`，ACL 新增 `LAPTOP-V4659JNG\33352 | FullControl | Allow`。
+
+**提权后 ACL**：
+
+| 身份 | 权限 |
+| :--- | :--- |
+| `LAPTOP-V4659JNG\33352` | **FullControl（新增）** |
+| `BUILTIN\Administrators` | FullControl |
+| `Everyone` | ReadAndExecute |
+| `NT AUTHORITY\SYSTEM` | FullControl |
+
+**非提权会话验证**（这是关键——权限必须对日常操作生效，而不只是对管理员）：
+
+| 测试 | 结果 |
+| :--- | :--- |
+| 在 `D:\MatrixOS` 建文件 | ✅ OK |
+| 删除文件 | ✅ OK |
+| 创建子目录 | ✅ OK |
+| 子目录写文件（验证 `(OI)(CI)` 继承） | ✅ OK |
+
+### 最终处置
+
+**仓库已迁移至 `D:\MatrixOS`**（会话工作目录，符合原始意图）。
+
+迁移校验：
+
+| 检查项 | 结果 |
+| :--- | :--- |
+| 工作文件数（排除 `.git`） | 42 = 42 |
+| 字节总数 | 4,166,560 = 4,166,560 |
+| `git rev-parse HEAD` | `e29be96` 一致 |
+| `git status --porcelain` | 0 变更 |
+| `git fsck` | 无错误 |
+| 远端 `origin/main` | 与 HEAD 一致 |
+| 校验脚本 | 全绿（契约 + 42 链接无断链 + 无 U+FFFD/BOM） |
+
+旧路径 `C:\Users\33352\Documents\MatrixOS` 已清理。
+
+### 遗留影响
+
+无。后续提交与推送均在 `D:\MatrixOS` 进行。
 
 ---
 
@@ -160,5 +195,5 @@ Insufficient credits. Balance: $-0.07, Estimated cost: $0.0500
 | ID | 阻塞项 | 状态 | 需谁处理 |
 | :--- | :--- | :--- | :--- |
 | BLK-001 | GitHub Actions 计费 | 🔴 待处理 | 用户（账单/仓库可见性） |
-| BLK-002 | D:\MatrixOS 权限 | ⚠️ 已绕过 | 用户（如需迁回） |
+| BLK-002 | D:\MatrixOS 权限 | ✅ 已解决 | — |
 | BLK-003 | Hindsight 额度 | ⚠️ 降级 | 用户（如需记忆功能） |
