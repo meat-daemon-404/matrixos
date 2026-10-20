@@ -1,0 +1,29 @@
+<view class="page">
+  <text class="title">队列详情</text>
+
+  <view wx:if="{{loading}}" class="loading">加载中…</view>
+  <view wx:elif="{{error}}" class="empty">{{error}}</view>
+  <view wx:elif="{{item === null}}" class="empty">未找到该队列项（可能已被桌面端认领）</view>
+
+  <view wx:else class="card">
+    <text class="title">{{item.title}}</text>
+    <text class="subtitle" style="display:block;margin-top:8rpx;">{{item.note}}</text>
+    <view class="row" style="margin-top:16rpx;">
+      <text class="muted">来源</text>
+      <text class="accent">{{item.origin}}</text>
+    </view>
+    <view class="row" style="margin-top:8rpx;">
+      <text class="muted">唤醒站点</text>
+      <text class="accent">{{item.targetStation}}</text>
+    </view>
+    <view class="row" style="margin-top:8rpx;">
+      <text class="muted">桌面动作</text>
+      <text class="accent">{{item.desktopAction}}</text>
+    </view>
+    <view class="row" style="margin-top:8rpx;">
+      <text class="muted">状态</text>
+      <text class="{{item.status === 'done' ? 'accent' : 'muted'}}">{{item.status}}</text>
+    </view>
+    <text wx:if="{{item.receiptId}}" class="muted" style="display:block;margin-top:8rpx;">虫洞收据 {{item.receiptId}}</text>
+  </view>
+</view>

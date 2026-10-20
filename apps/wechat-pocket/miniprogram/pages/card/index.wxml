@@ -1,0 +1,48 @@
+<view class="page">
+  <view class="row" style="margin-bottom:16rpx;">
+    <text class="title">学术名片</text>
+    <text wx:if="{{originLabel}}" class="badge {{originClass}}">{{originLabel}}</text>
+  </view>
+
+  <view wx:if="{{loading}}" class="loading">加载中…</view>
+  <view wx:elif="{{error}}" class="empty">{{error}}</view>
+
+  <block wx:else>
+    <view class="card">
+      <text class="title">{{displayName}}</text>
+      <text class="subtitle">{{subtitle}}</text>
+      <text class="muted" style="display:block;margin-top:8rpx;">{{school}} · {{major}} · {{grade}}</text>
+      <text class="muted" style="display:block;">UID {{matrixUid}}</text>
+    </view>
+
+    <view class="card" style="display:flex;flex-direction:column;align-items:center;">
+      <canvas canvas-id="qrCanvas" class="qr"></canvas>
+      <text wx:if="{{qrError}}" class="muted">{{qrError}}</text>
+      <text wx:else class="muted">扫码落地 · 验真等级 {{verificationLevel}}</text>
+    </view>
+
+    <view class="card">
+      <text class="subtitle">关键指标</text>
+      <view class="row" style="margin-top:12rpx;flex-wrap:wrap;">
+        <view wx:for="{{metrics}}" wx:for-item="m" wx:key="label" class="metric">
+          <text class="metric-value">{{m.value}}</text>
+          <text class="metric-label">{{m.label}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="card">
+      <text class="subtitle">验真证据</text>
+      <view
+        wx:for="{{evidences}}"
+        wx:for-item="ev"
+        wx:key="ref"
+        class="row"
+        style="margin-top:12rpx;"
+      >
+        <text class="muted">{{ev.label}}</text>
+        <text class="accent">{{ev.verification}}</text>
+      </view>
+    </view>
+  </block>
+</view>

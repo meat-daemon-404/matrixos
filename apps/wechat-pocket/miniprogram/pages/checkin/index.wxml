@@ -1,0 +1,40 @@
+<view class="page">
+  <view class="row" style="margin-bottom:16rpx;">
+    <view>
+      <text class="title">学业打卡</text>
+      <text class="subtitle">  {{date}}</text>
+    </view>
+    <text wx:if="{{originLabel}}" class="badge {{originClass}}">{{originLabel}}</text>
+  </view>
+
+  <view class="card">
+    <view class="row">
+      <text class="accent">🔥 连续 {{streak}} 天</text>
+      <text class="subtitle">学期 {{termDays}} / {{termTarget}} 天</text>
+    </view>
+    <view class="week">
+      <view wx:for="{{week}}" wx:for-item="w" wx:key="*this" class="dot {{w ? 'dot-on' : ''}}"></view>
+    </view>
+  </view>
+
+  <view wx:if="{{loading}}" class="loading">加载中…</view>
+  <view wx:elif="{{error}}" class="empty">{{error}}</view>
+  <view wx:elif="{{goals.length === 0}}" class="empty">今日还没有微目标，去桌面端规划一下吧</view>
+
+  <view wx:else>
+    <view class="card" wx:for="{{goals}}" wx:key="id">
+      <view class="row">
+        <view style="flex:1;">
+          <text class="title {{item.done ? 'done' : ''}}">{{item.title}}</text>
+          <text wx:if="{{item.note}}" class="subtitle">  {{item.note}}</text>
+          <text wx:if="{{item.target}}" class="muted">  目标 {{item.target}}</text>
+        </view>
+        <text
+          class="btn {{item.done ? 'btn-accent' : ''}}"
+          data-id="{{item.id}}"
+          bindtap="toggle"
+        >{{item.done ? '已完成' : '打卡'}}</text>
+      </view>
+    </view>
+  </view>
+</view>

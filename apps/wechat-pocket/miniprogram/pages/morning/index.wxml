@@ -1,0 +1,44 @@
+<view class="page">
+  <view class="row" style="margin-bottom:20rpx;">
+    <view>
+      <text class="title">晨间三卡早报</text>
+      <text class="subtitle">  {{briefingDate}}</text>
+    </view>
+    <text class="btn" bindtap="refresh">刷新</text>
+  </view>
+
+  <view wx:if="{{loading}}" class="loading">加载中…</view>
+  <view wx:elif="{{error}}" class="empty">{{error}}</view>
+  <view wx:elif="{{cards.length === 0}}" class="empty">暂无早报卡片</view>
+
+  <block wx:else>
+    <view class="row" style="margin-bottom:12rpx;">
+      <text wx:if="{{originLabel}}" class="badge {{originClass}}">{{originLabel}}</text>
+      <text class="subtitle" style="margin-left:auto;">桌面队列 {{desktopQueueCount}}</text>
+    </view>
+
+    <view class="card" wx:for="{{cards}}" wx:key="id">
+      <view class="card-head">
+        <text class="title">#{{item.index}} {{item.title}}</text>
+        <text class="muted">{{item.heat}}°</text>
+      </view>
+      <text class="subtitle">{{item.summary}}</text>
+      <view class="row" style="margin-top:12rpx;">
+        <view
+          wx:for="{{item.metrics}}"
+          wx:for-item="m"
+          wx:key="label"
+          class="metric"
+        >
+          <text class="metric-value">{{m.value}}</text>
+          <text class="metric-label">{{m.label}}</text>
+        </view>
+      </view>
+      <text class="muted" style="display:block;margin-top:8rpx;">契合：{{item.fitNote}}</text>
+      <view class="row" style="margin-top:16rpx;">
+        <text class="btn" data-id="{{item.id}}" bindtap="dismissCard">忽略</text>
+        <text class="btn btn-accent" data-id="{{item.id}}" bindtap="pushToDesktop">⚡ 推入电脑端</text>
+      </view>
+    </view>
+  </block>
+</view>

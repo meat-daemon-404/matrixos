@@ -1,0 +1,36 @@
+<view class="page">
+  <view class="row" style="margin-bottom:16rpx;">
+    <view>
+      <text class="title">桌面待办队列</text>
+      <text class="subtitle">  待处理 {{pendingCount}}</text>
+    </view>
+    <text wx:if="{{originLabel}}" class="badge {{originClass}}">{{originLabel}}</text>
+  </view>
+
+  <view class="card">
+    <view class="row">
+      <text class="subtitle">桌面端</text>
+      <text class="{{desktopOnline ? 'accent' : 'muted'}}">{{desktopOnline ? '在线' : '离线'}}</text>
+    </view>
+    <text class="muted" style="display:block;margin-top:8rpx;">最近同步 {{syncedAt}}</text>
+  </view>
+
+  <view wx:if="{{loading}}" class="loading">加载中…</view>
+  <view wx:elif="{{error}}" class="empty">{{error}}</view>
+  <view wx:elif="{{items.length === 0}}" class="empty">队列是空的，去晨间早报里「⚡ 推入电脑端」试试</view>
+
+  <view wx:else>
+    <view class="card" wx:for="{{items}}" wx:key="id">
+      <view class="card-head">
+        <text class="title">{{item.title}}</text>
+        <text class="muted">{{item.status}}</text>
+      </view>
+      <text class="subtitle">{{item.note}}</text>
+      <text class="muted" style="display:block;margin-top:8rpx;">唤醒 {{item.targetStation}} · {{item.desktopAction}}</text>
+      <view class="row" style="margin-top:16rpx;">
+        <text class="btn" data-id="{{item.id}}" bindtap="openDetail">查看</text>
+        <text class="btn" data-id="{{item.id}}" bindtap="remove">移除</text>
+      </view>
+    </view>
+  </view>
+</view>

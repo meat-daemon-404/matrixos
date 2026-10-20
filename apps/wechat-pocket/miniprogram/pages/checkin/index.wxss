@@ -1,0 +1,24 @@
+/* 学业打卡页 */
+.week {
+  display: flex;
+  gap: 12rpx;
+  margin-top: 16rpx;
+}
+
+.dot {
+  width: 28rpx;
+  height: 28rpx;
+  border-radius: 50%;
+  background: #1b2640;
+  border: 1rpx solid #25324f;
+}
+
+.dot-on {
+  background: #22d3ee;
+  border-color: #22d3ee;
+}
+
+.done {
+  text-decoration: line-through;
+  color: #64748b;
+}

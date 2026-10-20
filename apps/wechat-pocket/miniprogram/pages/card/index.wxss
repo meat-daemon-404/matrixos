@@ -1,0 +1,8 @@
+/* 学术名片页 */
+.qr {
+  width: 200px;
+  height: 200px;
+  margin: 12rpx 0;
+  background: #ffffff;
+  border-radius: 12rpx;
+}

@@ -1,0 +1,9 @@
+/* 晨间早报页：复用 app.wxss 原子类，这里只做微调 */
+.page .card .subtitle {
+  display: block;
+  margin-top: 8rpx;
+}
+
+.metric {
+  margin-right: 28rpx;
+}

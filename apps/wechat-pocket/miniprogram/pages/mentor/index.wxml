@@ -1,0 +1,42 @@
+<view class="page">
+  <view class="row" style="margin-bottom:16rpx;">
+    <view>
+      <text class="title">进组提醒</text>
+    </view>
+    <text wx:if="{{originLabel}}" class="badge {{originClass}}">{{originLabel}}</text>
+  </view>
+
+  <view class="card">
+    <view class="row">
+      <text class="subtitle">下一关键节点</text>
+      <text class="accent">{{nextEventAt}}</text>
+    </view>
+  </view>
+
+  <view wx:if="{{loading}}" class="loading">加载中…</view>
+  <view wx:elif="{{error}}" class="empty">{{error}}</view>
+  <view wx:elif="{{reminders.length === 0}}" class="empty">暂无导师进组提醒</view>
+
+  <view wx:else>
+    <view class="card" wx:for="{{reminders}}" wx:key="id">
+      <view class="card-head">
+        <text class="title">{{item.mentorName}}</text>
+        <text class="accent">{{item.matchScore}}</text>
+      </view>
+      <text class="subtitle">{{item.mentorTitle}} · {{item.lab}}</text>
+      <view class="row" style="margin-top:12rpx;">
+        <text class="btn">{{item.stageLabel}}</text>
+        <text class="muted">{{item.startsAt}} @ {{item.location}}</text>
+      </view>
+      <view class="row" style="margin-top:16rpx;">
+        <text wx:if="{{item.acknowledged}}" class="muted">已确认</text>
+        <text
+          wx:else
+          class="btn btn-accent"
+          data-id="{{item.id}}"
+          bindtap="acknowledge"
+        >确认提醒</text>
+      </view>
+    </view>
+  </view>
+</view>
