@@ -1,0 +1,72 @@
+name: 契约变更 (spec)
+description: 变更 specs/contracts 下的 JSON Schema
+title: "[spec] 简述"
+labels: ["type:spec", "needs-architecture-review"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ 契约是跨微站硬约束。任何变更都会影响多个微站，请务必写清影响面与迁移策略。
+
+  - type: dropdown
+    id: contract
+    attributes:
+      label: 涉及契约
+      options:
+        - wormhole-envelope.schema.json（跨站虫洞信封）
+        - dispatch-contract.schema.json（中台调度协议）
+        - matrix-app-manifest.schema.json（插槽清单）
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: 为什么要改
+      description: 当前契约在什么场景下不够用？
+    validations:
+      required: true
+
+  - type: textarea
+    id: change
+    attributes:
+      label: 具体变更
+      description: 字段增删改、类型变化、必填性变化
+    validations:
+      required: true
+
+  - type: dropdown
+    id: breaking
+    attributes:
+      label: 是否破坏向后兼容
+      options:
+        - "否（仅新增可选字段）"
+        - "是（必填性/类型/枚举变化）"
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: 影响哪些微站
+      description: 列出受影响的微站 id 与需要同步修改的代码
+    validations:
+      required: true
+
+  - type: textarea
+    id: migration
+    attributes:
+      label: 迁移策略
+      description: 若为 breaking change，说明迁移窗口与兼容层方案
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: compliance
+    attributes:
+      label: 合规确认
+      options:
+        - label: 本次变更未弱化 `evidence_anchors` 的必填性或校验强度
+          required: true
+        - label: 已在 docs/02-engineering/CHANGELOG-contracts.md 登记（若为 breaking change）
+          required: false

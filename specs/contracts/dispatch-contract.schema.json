@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://matrixos.edu/contracts/dispatch-contract.schema.json",
+  "title": "MatrixOS_Dispatch_Contract",
+  "description": "中台调度 Agent 的统一数据交换协议。一次自然语言意图解析后，生成 DAG 工作流计划并逐步派发。",
+  "type": "object",
+  "required": ["trace_id", "user_id", "intent", "station_id", "workflow"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "trace_id": { "type": "string", "format": "uuid" },
+    "user_id": { "type": "string", "description": "MatrixID" },
+    "station_id": {
+      "type": "string",
+      "description": "7 站生涯闭环节点",
+      "enum": ["study", "spark", "pat_hot", "xingmen", "workshop", "cloud_balance", "pre_job"]
+    },
+    "intent": {
+      "type": "object",
+      "required": ["action"],
+      "properties": {
+        "action": { "type": "string" },
+        "discipline": { "type": "string", "examples": ["物理", "光电", "生物医药", "计算工程", "人文法学"] },
+        "parameters": { "type": "object" }
+      }
+    },
+    "workflow": {
+      "type": "array",
+      "description": "DAG 执行计划，按 step_id 顺序推进，后端按 depends_on 拓扑排序",
+      "items": {
+        "type": "object",
+        "required": ["step_id", "service_name", "model_tier", "status"],
+        "properties": {
+          "step_id": { "type": "integer", "minimum": 1 },
+          "service_name": { "type": "string" },
+          "model_tier": {
+            "type": "string",
+            "enum": ["flash", "pro", "local"]
+          },
+          "depends_on": {
+            "type": "array",
+            "items": { "type": "integer" }
+          },
+          "input_payload": { "type": "object" },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "running", "success", "failed"]
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://matrixos.edu/contracts/wormhole-envelope.schema.json",
+  "title": "MatrixOS_v3_Wormhole_Envelope",
+  "description": "跨微站虫洞投送信封。任何微站之间拖拽数据卡片时，必须携带此契约，确保结构化参量与证据锚点零丢失。",
+  "type": "object",
+  "required": ["trace_id", "matrix_uid", "source_app", "target_app", "payload_type", "payload"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "trace_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "全链路追踪 ID，一次虫洞投送一个 trace"
+    },
+    "matrix_uid": {
+      "type": "string",
+      "description": "全域唯一 MatrixID 用户标识"
+    },
+    "source_app": {
+      "type": "string",
+      "examples": ["curvelab.matrixos.edu"]
+    },
+    "target_app": {
+      "type": "string",
+      "examples": ["mentor.matrixos.edu"]
+    },
+    "payload_type": {
+      "type": "string",
+      "enum": [
+        "paper_doi_bundle",
+        "comparison_matrix_row",
+        "curve_fit_parameters",
+        "mentor_match_card",
+        "verified_cv_evidence"
+      ]
+    },
+    "payload": {
+      "type": "object",
+      "required": ["data", "evidence_anchors"],
+      "additionalProperties": false,
+      "properties": {
+        "data": { "type": "object" },
+        "evidence_anchors": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["source_doi_or_url", "verification_level"],
+            "additionalProperties": false,
+            "properties": {
+              "source_doi_or_url": { "type": "string" },
+              "pdf_page": { "type": "integer", "minimum": 1 },
+              "bbox": {
+                "type": "array",
+                "description": "PDF 原文坐标 [x0, y0, x1, y1]",
+                "items": { "type": "number" },
+                "minItems": 4,
+                "maxItems": 4
+              },
+              "verification_level": {
+                "type": "string",
+                "enum": ["Level_A_Verified", "Level_B_Preprint", "Retracted_Warning"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "created_at": { "type": "string", "format": "date-time" }
+  }
+}

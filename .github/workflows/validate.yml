@@ -1,0 +1,47 @@
+name: Specs & Docs 校验
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: 校验契约与文档
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: JSON Schema 与微站花名册校验
+        run: node scripts/validate-specs.mjs
+
+      - name: Markdown 内部链接检查
+        run: node scripts/check-doc-links.mjs
+
+      - name: 确认 bundle/ 未被改动
+        run: |
+          # bundle/ 是只读归档，任何改动都会在这里被拦下
+          if git log --oneline -1 --name-only --pretty=format: | grep -q '^bundle/'; then
+            echo "::error::bundle/ 是只读设计输入归档，不应被修改。若确需更新，请联系 Lead。"
+            exit 1
+          fi
+          echo "bundle/ 未改动 ✓"
+
+      - name: 检查是否误提交敏感文件
+        run: |
+          set -e
+          BAD=$(git ls-files | grep -E '(^|/)(\.env|\.env\..+|node_modules|\.next|dist|build)/' || true)
+          if [ -n "$BAD" ]; then
+            echo "::error::发现不应入库的文件:"
+            echo "$BAD"
+            exit 1
+          fi
+          echo "无敏感/产物文件 ✓"

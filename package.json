@@ -1,0 +1,26 @@
+{
+  "name": "MatrixOS",
+  "description": "智轨星云 v3.0 · 高校全域科研工作台与学术数字资产操作系统（18+N 群岛式微站 × 星轨仪器双态合体 × 跨站虫洞协议）",
+  "private": true,
+  "type": "module",
+  "version": "3.0.0-alpha.0",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "lint:specs": "node scripts/validate-specs.mjs",
+    "lint:docs": "node scripts/check-doc-links.mjs",
+    "check": "pnpm run lint:specs && pnpm run lint:docs"
+  },
+  "keywords": [
+    "matrixos",
+    "research-workbench",
+    "academic",
+    "microsites",
+    "monorepo"
+  ],
+  "author": "MatrixOS Team",
+  "license": "UNLICENSED"
+}

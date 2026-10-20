@@ -1,0 +1,48 @@
+---
+name: 功能需求
+about: 提出一个新功能或增强
+title: "[模块] 简述"
+labels: ["type:feature", "status:triage"]
+assignees: []
+---
+
+## 背景与动机
+
+<!-- 为什么要做？解决什么问题？关联哪个 Stage？ -->
+
+## 目标行为
+
+<!-- 描述期望的用户可见结果，不要写实现细节 -->
+
+## 验收标准
+
+- [ ] 
+- [ ] 
+- [ ] 
+
+## 涉及模块
+
+<!-- 勾选涉及的部分 -->
+
+- [ ] `orbital-hub` 主控台
+- [ ] `matrix-sdk` 插槽协议
+- [ ] `instrument-ui` 仪器组件库
+- [ ] `twin-schema` 数据契约
+- [ ] `copilot-router` 模型路由
+- [ ] `pat-worker` 情报监听
+- [ ] `wechat-pocket` 小程序
+- [ ] 具体微站（请填 id）：`__`
+
+## 设计参考
+
+<!-- 关联 bundle/UI_Renders 里的图，或 bundle/ HTML 的哪个 Tab -->
+
+## 优先级
+
+- [ ] P0（阻塞 Stage 交付）
+- [ ] P1（本 Stage 应有）
+- [ ] P2（可延后）
+
+## 附加信息
+
+<!-- 技术约束、依赖、风险 -->

@@ -1,0 +1,200 @@
+[
+    {
+        "id":  "01",
+        "orbit":  "1-2",
+        "orbitName":  "轨道 1 · 学阶",
+        "name":  "学分绩点动态配重台",
+        "domain":  "gpa.matrixos.edu",
+        "source":  "ScholarMatrix 拆解",
+        "uiStyle":  "精密推子配重仪",
+        "ledger":  "学期目标绩点与选课博弈方案库",
+        "desc":  "拖动推子模拟不同选修课成绩对保研/出国核心 GPA 的边际贡献。"
+    },
+    {
+        "id":  "02",
+        "orbit":  "1-2",
+        "orbitName":  "轨道 2 · 星火",
+        "name":  "双创互补组队雷达",
+        "domain":  "spark.matrixos.edu",
+        "source":  "ScholarMatrix 拆解",
+        "uiStyle":  "技能极坐标互补盘",
+        "ledger":  "大创/挑战杯组队契约与分工表",
+        "desc":  "匹配跨院系（硬件+算法+商业）互补队友并自动生成大创申报书初稿。"
+    },
+    {
+        "id":  "03",
+        "orbit":  "1-2",
+        "orbitName":  "轨道 2 · 星火",
+        "name":  "大创五科目经费液位仪",
+        "domain":  "grant-audit.matrixos.edu",
+        "source":  "MatrixOS 原创",
+        "uiStyle":  "五柱流体压差计",
+        "ledger":  "国创 ¥20,000 报销凭据与红线台账",
+        "desc":  "内置劳务费 ≤20% 硬件限位阀，实时监控算力、软著、差旅报销进度。"
+    },
+    {
+        "id":  "04",
+        "orbit":  "3-4",
+        "orbitName":  "轨道 3 · 情报",
+        "name":  "PAT-HOT 学科脉冲雷达",
+        "domain":  "pat-hot.matrixos.edu",
+        "source":  "PAT-HOT 实机原型",
+        "uiStyle":  "24h 频谱瀑布流",
+        "ledger":  "订阅学科关键词与早报历史库",
+        "desc":  "监听 arXiv / Nature Photonics 24h 前沿动态，每日 08:00 推送三卡早报。"
+    },
+    {
+        "id":  "05",
+        "orbit":  "3-4",
+        "orbitName":  "轨道 3 · 情报",
+        "name":  "五源跨库引文声呐站",
+        "domain":  "lit-sonar.matrixos.edu",
+        "source":  "ScholarMatrix 拆解",
+        "uiStyle":  "引力透镜拓扑图",
+        "ledger":  "课题组专题文献收藏夹与引文树",
+        "desc":  "聚合 OpenAlex/arXiv/PubMed/Crossref，可视化呈现开山鼻祖与最新演进。"
+    },
+    {
+        "id":  "06",
+        "orbit":  "3-4",
+        "orbitName":  "轨道 4 · 星门",
+        "name":  "星门 · 导师五维星象仪",
+        "domain":  "mentor.matrixos.edu",
+        "source":  "星门 实机原型",
+        "uiStyle":  "天文星象五维雷达",
+        "ledger":  "目标博导/硕导全景学术画像库",
+        "desc":  "量化分析导师近 3 年活跃度、H-index 斜率、经费充足度与本科生友好度。"
+    },
+    {
+        "id":  "07",
+        "orbit":  "3-4",
+        "orbitName":  "轨道 4 · 星门",
+        "name":  "证据内嵌式套磁信推演器",
+        "domain":  "cold-email.matrixos.edu",
+        "source":  "星门 实机原型",
+        "uiStyle":  "双栏红蓝对抗推演器",
+        "ledger":  "多版本套磁信草稿与导师审阅评分",
+        "desc":  "结合导师最新代表作与学生复现实验数据，生成高回复率个性化套磁信。"
+    },
+    {
+        "id":  "08",
+        "orbit":  "3-4",
+        "orbitName":  "轨道 4 · 星门",
+        "name":  "太空任务式进组跟进台账",
+        "domain":  "lab-kanban.matrixos.edu",
+        "source":  "星门 实机原型",
+        "uiStyle":  "航天任务控制看板",
+        "ledger":  "已发信→已读→待面试→已进组状态机",
+        "desc":  "全周期追踪套磁与暑研面试节点，支持一键同步至手机端强提醒。"
+    },
+    {
+        "id":  "09",
+        "orbit":  "5",
+        "orbitName":  "轨道 5 · 工坊",
+        "name":  "Matrix-Cross 跨论文对比矩阵",
+        "domain":  "matrix-cross.matrixos.edu",
+        "source":  "ScholarMatrix 核心",
+        "uiStyle":  "激光溯源对比网格",
+        "ledger":  "多篇顶刊核心实验参量横向对比表",
+        "desc":  "自动抽取多篇 PDF 的材料、方法与性能指标，悬停单元格激射 PDF 原文坐标。"
+    },
+    {
+        "id":  "10",
+        "orbit":  "5",
+        "orbitName":  "轨道 5 · 工坊",
+        "name":  "PDF 公式与参量狙击镜",
+        "domain":  "pdf-sniper.matrixos.edu",
+        "source":  "ScholarMatrix 拆解",
+        "uiStyle":  "双栏光学瞄准阅读器",
+        "ledger":  "高亮批注、公式符号表与难例卡片",
+        "desc":  "点击文内复杂偏微分方程，右侧自动展开物理量纲解释与 Python 求解代码。"
+    },
+    {
+        "id":  "11",
+        "orbit":  "5",
+        "orbitName":  "轨道 5 · 工坊",
+        "name":  "CurveLab 非线性拟合示波器",
+        "domain":  "curvelab.matrixos.edu",
+        "source":  "ScholarMatrix 核心",
+        "uiStyle":  "荧光示波器与阻尼旋钮",
+        "ledger":  "实验原始数据集与 30+ 回归模型库",
+        "desc":  "内置双指数衰减、洛伦兹峰拟合等 30+ 统计模型，实时显示置信带与 R²。"
+    },
+    {
+        "id":  "12",
+        "orbit":  "5",
+        "orbitName":  "轨道 5 · 工坊",
+        "name":  "顶刊代码复现核验舱",
+        "domain":  "repro-check.matrixos.edu",
+        "source":  "ScholarMatrix 拆解",
+        "uiStyle":  "飞行前机械检查单",
+        "ledger":  "依赖环境、随机种子与超参复现清单",
+        "desc":  "自动扫描论文关联 GitHub 仓库，生成 Docker 环境配置与复现避坑指南。"
+    },
+    {
+        "id":  "13",
+        "orbit":  "5",
+        "orbitName":  "轨道 5 · 工坊",
+        "name":  "Nature 级出版图表熔炉",
+        "domain":  "chart-foundry.matrixos.edu",
+        "source":  "ScholarMatrix 拆解",
+        "uiStyle":  "光学暗房调色台",
+        "ledger":  "TikZ / Matplotlib 出版级绘图脚本库",
+        "desc":  "一键将拟合数据转换为符合 Nature / IEEE 双栏字号与色盲友好规范的矢量图。"
+    },
+    {
+        "id":  "14",
+        "orbit":  "5",
+        "orbitName":  "轨道 5 · 工坊",
+        "name":  "综述拓扑推演与写作舱",
+        "domain":  "review-lab.matrixos.edu",
+        "source":  "ScholarMatrix 拆解",
+        "uiStyle":  "章节逻辑流建筑台",
+        "ledger":  "文献综述大纲与段落证据绑定库",
+        "desc":  "将对比矩阵中的多篇文献按技术流派自动聚类，生成带精准引文的综述初稿。"
+    },
+    {
+        "id":  "15",
+        "orbit":  "5",
+        "orbitName":  "轨道 5 · 工坊",
+        "name":  "撤稿深海声呐与伦理合规仪",
+        "domain":  "retract-radar.matrixos.edu",
+        "source":  "ScholarMatrix 拆解",
+        "uiStyle":  "360° 极坐标声呐盘",
+        "ledger":  "论文引文合规体检报告与伦理声明",
+        "desc":  "对接 Crossref 与 PubPeer 排查撤稿与勘误引文，自动生成顶刊 AI 使用披露声明。"
+    },
+    {
+        "id":  "16",
+        "orbit":  "6-7",
+        "orbitName":  "轨道 6 · 云衡",
+        "name":  "云衡 · 数字天平综测核算器",
+        "domain":  "yunheng.matrixos.edu",
+        "source":  "预职 \u0026 ScholarMatrix",
+        "uiStyle":  "精密三盘电子天平",
+        "ledger":  "学年综测加分项与证明材料 PDF 包",
+        "desc":  "自动汇总科研论文、软著与竞赛记录，按高校综测细则满额配重并导出申报表。"
+    },
+    {
+        "id":  "17",
+        "orbit":  "6-7",
+        "orbitName":  "轨道 7 · 预职",
+        "name":  "区块链级学术证据简历工坊",
+        "domain":  "evidence-cv.matrixos.edu",
+        "source":  "预职 WorkBuddy 原型",
+        "uiStyle":  "绿标验真数字徽章台",
+        "ledger":  "多版本保研/求职证据级简历库",
+        "desc":  "简历中每一条科研经历均嵌入可点击验真的 DOI 锚点、拟合图与代码仓库哈希。"
+    },
+    {
+        "id":  "18",
+        "orbit":  "6-7",
+        "orbitName":  "轨道 7 · 预职",
+        "name":  "生涯多重宇宙期望决策树",
+        "domain":  "prejob.matrixos.edu",
+        "source":  "预职 WorkBuddy 原型",
+        "uiStyle":  "量子分岔概率光轨沙盘",
+        "ledger":  "保研直博 / 选调考公 / 大厂 Offer 对比树",
+        "desc":  "基于全息数字孪生底座，量化推演不同生涯路径未来 5 年的期望收益与风险。"
+    }
+]

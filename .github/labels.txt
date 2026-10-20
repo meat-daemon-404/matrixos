@@ -1,0 +1,50 @@
+# 标签体系：用 gh label create 批量导入，或由 workflows/sync-labels.yml 自动同步
+# 格式: name | color | description
+
+# ===== 类型 =====
+type:feature | 1f77b4 | 新功能或增强
+type:bug | d73a4a | 缺陷
+type:docs | 0075ca | 文档
+type:spec | 6f42c1 | 契约 / JSON Schema 变更（需架构评审）
+type:infra | 5319e7 | 构建、CI、部署、工具链
+type:refactor | fbca04 | 重构（不改变行为）
+type:perf | ff8c00 | 性能优化
+
+# ===== 阶段 =====
+stage-1 | c5def5 | Stage 1 · 解耦与接口协议标准化
+stage-2 | c5def5 | Stage 2 · 双端协同感知与大模型微调
+stage-3 | c5def5 | Stage 3 · 原型联调与高校试点部署
+stage-4 | c5def5 | Stage 4 · 资产闭环与立项验收
+
+# ===== 轨道（7 站生涯闭环）=====
+orbit-1 | e4e669 | 轨道 1 · 学阶 Study
+orbit-2 | e4e669 | 轨道 2 · 星火 Spark
+orbit-3 | e4e669 | 轨道 3 · 情报 PAT-HOT
+orbit-4 | e4e669 | 轨道 4 · 星门 Xingmen
+orbit-5 | e4e669 | 轨道 5 · 学术星轨工坊 Workshop
+orbit-6 | e4e669 | 轨道 6 · 云衡 Cloud Balance
+orbit-7 | e4e669 | 轨道 7 · 预职 Pre-Job
+
+# ===== 模块 =====
+area:orbital-hub | bfd4f2 | 双态合体总控台
+area:matrix-sdk | bfd4f2 | @matrixos/sdk 插槽协议
+area:instrument-ui | bfd4f2 | 精密仪器组件库
+area:twin-schema | bfd4f2 | 数字孪生数据契约
+area:copilot-router | bfd4f2 | 模型分级路由
+area:pat-worker | bfd4f2 | OpenAlex / arXiv 监听
+area:wechat-pocket | bfd4f2 | 微信小程序伴侣端
+area:microsite | bfd4f2 | 具体微站（需在标题注明 id）
+
+# ===== 优先级 =====
+P0 | b60205 | 阻塞 Stage 交付
+P1 | d93f0b | 本 Stage 应有
+P2 | fef2c0 | 可延后
+
+# ===== 状态 / 流程 =====
+status:triage | ededed | 待分类
+needs-architecture-review | 6f42c1 | 需架构负责人评审
+needs-design-review | c2e0c6 | 需视觉评审
+blocked | 000000 | 被外部依赖阻塞
+good-first-issue | 7057ff | 适合新成员上手
+help-wanted | 008672 | 欢迎社区协助
+compliance | ff0000 | 涉及合规红线（数据 / 伦理 / 财务）

@@ -1,0 +1,86 @@
+name: 缺陷报告
+description: 报告一个可复现的问题
+title: "[模块] 简述"
+labels: ["type:bug", "status:triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。请尽量把复现路径写清楚，这能大幅缩短定位时间。
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: 涉及模块
+      options:
+        - orbital-hub 主控台
+        - matrix-sdk 插槽协议
+        - instrument-ui 仪器组件库
+        - twin-schema 数据契约
+        - copilot-router 模型路由
+        - pat-worker 情报监听
+        - wechat-pocket 小程序
+        - 其他微站
+    validations:
+      required: true
+
+  - type: input
+    id: microsite
+    attributes:
+      label: 微站 id（若涉及具体微站）
+      placeholder: "如 11-curvelab"
+    validations:
+      required: false
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 打开 xxx
+        2. 点击 yyy
+        3. 观察到 zzz
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 截图 / 日志 / 错误栈
+      description: 直接粘贴或拖入图片
+    validations:
+      required: false
+
+  - type: input
+    id: env
+    attributes:
+      label: 环境
+      placeholder: "Windows 11 / Chrome 131 / pnpm 9.12 / Node 22.11"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: 严重程度
+      options:
+        - 阻塞（无法继续开发）
+        - 严重（核心功能不可用）
+        - 一般（功能可用但结果不对）
+        - 轻微（体验问题）
+    validations:
+      required: true

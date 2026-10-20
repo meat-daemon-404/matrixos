@@ -1,0 +1,465 @@
+﻿智轨星云 (MatrixOS v3.0) - 全域群岛微站开发执行规范与核心 UI 视觉图谱 
+智轨星云 MatrixOS v3.0 
+18+N 群岛微站 × 双态合体总控 
+P0 工程蓝图 & UI 图谱
+基于 ScholarMatrix 、 星门 、 PAT-HOT 、 预职 四大线上原型的系统级解耦与 UI 视觉规范
+1. 核心UI视觉图谱
+2. 双态合体交互沙盘
+3. 18+N微站矩阵全表
+4. SDK插槽与模型预算
+5. 口袋小程序原型
+6. Agent规范与一键复制
+5 大核心架构决策已锁定 · 4 张超清概念渲染大图 + 6 幅矢量仪器级 UI 拆解图 
+告别平庸聊天框与生硬卡片堆砌： 「星轨引力场 + 数字精密科研仪器」 视觉体系
+本图谱完整呈现 MatrixOS v3.0 的核心界面设计：既有总控台 「左星轨全局导航 + 右多台精密仪器微站折射挂载 + 底声波脉冲副驾驶」 的双态合体大图，也绘制了 CurveLab 荧光示波器与跨站虫洞环 、 星门五维星象雷达与预职多重宇宙概率树 、 2.5D 语义变焦星轨胶囊 等关键 UI 实机图。点击任意渲染图可开启 16:9 全屏灯箱检视细节，或直接切入「Tab 2 双态合体交互沙盘」亲手拨动旋钮与虫洞体验！
+立即操作「双态合体交互沙盘」
+复制全量 Agent 研发规范 Prompt
+第一部分：四大核心场景 16:9 超清实机 UI 渲染图 (点击图片全屏放大)
+覆盖主入口双态合体总控台、CurveLab 硬件示波器与跨站虫洞拖拽、星门×预职双旗舰微站、以及 2.5D 语义变焦星轨图
+已内嵌离线高清图源 
+UI 大图 01 · 主入口终极形态 (Q4 锁定方案) 
+ 「星轨引力场 + 精密科研仪器双态合体总控台」
+全屏检视
+点击全屏查看 左32%星轨球 + 右68%精密仪器组 + 底声波脉冲坞 
+ matrixos.edu 
+左侧 32% 星轨罗盘
+7 大生涯轨道 + 18 个实时跳动的微缩微站胶囊，全局进度一目了然。
+右侧 68% 折射仪器架
+同屏挂载 2~3 个相关微站，支持一键 [↗ 全屏独立打开] 独享微站。
+底部声波脉冲底座
+全局常驻 AI Copilot 声波光带，全屏入站后自动坍缩为右下角呼吸能量球。
+UI 大图 02 · 数字精密仪器与虫洞拖拽 (Q1 & Q3 锁定方案) 
+ 「CurveLab 荧光示波器拟合站 + Agent 跨站虫洞环」
+全屏检视
+点击全屏查看 微拟物金属阻尼旋钮 + 双指数荧光拟合轨迹 + 跨站虫洞环 
+ curvelab.matrixos.edu 
+硬件级示波器屏
+实时绘制钙钛矿双指数衰减曲线、95% 置信区间荧光带与残差频谱。
+阻尼旋钮与拨杆
+告别枯燥表单，用精密仪器旋钮连续调节 τ₁, τ₂ 参量与置信度阈值。
+跨站虫洞环投送
+按住数据卡即刻张开全息虫洞环，松手直接带参量翻转至星门套磁或对比矩阵。
+UI 大图 03 · 进组与生涯双旗舰独立微站 
+ 「星门五维星象仪 & 太空任务看板 + 预职多重宇宙概率树」
+全屏检视
+点击全屏查看 左侧星门导师匹配雷达 + 右侧预职多重宇宙期望收益树 
+ mentor / career.matrixos.edu 
+星门 ( 原型重构 )：天文星象雷达
+基于 OpenAlex 绘出导师 5 维匹配雷达（张教授 94.2%）与四阶段太空任务进组看板（已读→待面试→已进组）。
+预职 ( 原型重构 )：生涯多重宇宙
+推免直博 vs 头部光企研发分岔概率光轨树，下方自动绑定带有 DOI 与 GitHub 绿标验真的学术证据简历。
+UI 大图 04 · 2.5D 语义变焦星轨全景层 
+ 「7 轨全息星图与 18+ 实时动态数据胶囊微缩态」
+全屏检视
+点击全屏查看 中央脉冲球 + 环绕式微缩实况胶囊 + 光子流依赖连线 
+ Semantic Zoom 1.0x → 10.0x 
+微站胶囊实况微缩态 (Live Mini-View)
+每个微站胶囊绝非死板图标，未点开即可直接看到 PAT-HOT 24h 热力脉冲、CurveLab 拟合缩略图与综测加分。
+无级语义变焦推进 (Semantic Zoom)
+滚轮前推或点击胶囊，视距从 1.0x 星轨层平滑推进至 10.0x 独立专精微站全屏工作台。
+第二部分：6 大关键微站与协议层 · 矢量级高保真 UI 结构拆解图 (SVG / HUD 实绘)
+直接面向前端开发与大创答辩评委，精准标注每一个核心微站的组件布局、交互锚点与数据绑定
+Vector Component Blueprints 
+图纸 01 · matrix-cross.matrixos.edu 
+ 跨论文对比矩阵 & 激光证据溯源 UI
+源自 ScholarMatrix 
+[对比矩阵网格] 
+ ● 激光原位溯源连线激活 
+论文 / DOI 
+ 钝化配体 
+ 峰值 EQE 
+ Nat.Phot.25 
+ PEAI 准二维 
+28.4% ★ 
+ Adv.Mat.24 
+ R/S-MBA手性 
+ 25.1% 
+ JACS 2025 
+ F-PEA 氟代 
+ 26.8% 
+PDF P.4 原文锚点 
+"achieved a peak 
+ EQE of 28.4% ± 0.3% 
+ [Fig. 2b Verified] 
+UI 交互规范： 每个提炼出的实验数值单元格均绑定 pdf_page + bbox 坐标；鼠标悬停单元格即刻射出青色激光连线，右侧同步高亮 PDF 原文句段与图表，彻底杜绝大模型学术幻觉。
+图纸 02 · retract-radar.matrixos.edu 
+ 撤稿声呐盘 & 学术合规扫描仪 UI
+深海声呐仪器风 
+[Crossref + PubPeer 实时扫描] 
+ Level-A 合规: 97.4% 
+! 勘误预警 
+✓ 37 篇引文通过 Level-A 校验 
+ Crossref / RetractionWatch 零撤稿 
+⚠ 1 篇存在图像重复质疑 
+ DOI:10.1021/jacs.4c0112 · 一键替换 
+AI 学术伦理声明自动生成 
+ 符合教育部及顶刊 AI 披露规范 
+UI 交互规范： 导入文稿或引文库后，360° 极坐标声呐盘自动扫描每篇引文的撤稿与勘误状态；红点高亮风险文献并提供同领域高引替代文献一键热替换。
+图纸 03 · yunheng.matrixos.edu 
+ 云衡 · 数字精密天平综测核算台 UI
+数字天平仪器风 
+[德育 · 智育 · 科研双创 三维配重] 
+ 总加分: +18.50 pts 
+SCORE: 94.85 (TOP 2%) 
+智育学分砝码 
+ GPA 3.86 
+ 专业排名前 4.2% 
+科研大创砝码 
+ +14.0 分 
+ 国创立项+1作论文 
+竞赛素拓砝码 
+ +4.5 分 
+ 挑战杯省一等奖 
+UI 交互规范： 自动抓取学生在各微站沉淀的论文、软著与大创记录，化作“数字证据砝码”置入电子天平，按高校综测细则自动对齐加分上限并导出 PDF 证明附件包。
+图纸 04 · grant-audit.matrixos.edu 
+ 大创五科目经费液位压差计 UI
+流体液位仪器风 
+[国创 ¥20,000 专款专用合规监控] 
+ 红线校验: 100% 合规 
+¥6.8k 
+ 算力34% 
+¥4.5k 
+ 软著22.5% 
+¥2.7k 
+ 语料13.5% 
+¥3.5k 
+ 差旅17.5% 
+MAX 20%红线 
+¥2.5k 
+ 劳务12.5% 
+UI 交互规范： 5 根高精度流体液位柱实时监控国创 ¥20,000 五大报销科目；第 5 柱内置 「高校财务劳务费 ≤20% 强制硬件限位阀」 ，超标自动阻断并给出合规调剂方案。
+图纸 05 · Pocket WeChat Mini-Program 
+ 口袋小程序 · 晨间三卡流与桌面投送 UI
+冷启动 < 800ms 
+[不对称轻交互：严禁移动端跑重型矩阵] 
+ WebSocket 同步 
+🔥 PAT-HOT 08:00 早报 #1 
+ Nature Phot. 钙钛矿突破 
+ EQE 28.4% · 契合大创课题 
+⚡ 推入电脑端对比矩阵 
+🔔 星门进组面试提醒 
+ 张教授 · 周五 15:00 光电楼 
+ 点击手机预览 3 页精简答辩卡 
+一键跨端入列 
+💻 桌面星轨待办队列 
+1. Nat.Phot.25 已挂载 
+ → 自动唤醒 Matrix-Cross 
+2. CurveLab 预备拟合 
+ → 晚自习开电脑即刻攻坚 
+UI 交互规范： 严格执行双端不对称分工：口袋端仅保留左滑忽略/右滑推入桌面星轨队列、微目标打卡、导师回复强提醒与二维码学术名片。
+图纸 06 · @matrixos/sdk Slot Protocol 
+ 高校实验室微站开放插槽挂载协议 UI
+Q5 锁定方案 
+[18 官方旗舰站 + N 实验室自研微站] 
+ 3 文件即插即用 
+📦 第三方课题组微站包 
+1. manifest.json 
+2.MatrixSDK.initSSO() 
+3.onWormholeDrop() 
+SDK 
+🪐 星轨第 5 轨动态挂载 
+✓ #19 生物序列比对仪已上线 
+UI 交互规范： 任何高校实验室只需遵循 matrix-app.manifest.json 声明输入输出 Schema，即可在星轨图上生成专属星球胶囊并接入全局虫洞环。
+LIVE INTERACTIVE STUDIO 
+ MatrixOS 双态合体总控台 · 实机可操作沙盘
+试试点击左侧星轨胶囊切换挂载、拨动右侧 CurveLab 拟合滑块实时重绘示波器、触发「跨站虫洞环」，或点击「↗ 全屏独立打开」进入 100% 子站模式！
+召唤「Agent 跨站虫洞环」
+↗ 全屏独立打开微站
+https://orbital.matrixos.edu/studio?mode=hybrid-split
+MatrixID: 孙同学 (光电大三 · GPA 3.86) 
+ 本地 IndexedDB 隐私仓已加密 
+LEFT PANE · 32% ORBITAL COMPASS 
+ 7 站生涯星轨引力场 (点击胶囊挂载)
+1.0x 星轨态 
+MatrixOS 
+ CORE v3.0 
+PAT-HOT 雷达 
+ 🔥 98.4 · 14篇 
+CurveLab 拟合 
+ R²=0.987 激活 
+星门 · 导师看板 
+ 张教授 94.2% 
+撤稿声呐盘 
+ 37篇 Level-A 
+云衡综测 & 预职 
+ +18.5分 · 证据简历 
+学阶 GPA 沙盘 
+ 当前绩点: 3.86 
+快捷切换右侧折射仪器组合： 
+ 已挂载 3 台精密微站 
+光电拟合 + 对比矩阵
+星门进组 + 套磁推演
+撤稿声呐 + 综述工坊
+云衡综测 + 预职决策
+INSTRUMENT #08 · curvelab.matrixos.edu 
+ CurveLab 数字示波器非线性回归实验台 
+拖入跨站虫洞
+↗ 全屏独立打开
+I(t) = A₁e^(-t/τ₁) + A₂e^(-t/τ₂) | R² = 0.9884 
+精密阻尼参量旋钮
+快衰减寿命 τ₁ (ns): 
+ 14.2 ns 
+慢衰减寿命 τ₂ (ns): 
+ 89.5 ns 
+实验散点信噪比调控: 
+ 0.04 (高精) 
+生成 Nature 级 LaTeX/Python 绘图脚本
+INSTRUMENT #05 · matrix-cross 
+ 跨论文对比矩阵 (点击行触发原文激光溯源)
+↗ 独立打开
+顶刊文献
+钝化界面工程
+EQE 峰值
+PDF 证据锚点
+Nat. Phot. 25
+PEAI 准二维钝化
+28.4%
+P.4 Fig.2b 
+Adv. Mater. 24
+手性分子界面
+25.1%
+P.7 Tab.S3 
+JACS 2025
+双氟代配体交联
+26.8%
+P.3 Para.2 
+[激光证据锚点已锁定] 点击上方任意文献行，原位检视 PDF 坐标段落与撤稿声呐状态。
+INSTRUMENT #04 · mentor.matrixos.edu 
+ 星门 · 导师星象匹配与进组任务台账
+↗ 独立打开
+STAGE 01 · 已建档
+李教授 · 量子光学
+匹配度 87.5% · 待发信
+STAGE 02 · 待面试
+张教授 · 光电国重
+匹配 94.2% · 周五15:00
+STAGE 03 · 拟进组
+王博导 · 超快激光
+已开放实验室工位
+已融合您刚才的 R²=0.988 拟合实验证据生成套磁信 
+ 预览套磁信 
+全局常驻 AI 副驾驶 (Global Copilot Acoustic Dock) 
+ DeepSeek V4.1 Flash 路由就绪 
+跨站上下文已同步：当前携带 3 篇顶刊对比矩阵 + 1 组钙钛矿双指数拟合曲线
+发送 
+Q1 ARCHITECTURAL DECISION · 18 STANDALONE MICRO-WORKSPACES 
+ 18+N 群岛式「小而精」独立微站矩阵全景目录
+彻底淘汰臃肿的 42 工具大杂烩单页，将 ScholarMatrix 、 星门 、 PAT-HOT 、 预职 解耦提纯为 18 个拥有独立二级域名、专属精密仪器 UI 与持久化项目台账的精品微站。
+全部 18 旗舰站 
+ 轨道 1-2: 学阶与星火 (3) 
+ 轨道 3-4: 情报与星门 (5) 
+ 轨道 5: 科研攻坚与写作 (7) 
+ 轨道 6-7: 云衡与预职 (3) 
+Q5 ECOSYSTEM SLOT PROTOCOL · @matrixos/sdk 
+ MatrixOS 开放微站插槽协议模拟器 (热插拔挂载第 19 号高校自研微站)
+核心团队严控 18 个官方旗舰微站品质，同时开放标准化 matrix-app.manifest.json 协议，支持各高校实验室一键接入垂域科研工具
+当前星轨挂载数：18 官方旗舰站 
+matrix-app.manifest.json (可自定义修改) 
+ JSON Schema Draft-07 
+微站名称 (name): 
+独立子域名 (entry_url): 
+挂载星轨层级 (orbit_station): 
+轨道 05 · 学术星轨工坊 (workshop) 
+ 轨道 03 · 学科前沿雷达 (pat_hot) 
+ 轨道 06 · 云衡成果资产 (cloud_balance) 
+接收虫洞数据类型 (accepts): 
+校验 Manifest 并热插拔挂载至 MatrixOS 星轨图
+星轨插槽注册与虫洞联通状态 
+ SSO + Wormhole Ready 
+// 点击左侧「校验 Manifest 并热插拔挂载」测试开放生态能力...
+1. [SSO 鉴权] MatrixSDK.initSSO() → 自动共享全息数字孪生账号
+2. [虫洞协议] MatrixSDK.onWormholeDrop() → 注册跨站拖拽接收器
+3. [资产回写] MatrixSDK.emitAsset() → 实验结果自动沉淀至云衡综测
+2026 四级大模型混部路由与成本控制矩阵 (单用户年均 API 成本 < ¥1.5)
+TIER 01 · 意图与早报层 
+ DeepSeek V4.1 Flash 
+¥0.30 / 百万 Token
+负责全局 Copilot 意图分词、虫洞数据类型识别、PAT-HOT 每日 08:00 晨间早报摘要合成。
+TIER 02 · 结构校验与自愈 
+ Qwen 3.8 Flash 
+¥0.40 / 百万 Token
+负责跨微站 JSON Schema 强校验、Python/LaTeX 绘图脚本语法自愈修复、综测表格字段对齐。
+TIER 03 · 深度科研攻坚 
+ DeepSeek V4 Pro
+¥2.00 / 百万 Token
+负责 Matrix-Cross 多篇顶刊长上下文横向对比、综述大纲推演、星门学术套磁信深度定制。
+TIER 04 · 端侧隐私算力 
+ Qwen 3.8-7B LoRA
+¥0 (校内/本地算力)
+处理课题组未发表实验原始数据、物理光电专业术语校准，结合本地 IndexedDB 实现零外泄。
+国家级大创 ¥20,000 标准报销科目预算表 & 动态收支平衡仿真器
+严格遵循教育部及高校财务处报销规范（硬件设备0购置、学生劳务费严控在 12.5% ≤ 20% 红线内）
+第 9 个月实现现金流转正 
+合规报销科目
+预算额
+占比
+测算依据与报销凭证
+1. 云算力与测试加工费
+¥6,800
+34.0%
+阿里云/AutoDL GPU 微调租赁、向量数据库实例（正规云服务商发票）
+2. 知识产权与出版版面
+¥4,500
+22.5%
+3 件国家计算机软件著作权登记费 + 1 篇核心论文版面费
+3. 数据采集与文献耗材
+¥2,700
+13.5%
+PAT-HOT 24h 学术信源流代理池、垂域语料清洗耗材
+4. 跨校调研与竞赛差旅
+¥3,500
+17.5%
+赴 3 所试点高校光电实验室实测推广及省/国赛答辩往返车票住宿
+5. 学生科研测试劳务费
+¥2,500
+12.5%
+500 名种子用户实训评测补贴（严控 ≤20% 财务上限）
+B/C 双轮造血动态测算器 
+ 拖动滑块实时重算 
+月活高校学子 (MAU): 
+ 10,000 人 
+C端 Pro 算力包订阅率 (¥10/月): 
+ 3.0% 
+签约重点实验室 SOP 私有部署 (¥1.5万/个): 
+ 2 个实验室 
+年总研发运维支出
+¥38,600
+年总自造血营收
+¥66,000
+年净现金流盈余
++¥27,400
+ASYMMETRIC MOBILE COMPANION 
+ 口袋微信小程序端：高频碎片化科研伴侣
+严格践行 「双端不对称协同」 架构铁律：不在手机小屏幕上硬塞复杂的 30+ 统计回归与长文本写作，而是将移动端打造为 冷启动 < 800ms 的单手卡片伴侣 ：
+1. 每日 08:00 PAT-HOT 晨间三卡早报
+定时推送 3 张物理/光电高热顶刊速递卡，支持一键「⚡ 推入电脑端对比矩阵待办队列」。
+2. 星门导师进组进度与面试强提醒
+实时同步导师邮件已读回执、线下面试倒计时，并在电梯间快速翻阅 3 页式口头答辩提纲卡。
+3. 全息数字孪生学术动态名片
+组会或学术会议现场一键亮出带有 DOI 证据链与 GitHub 验真徽章的个人学术二维码名片。
+MatrixOS Live 
+08:05 
+PAT-HOT 晨间三卡速递 
+桌面队列: 2 
+晨间早报 
+学业打卡 
+进组提醒 
+学术名片 
+P0 SYSTEM EXECUTION BLUEPRINT FOR CODING AGENTS 
+ MatrixOS v3.0 面向工程 Agent 的系统级开发执行规范 & 一键复制中心
+支持一键复制全量 Markdown 架构规范，或按 Stage 1~4 阶段复制独立开发 Prompt 直接投喂给 Cursor / Claude Code / Devin
+📋 一键复制全量 Agent 规范 (Markdown)
+STAGE 01 PROMPT 
+ MatrixID 统一鉴权与 18 微站 Monorepo 脚手架
+📋 复制 Stage 1 指令
+STAGE 02 PROMPT 
+ 双态合体总控台 (左星轨+右仪器) 与虫洞环实现
+📋 复制 Stage 2 指令
+STAGE 03 PROMPT 
+ 4 大原型解耦迁移与精密科研仪器 UI 组件库
+📋 复制 Stage 3 指令
+STAGE 04 PROMPT 
+ @matrixos/sdk 插槽协议与微信小程序伴侣端
+📋 复制 Stage 4 指令
+matrix_os_v3_agent_execution_blueprint.md 
+ UTF-8 · Ready for Agent Ingestion 
+# 智轨星云 (MatrixOS v3.0) —— 面向全自主工程 Agent 的系统级全域开发与执行规范 (P0 Blueprint)
+> **适用对象**：Cursor / Claude Code / Windsurf / Devin 等全自主代码研发与系统编排 Agent
+> **架构版本**：v3.0（基于苏格拉底式架构决策锁定的「18+N 群岛式独立微站 × 星轨仪器双态合体 × 全局副驾驶虫洞协议」）
+## 1. 五大核心架构公理 (Locked Architectural Axioms)
+1. **产品形态（Q1 锁定 · 18+N 群岛式小而精独立微站）**：
+ - 彻底废除臃肿的单页 42 工具堆砌，将现存 4 大线上实机原型——ScholarMatrix (https://scholarmatrix.cc.cd)、星门 (https://xingmen-mentor.pages.dev/)、PAT-HOT (https://pat-hot.pages.dev)、预职 (https://a9b81a7031ed59d7a.app.workbuddy.host/) 解耦重构为 **18 个职责单一、拥有独立二级域名 (`*.matrixos.edu`) 与独立持久化项目台账的精品微站**。
+2. **账号与数据底座（Q2 锁定 · MatrixID 全息数字孪生单点通行）**：
+ - 全域共享唯一 `MatrixID` (OAuth2 + JWT) 与底层统一 `DigitalTwinAssetGraph`（PostgreSQL + pgvector 向量库 + 端侧 IndexedDB 隐私保险箱）。严禁让用户在子网站之间手动导出/导入文件。
+3. **AI 交互范式（Q3 锁定 · 全局常驻统一副驾驶 + 跨站虫洞拖拽）**：
+ - 18 个微站共享唯一「全局常驻 AI 副驾驶 (Global Copilot)」，支持跨站上下文记忆；在任意微站按住数据卡片拖拽，鼠标周围即刻张开全息**「Agent 跨站虫洞环 (`WormholeDropRing`)」**，松手即可携带结构化参数与 PDF 证据锚点空间翻转至目标微站。
+4. **主视觉与导航形态（Q4 锁定 · 星轨引力场 + 数字精密科研仪器双态合体）**：
+ - **双态合体总控台 (`orbital.matrixos.edu`)**：左侧 32% 为 2.5D 交互式 7 轨星图（环绕 18+ 动态实况微缩胶囊），右侧 68% 为折射挂载的 2~3 台数字精密科研仪器面板，底部常驻 AI Copilot 声波脉冲底座。
+ - **100% 独立微站专精态 (`*.matrixos.edu`)**：点击任意仪器面板右上角 `[↗ 全屏独立打开]`，即刻进入该微站的 100% 独立定制 UI，底部声波条自动坍缩为右下角呼吸能量球。
+5. **生态扩展机制（Q5 锁定 · 官方 18 旗舰微站 + MatrixOS SDK 开放插槽协议）**：
+ - 核心团队维护 18 个官方旗舰微站，同时开放 `@matrixos/sdk` 与 `matrix-app.manifest.json` 标准插槽，允许各高校重点实验室挂载自研垂域微站。
+## 2. 统一跨微站虫洞数据契约 (Cross-App Wormhole JSON Schema)
+```json
+{
+ "$schema": "http://json-schema.org/draft-07/schema#",
+ "title": "MatrixOS_v3_Wormhole_Envelope",
+ "type": "object",
+ "required": ["trace_id", "matrix_uid", "source_app", "target_app", "payload_type", "payload"],
+ "properties": {
+ "trace_id": { "type": "string", "format": "uuid" },
+ "matrix_uid": { "type": "string" },
+ "source_app": { "type": "string", "example": "curvelab.matrixos.edu" },
+ "target_app": { "type": "string", "example": "mentor.matrixos.edu" },
+ "payload_type": {
+ "type": "string",
+ "enum": ["paper_doi_bundle", "comparison_matrix_row", "curve_fit_parameters", "mentor_match_card", "verified_cv_evidence"]
+ },
+ "payload": {
+ "type": "object",
+ "required": ["data", "evidence_anchors"],
+ "properties": {
+ "data": { "type": "object" },
+ "evidence_anchors": {
+ "type": "array",
+ "items": {
+ "type": "object",
+ "required": ["source_doi_or_url", "verification_level"],
+ "properties": {
+ "source_doi_or_url": { "type": "string" },
+ "pdf_page": { "type": "integer" },
+ "bbox": { "type": "array", "items": { "type": "number" } },
+ "verification_level": { "type": "string", "enum": ["Level_A_Verified", "Level_B_Preprint", "Retracted_Warning"] }
+ }
+ }
+ }
+ }
+ }
+ }
+}
+```
+## 3. Monorepo 工程目录结构规范 (Turborepo + Next.js 15 + FastAPI)
+```text
+matrix-os-v3/
+├── apps/
+│ ├── orbital-hub/ # 主入口：左32%星轨球 + 右68%折射仪器架 + 底声波脉冲坞
+│ ├── micro-sites/ # 18 个独立部署、单一职责的微站应用 (*.matrixos.edu)
+│ │ ├── 01-gpa-sandbox/ # 学阶 · 学分绩点动态配重台
+│ │ ├── 02-spark-teaming/ # 星火 · 双创互补雷达与立项工坊
+│ │ ├── 03-grant-audit/ # 经费 · 大创五科目流体液位监控台
+│ │ ├── 04-pat-radar/ # PAT-HOT · 24h 物理天文光电脉冲雷达站
+│ │ ├── 05-xingmen-mentor/ # 星门 · 导师五维星象仪与进组任务看板
+│ │ ├── 06-cold-email-lab/ # 套磁 · 证据内嵌式学术套磁信推演器
+│ │ ├── 07-lit-sonar/ # 文献 · 5大源跨库语义检索与引文网络
+│ │ ├── 08-matrix-cross/ # 矩阵 · 跨论文横向对比与激光原文溯源台
+│ │ ├── 09-pdf-sniper/ # 速读 · 双栏 PDF 公式参量原位提取器
+│ │ ├── 10-curvelab-fit/ # 拟合 · 30+ 非线性回归荧光示波器实验台
+│ │ ├── 11-repro-check/ # 复现 · 顶刊代码环境与超参核验舱
+│ │ ├── 12-chart-foundry/ # 图表 · Nature/IEEE 出版级矢量图熔炉
+│ │ ├── 13-review-architect/ # 综述 · 文献拓扑聚类与综述初稿推演台
+│ │ ├── 14-retract-radar/ # 合规 · 撤稿深海声呐盘与伦理声明生成器
+│ │ ├── 15-journal-compass/ # 投稿 · 期刊审稿周期与命中率罗盘
+│ │ ├── 16-yunheng-scale/ # 云衡 · 数字精密天平综测加分核算器
+│ │ ├── 17-evidence-cv/ # 简历 · DOI/GitHub 区块链级验真简历工坊
+│ │ └── 18-prejob-multiverse/ # 预职 · 升学/考公/求职多重宇宙期望决策树
+│ └── wechat-pocket/ # 口袋微信小程序伴侣端 (冷启动 < 800ms)
+├── packages/
+│ ├── matrix-sdk/ # @matrixos/sdk 开放插槽协议、SSO 与跨站虫洞环组件
+│ ├── instrument-ui/ # 数字精密科研仪器组件库 (阻尼旋钮、示波器、声呐盘)
+│ └── twin-schema/ # 全息数字孪生 PostgreSQL + pgvector + IndexedDB 契约
+└── services/
+ ├── copilot-router/ # DeepSeek V4.1 Flash / V4 Pro / Qwen 3.8 分级路由网关
+ └── openalex-pat-worker/ # OpenAlex 导师图谱与 arXiv/Nature 24h 流式监听服务
+``` 
+HIGH-RES UI CONCEPT 
+ 高清渲染图
+关闭全屏 (ESC)
+Q3 WORMHOLE DROP PROTOCOL 
+ 全息「Agent 跨站虫洞环」已张开
+当前拖拽捕获的结构化载荷 (Wormhole Payload):
+钙钛矿 TRPL 双指数衰减拟合 (R²=0.9884, τ₁=14.2ns, τ₂=89.5ns)
+选择目标微站 
+↗ 投送至：星门套磁信微站
+↗ 投送至：对比矩阵微站
+↗ 投送至：预职证据简历
+点击环上任意目标微站节点，体验零文件导入导出的「跨站虫洞翻转」
+操作成功
