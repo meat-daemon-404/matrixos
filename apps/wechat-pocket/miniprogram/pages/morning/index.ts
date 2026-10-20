@@ -15,7 +15,7 @@
 import { morningApi, type Loaded } from '../../api/index';
 import type { MorningBriefing, MorningCard, PayloadType } from '../../api/types';
 import { toApiError } from '../../core/errors';
-import { log } from '../../core/logger';
+import { log, reportFirstPaint } from '../../core/logger';
 import { sync } from '../../core/sync';
 
 type CardView = {
@@ -98,6 +98,11 @@ Page<MorningData, MorningMethods>({
       if (event.type === 'queue.count') this.setData({ queueCount: event.pendingCount });
       else if (event.type === 'resync') void this.refresh(false);
     });
+  },
+
+  /** 首屏可交互时打点，度量冷启动是否在 COLD_START_BUDGET_MS 预算内。 */
+  onReady() {
+    reportFirstPaint('pages/morning/index');
   },
 
   onHide() {

@@ -9,6 +9,7 @@
 import { checkinApi } from '../../api/index';
 import type { CheckinDay, GoalKind, MicroGoal } from '../../api/types';
 import { toApiError } from '../../core/errors';
+import { reportFirstPaint } from '../../core/logger';
 import { sync } from '../../core/sync';
 
 type GoalView = {
@@ -106,6 +107,11 @@ Page<CheckinData, CheckinMethods>({
       // 桌面端改了同一份台账时（resync 由 WS 鉴权/断线重连触发）静默校准。
       if (event.type === 'resync') void this.load(true);
     });
+  },
+
+  /** 首屏可交互时打点，度量冷启动是否在 COLD_START_BUDGET_MS 预算内。 */
+  onReady() {
+    reportFirstPaint('pages/checkin/index');
   },
 
   onHide() {
