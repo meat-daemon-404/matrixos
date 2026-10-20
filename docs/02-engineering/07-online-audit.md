@@ -377,10 +377,10 @@ ADR-08 字面达标带来一个必须让产品侧知道的后果。Lead 独立�
 
 | 层 | 手段 | 收益 | 状态 |
 | :--- | :--- | ---: | :--- |
-| **① 消除无效占位** | 嵌入态隐藏 `.meta-grid`（3 张身份介绍卡 60px）+ `.site-footer`（域名署名 34px） | **94 px** | ✅ 已实现（18 站），见下 |
-| **② iframe 高度自适应** | 实现架构里已定义但从未落地的 `layout.resize` 协议：微站上报真实内容高，hub 在可用空间内决策 | **最多 +180 px**（1080p 下 807 vs 627） | 🔧 进行中 |
+| **① 消除无效占位** | 嵌入态隐藏 `.meta-grid`（3 张身份介绍卡）+ `.site-footer`（域名署名） | **149–150 px**（含连带消掉的 flex gap） | ✅ 已实现并部署（18 站） |
+| **② iframe 高度自适应（主方案）** | 实现架构里已定义但从未落地的 `layout.resize` 协议：微站上报真实内容高，hub 决策 `iframe = max(内容高, 可用高)`，`.panel-body` 成为唯一滚动容器 | **解决全部超框**（内容 1300–1500px 也可完整呈现） | ✅ 已实现并部署（SDK+hub 双侧） |
 | ③ 引导降级 | 面板内提示「内容较长，点 ↗ 全屏独立打开」 | 体验兜底 | 待决策 |
-| ④ 放弃字面 | 面板内允许滚动 | 内容全可见但违反 ADR-08 | 待决策 |
+| ④ 放弃字面 | 面板内允许滚动（iframe 内可滚） | 内容全可见但违反 ADR-08 | 已用 ② 取代，不再需要 |
 
 **① 已落地**：18 站 `globals.css` 增加
 ```css
@@ -388,7 +388,57 @@ ADR-08 字面达标带来一个必须让产品侧知道的后果。Lead 独立�
 body[data-embedded='true'] .meta-grid { display: none; }
 body[data-embedded='true'] .site-footer { display: none; }
 ```
-Lead 独立实测（01–05 站，产物含该规则）：嵌入态两者高度 **0 / 0**；standalone 态 **60 / 46**（正确保留，独立页仍是完整站）；`.instrument-slot` 与 `.status-row` 未受影响；`maxScroll` 仍为 **0**。
+Lead 独立实测（18 站全量，产物含该规则）：嵌入态两者高度 **0 / 0**；standalone 态 **60 / 46**（正确保留，独立页仍是完整站）；`.instrument-slot` 与 `.status-row` 未受影响；`maxScroll` 仍为 **0**。
+净收益实测 **149–150 px**（比粗算的 94px 多，因 `display:none` 连带消掉两处 flex `gap` 的间距）；A/B 逐站验证「仅 meta/footer 两项变化、其他子元素高度逐项不变」。
+
+**② 是主方案，不是补充** —— 这一点在实施后才看清。原因：
+
+并行会话在 22:27 起给 18 站加了 `.mx-wb`（`SiteWorkbench`），文件头自述：
+> 「账本增删改、导出、虫洞投送/接收的**全部逻辑**都在 `./workbench-impl` 里，18 站共用同一份字节相同的实现」
+
+即它是**核心业务工作台**，不是可隐藏的装饰。实测它占 **557–930px**，比仪器本体还高：
+
+| 站 | 内容高 | 移除 `.mx-wb` 后 | 仪器本体 | `.mx-wb` 占 |
+| :--- | ---: | ---: | ---: | ---: |
+| 01-gpa | 1480 | 913 | 903 | **557** |
+| 05-lit-sonar | 1309 | 693 | 683 | **606** |
+| 08-lab-kanban | 1383 | 443 | 433 | **930** |
+
+**所以必须区分**：
+
+| 区块 | 内容 | 嵌入态该藏吗 |
+| :--- | :--- | :--- |
+| `.meta-grid` | 「UI 形态 / 独立台账 / 原型来源」静态介绍卡 | ✅ 该藏（纯说明） |
+| `.site-footer` | 域名 + 生成器署名 | ✅ 该藏（纯署名） |
+| **`.mx-wb`** | **账本 CRUD / 导出 / 虫洞投送接收** | ❌ **绝不能藏**（核心功能） |
+
+「移除 `.mx-wb` 后 08 站 1383→443 不再超框」这个数据，证明的是**不能让用户在 hub 里丢掉工作台**，而不是「应该隐藏它」。
+既然它是核心功能，内容高就必然在 1300–1500px 量级，而面板只有 627px —— **只能靠 ② iframe 高度自适应解决**。
+
+**② 的实现要点（关键推导，与直觉相反）**：
+
+错误的做法是「内容高 > 可用高 → iframe 设成可用高」。因为 `.panel-body` 是滚动**视口**、iframe 是它的**内容**：若 iframe=627 而 `.panel-body` 也=627，滚动范围 = 0，**滚不动**；而 iframe 内部又被 `overflow:hidden` 压着（已达标项）→ 内容依旧不可达，只是把「静默裁掉」换成「裁掉 + 一个滚不动的滚动条」。
+
+正确组合是**两个变量同时满足**：
+```
+iframe 高度 = max(内容高, 可用高)       // 必须 >= 内容高，否则 iframe 内部会裁
+.panel-body = 可用高 + overflow-y:auto  // 唯一滚动容器在 hub 侧
+```
+→ 实测 `.panel-body` 滚动范围 838px（真实可滚），iframe 视口 = 内容高 → **内部 `maxScroll` 仍是 0**（ADR-08 不被破坏）。
+
+**实现与验证**（详见提交 `bcdbaf4`）：
+- SDK 发送侧 `packages/matrix-sdk/src/iframe/resize.ts`（750 行）—— 测量学上**不能用 `documentElement.scrollHeight`**（被 `html{height:100%}` 压平成视口高，实测 626），也**不能用 `body.scrollHeight`**（矮内容站会虚高：08 站真实 443 却报 626）；最终用「body 子元素底边最大值」，`scrollHeight` 仅作无可量元素时的兜底。
+- hub 决策侧 `apps/orbital-hub/src/lib/panel-resize.ts` + `use-panel-resize.ts` + `InstrumentPanel.tsx` 接线。
+- 三重防自激（阈值 2px / 静默窗 160ms / 增长连击熔断 4 次）+ 上限 3000px。
+- `.panel-iframe` 从 `inset: 0` 改为只锁 `top/left`+`width:100%` —— `inset:0` 的 `bottom:0` 会与内联 `height` 竞争、把高度拉回容器高（实测陷阱）。
+- 单测 `packages/matrix-sdk/test/resize.test.ts`：**20 passed / 0 fail**，含 4 条 origin 负样本（伪造 origin / 版本不匹配 / `origin='null'` / **形如「evil-」前缀的近似域名（仅测试用伪造值，非花名册条目）** 均被丢弃）。
+- 真实 hub 端到端实测：iframe **627→1465**、`.panel-body` 滚动 **838px 真实可滚**、iframe 内 `maxScroll=0`。
+- 视口耦合已排除（固定 iframe 高 627→2000 扫 5 档，内容高恒定不变）→ 当前不存在「撑高→再变高」的发散风险。
+
+**② 顺带修复了两个既有 SDK bug**（不修则协议不通，且影响面超出布局）：
+- Bug A：host 侧 `post()` 的 `target = parent ?? win` 在 host 角色下 `parent===null` → **永远发给自己**，`hello.ack` 到不了子站；
+- Bug B：`DocumentLike` 只声明 `cookie`、`env.ts` 只拷贝 `cookie` → `readReferrer()` 恒 `null` → tenant 的 `hello` 永久卡队列。
+→ 这两个 bug 也是 **mx_idt SSO 交换不通**的原因（详见 §「重大发现：hub 内嵌态的 SSO 当前是断的」）。
 
 **效果（两基准对比，实测）**：
 
