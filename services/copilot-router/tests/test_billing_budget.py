@@ -324,6 +324,7 @@ def test_gateway_does_not_charge_when_budget_blocks(base_config):
     with pytest.raises(BudgetExceededError):
         gw.chat(chat_request("帮我解析一下这句话的意图", uid="u"))
 
+    day = day_key(datetime.now(timezone.utc), base_config.billing.timezone)
     assert ledger.user_daily_cost("u", day) == pytest.approx(
         base_config.budget.user_daily_cost_limit
     ), "被拦截的请求不应再计费"
