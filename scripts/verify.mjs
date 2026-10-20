@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * 单一校验入口。替换掉原先的 GitHub Actions 工作流（因账户计费无法启动，已移除）。
+ * 单一校验入口。GitHub Actions 因账户计费跑不起来（BLK-001），本地钩子是唯一强制门禁。
  *
  * 用法：
- *   node scripts/verify.mjs            # 全量校验（契约 + 文档链接 + 编码）
- *   node scripts/verify.mjs --staged   # 仅校验暂存区改动涉及的文件（pre-commit 用）
+ *   node scripts/verify.mjs            # 全量校验（契约 + 漂移锁 + 文档链接 + 编码）
+ *   node scripts/verify.mjs --staged   # 兼容旧入口，当前与全量一致
  *
  * 退出码：0 = 通过，1 = 有错误
  */
@@ -22,6 +22,7 @@ console.log(bar);
 
 const steps = [
   ['契约与编码校验', 'validate-specs.mjs'],
+  ['契约漂移锁（冻结 schema vs 哈希锁）', 'check-contract-drift.mjs'],
   ['文档内部链接检查', 'check-doc-links.mjs'],
 ];
 
