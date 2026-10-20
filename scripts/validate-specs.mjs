@@ -205,33 +205,32 @@ console.log('\n[6/9] 中文编码完整性（U+FFFD + BOM 扫描）');
   if (badCount === 0) ok(`扫描 ${scanned} 个文件，无 U+FFFD、无 BOM`);
 }
 
-// ------------------------------------------------------- 可疑产物防护
-console.log('\n[7/9] 注入产物防护');
+// ------------------------------------------- 并行会话产物（勿入库）提示
+console.log('\n[7/9] 并行会话产物检查');
 /**
- * 2026-10-20 发现仓库内出现不属于本项目的「渗透测试」任务产物
- * （operation-state.json / pentest/ / route-audit.md）。详见
- * docs/02-engineering/SECURITY.md SEC-001。
+ * 工作目录 D:\MatrixOS 同时被用户另一个会话用于渗透测试工作。
+ * 那些产物（operation-state.json / pentest/ 等）已在 .gitignore 中，
+ * 不会进入 MatrixOS 版本库。
  *
- * 处理策略：这些路径已在 .gitignore 中，不会进入版本库，所以只做提示
- * 而非阻断——可能是用户在另一个会话中自行发起的工作，Lead 无权据此
- * 单方面阻塞 MatrixOS 的正常提交。
+ * 这里只做存在性提示，**不阻断**——它们是用户的正常工作文件，
+ * MatrixOS 的构建、测试、发布流程不依赖也不应受其影响。
  *
- * MatrixOS 的构建、测试、发布流程不依赖这些产物。
+ * 背景见 docs/02-engineering/SECURITY.md SEC-001（含 Lead 判断失误的记录）。
  */
 {
-  const FORBIDDEN = [
-    ['operation-state.json', '外来任务台账'],
-    ['route-audit.md', '外来路由审计留痕'],
-    ['pentest', '对外渗透测试产物'],
+  const OTHER_SESSION = [
+    ['operation-state.json', '另一会话的任务台账'],
+    ['route-audit.md', '另一会话的路由留痕'],
+    ['pentest', '另一会话的渗透测试证据目录'],
   ];
   let found = 0;
-  for (const [name, why] of FORBIDDEN) {
+  for (const [name, why] of OTHER_SESSION) {
     if (existsSync(join(ROOT, name))) {
       found++;
-      warn(`存在 ${name}（${why}）—— 与本项目无关，已 gitignore，不影响版本库`);
+      warn(`存在 ${name}（${why}）—— 已 gitignore，不影响 MatrixOS 版本库`);
     }
   }
-  if (found === 0) ok('无可疑注入产物');
+  if (found === 0) ok('无并行会话产物');
   else ok('上述产物已 gitignore，不进入版本库');
 }
 
