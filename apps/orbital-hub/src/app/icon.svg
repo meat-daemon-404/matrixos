@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- MatrixOS 图标：星轨引力场的极简抽象 -->
+  <defs>
+    <radialGradient id="core" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#a5b4fc"/>
+      <stop offset="55%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#312e81"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 深色底 -->
+  <rect width="64" height="64" rx="14" fill="#050814"/>
+
+  <!-- 三条轨道（椭圆） -->
+  <ellipse cx="32" cy="32" rx="24" ry="11" fill="none" stroke="#06b6d4" stroke-opacity="0.55" stroke-width="1.6"/>
+  <ellipse cx="32" cy="32" rx="17" ry="24" fill="none" stroke="#8b5cf6" stroke-opacity="0.5" stroke-width="1.4" transform="rotate(38 32 32)"/>
+  <ellipse cx="32" cy="32" rx="17" ry="24" fill="none" stroke="#10b981" stroke-opacity="0.4" stroke-width="1.2" transform="rotate(-38 32 32)"/>
+
+  <!-- 中央脉冲核心 -->
+  <circle cx="32" cy="32" r="8.5" fill="url(#core)"/>
+  <circle cx="32" cy="32" r="8.5" fill="none" stroke="#a5b4fc" stroke-opacity="0.8" stroke-width="0.8"/>
+
+  <!-- 轨道上的微站胶囊 -->
+  <circle cx="56" cy="32" r="2.4" fill="#06b6d4"/>
+  <circle cx="13" cy="20" r="2" fill="#8b5cf6"/>
+  <circle cx="48" cy="52" r="1.8" fill="#10b981"/>
+</svg>

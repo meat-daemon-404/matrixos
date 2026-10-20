@@ -199,6 +199,26 @@ async def create_asset(
     """创建资产（node + chunks 同一事务）。"""
     assert_can_write(scope, station_id)
 
+    # ── 合规红线：证据锚点至少 1 条（ADR-000 / wormhole-envelope minItems:1）──
+    #
+    # 为什么校验放在这里而不是 Pydantic schema：
+    # FastAPI 在绑定请求体时就跑 schema 校验，**早于**上面的 assert_can_write。
+    # 若放在 schema 层，无权用户会收到 422 而非 403 —— 越权必须先被拒绝，
+    # 不能让数据校验抢先（既泄露字段约束，也破坏安全语义）。
+    #
+    # 为什么这条校验必须存在（2026-10-20 实测）：
+    # 原实现的 `_level_consistency` validator 是空壳，`POST /v1/assets`
+    # 传 `evidence_anchors: []` 仍能 201 成功，资产入库后无法溯源。
+    # 这比 wormhole 端点更危险 —— 虫洞端点至少校验了 evidence_count >= 1，
+    # 而资产是长期沉淀的那一侧。
+    if not evidence_anchors:
+        raise MatrixError(
+            ErrorCode.VALIDATION_FAILED,
+            "evidence_anchors 不能为空：每个科研资产必须至少绑定 1 条证据锚点"
+            "（source_doi_or_url + verification_level），这是 v3 的合规红线",
+            status_code=422,
+        )
+
     asset_id = uuid.uuid4()
     search_text = build_search_text(asset_type, title, payload, evidence_anchors)
     node = AssetNode(

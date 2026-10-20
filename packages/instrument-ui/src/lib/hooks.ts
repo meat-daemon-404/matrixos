@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
 /** SSR 安全的「是否已挂载」标记（Canvas/ResizeObserver 只在挂载后启用）。 */
@@ -146,15 +146,32 @@ export function usePrevious<T>(value: T): T | undefined {
   return ref.current;
 }
 
-/** 稳定的唯一 id 前缀（SSR 与客户端一致，不依赖随机数）。 */
-let uidCounter = 0;
+/**
+ * 稳定的唯一 id 前缀。
+ *
+ * 历史教训（2026-10-20）：这里原本用**模块级自增计数器**
+ * `let uidCounter = 0; uidCounter += 1`。
+ * 注释写着「SSR 与客户端一致」，但这是错的——
+ * 服务端渲染一个页面时计数器从 0 开始跑一遍，
+ * 客户端 hydrate 时**模块重新加载**，计数器又从 0 开始。
+ * 只要两次渲染的组件挂载顺序或数量有任何差异
+ * （iframe 懒加载、条件渲染都会造成），id 就对不上，
+ * React 报 hydration mismatch，且属性不会被修补。
+ *
+ * 实际表现：orbital-hub 挂载第 2 个仪器后，
+ * DampedKnob 的 `id="iu-knob-1-label"` 与 SSR 的 `iu-knob-85-label` 冲突。
+ *
+ * 正确做法是 React 18 的 `useId()`：它由 React 自己在
+ * render tree 中分配，SSR 与 hydration 天然一致。
+ * 这里保留 prefix 参数以兼容既有调用点，把 useId 的
+ * 冒号形式（:r0:）转成合法的 CSS id（去掉冒号）。
+ */
 export function useUid(prefix = 'iu'): string {
-  const ref = useRef<string | null>(null);
-  if (ref.current === null) {
-    uidCounter += 1;
-    ref.current = `${prefix}-${uidCounter}`;
-  }
-  return ref.current;
+  const raw = useId();
+  // useId 返回形如 ":r0:" / ":r1:"，冒号在 CSS 选择器里需转义，
+  // 统一替换成下划线，既合法又保持唯一。
+  const safe = raw.replace(/:/g, '_');
+  return `${prefix}-${safe}`;
 }
 
 /** 数值变化时的 CSS 过渡开关（首帧不要过渡，否则从 0 跳变）。 */

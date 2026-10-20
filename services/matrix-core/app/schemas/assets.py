@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models.assets import ASSET_TYPES, EDGE_RELATIONS, VERIFICATION_LEVELS
 
@@ -52,9 +52,24 @@ class AssetCreateRequest(BaseModel):
     verification_level: VerificationLevel = "Level_B_Preprint"
     trace_id: str | None = Field(default=None, description="溯源到虫洞投送的 trace_id")
 
+    # 注意：这里**刻意不做** evidence_anchors 非空校验。
+    #
+    # 原因（2026-10-20 实测）：FastAPI 在把请求体绑定到 `payload` 参数时就会跑
+    # Pydantic 校验，**早于**路由函数体内的 `assert_can_write` 权限检查。
+    # 如果在这里拒绝空锚点，会得到「无权用户收到 422 而非 403」——
+    # 即权限检查被数据校验抢先，既泄露了「这个字段有约束」的信息，
+    # 也让「越权必须先 403」这条安全语义失守。
+    #
+    # 合规红线校验因此下沉到 service 层（app/services/assets.py 的
+    # create_asset），在 scope 检查之后执行。见 tests/test_asset_redline.py。
+
     @field_validator("evidence_anchors")
     @classmethod
     def _level_consistency(cls, value: list[EvidenceAnchorIn]) -> list[EvidenceAnchorIn]:
+        """占位：逐条锚点的形状由 EvidenceAnchorIn 自身保证。
+
+        非空校验不在这里——见上方注释与 service 层实现。
+        """
         return value
 
 

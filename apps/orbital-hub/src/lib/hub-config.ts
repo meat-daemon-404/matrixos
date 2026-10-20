@@ -63,14 +63,30 @@ export function readHubConfig(): HubRuntimeConfig {
     return Number.isFinite(value) && value > 0 ? value : fallback;
   };
 
+  /**
+   * 开发模式的阈值放宽。
+   *
+   * 为什么需要：dev server 下每个微站首次编译会产生 600ms+ 的长任务，
+   * HMR 也会周期性触发重编译。这些是**开发工具链的开销**，不是产品性能问题。
+   * 实测（2026-10-20）：挂 2 个 dev 微站时长任务 631ms，直接触发降级，
+   * 而生产构建的同一页面长任务 < 50ms。
+   *
+   * 所以 dev 下把长任务上限提到 1000ms、帧率下限降到 30，
+   * 让降级机制**只在真实性能问题时触发**，不被工具链噪音误触。
+   * 生产模式仍用严格阈值（45fps / 800MB / 100ms）。
+   */
+  const isDev = process.env.NODE_ENV !== 'production';
+  const fpsFloorDefault = isDev ? 30 : 45;
+  const longTaskDefault = isDev ? 1000 : 100;
+
   return {
     originTemplate: template,
     localMode,
     usePlaceholder: readPublicEnv(process.env.NEXT_PUBLIC_MICROSITE_PLACEHOLDER, 'true') !== 'false',
     probe: {
-      fpsFloor: num(process.env.NEXT_PUBLIC_HUB_FPS_FLOOR, 45),
+      fpsFloor: num(process.env.NEXT_PUBLIC_HUB_FPS_FLOOR, fpsFloorDefault),
       memoryCeilingMB: num(process.env.NEXT_PUBLIC_HUB_MEM_CEILING_MB, 800),
-      longTaskCeilingMs: num(process.env.NEXT_PUBLIC_HUB_LONG_TASK_MS, 100),
+      longTaskCeilingMs: num(process.env.NEXT_PUBLIC_HUB_LONG_TASK_MS, longTaskDefault),
       breachWindows: 2,
     },
     forceSnapshotMode: readPublicEnv(process.env.NEXT_PUBLIC_HUB_FORCE_SNAPSHOT, '') === 'true',
