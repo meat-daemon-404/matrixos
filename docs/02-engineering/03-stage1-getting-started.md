@@ -47,21 +47,40 @@ node scripts/doctor.mjs
 
 ---
 
-## 三、任务在 GitHub Issues 里
+## 三、领任务：先查台账，再认领，再动手
 
-22 个 Stage 1 任务已全部导入 Issues（#1–#22），挂在 `Stage 1` 里程碑下。
+22 个 Stage 1 任务已导入 Issues（#1–#22，与 `S1-01`…`S1-22` 一一对应），挂在 `Stage 1` 里程碑下。
 
-挑任务的方式：
+> 🔴 **别直接挑一个就开工。** Issue 开着不等于没做。2026-10-20 实测：#1–#22 导入后一天，`main` 上 27 个提交有 26 个没挂任何 Issue 号，做完的工作在台账上看不见；全部 Issue 仍为 open、0 assignee、0 PR——照这张表开工，做的大半是重复劳动。
 
 ```bash
-# 看所有 Stage 1 任务
-gh issue list --label stage-1
+# ① 看真实状态：谁在写 / 谁在评审 / 什么空闲 / 台账是否落后于代码
+node scripts/claim.mjs ls --deep
 
-# 按优先级
-gh issue list --label "stage-1,P0"
+# ② 认领（写 assignee + status:claimed，在 Issue 下留痕）
+node scripts/claim.mjs claim 16 --note "先做 schema 生成"
 
-# 按模块
-gh issue list --label "stage-1,area:matrix-sdk"
+# ③ 开独立 worktree 分支，不碰主工作区（多会话并行的硬要求）
+node scripts/claim.mjs branch 16 curvelab
+cd .worktrees/feat/16-curvelab
+
+# ④ 做完：开 PR，再带证据关闭（没证据不让关）
+node scripts/claim.mjs pr 16                                    # 自动写 Closes #16
+node scripts/claim.mjs done 16 --evidence "typecheck 25/25；385 测试通过；见 PR #7"
+
+# 中途不做了：释放，别占坑
+node scripts/claim.mjs release 16
+```
+
+`ls --deep` 会拿每条 Issue 标题的关键词回查 `main` 的提交历史，标出「疑似已动工」。它只是提示，**结论要有人读代码确认**：确认做完的 `done --evidence` 关掉，只做一半的在 Issue 下写清还缺什么，纯靠外部条件的打 `block`。
+
+直接用 `gh` 查也可以：
+
+```bash
+gh issue list --label stage-1                    # 所有 Stage 1 任务
+gh issue list --label "stage-1,P0"               # 按优先级
+gh issue list --label "stage-1,area:matrix-sdk"  # 按模块
+gh issue list --assignee @me                     # 我认领了什么
 ```
 
 **关键路径**（决定 Stage 1 能否按时交付）：
@@ -146,8 +165,10 @@ Stage 1 结束时逐项验证（对应 `S1-22`）：
 
 | 情况 | 怎么办 |
 | :--- | :--- |
+| **不确定该不该开工** | `node scripts/claim.mjs ls --deep`——先确认没人在做、台账没落后于代码 |
 | 环境报错 | `node scripts/doctor.mjs` 先自检 |
 | 校验不过 | `pnpm check` 看详情；确认误报可用 `git commit --no-verify` |
 | 契约要改 | 开 `type:spec` Issue，别直接改 |
-| 架构疑问 | 开 Discussion，别在聊天里定 |
+| 架构疑问 | 开 Issue 讨论；本仓 Discussions 未启用，没有 Discussion 入口 |
 | 发现文档过期 | 直接提 PR 修文档，别让它继续骗下一个人 |
+| 发现活已经做完了 | `done --evidence` 关掉它，别留着让下一个人重做 |

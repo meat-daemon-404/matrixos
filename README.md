@@ -333,9 +333,16 @@ ADR-001 规定的 UI 形态（精密推子配重仪、五柱流体压差计、36
 
 1. 先读 [`docs/01-plan/01-architecture.md`](docs/01-plan/01-architecture.md) 建立全局理解
 2. 再读 [`docs/02-engineering/04-implementation-status.md`](docs/02-engineering/04-implementation-status.md) 弄清**现在到底有什么、缺什么**（别被"能构建"误导）
-3. 遵循 [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md) 的分支与提交规范
-4. 从 [Issues](../../issues) 中挑选带 `good-first-issue` 或对应 Stage 标签的任务
-5. 任务状态以 [Project 看板](../../projects) 为准
+3. 读 [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md) 的分支与提交规范
+4. **开工前先查台账并认领**——别挑个 open Issue 就直接做，它很可能已经在 `main` 上了：
+
+   ```bash
+   node scripts/claim.mjs ls --deep          # 谁在写 / 什么空闲 / 台账是否落后于代码
+   node scripts/claim.mjs claim <编号>        # 认领
+   node scripts/claim.mjs branch <编号> <slug> # 独立 worktree 分支
+   ```
+
+5. 任务状态以 [GitHub Issues](https://github.com/meat-daemon-404/matrixos/issues) 为唯一台账（本仓**没有** Project 看板，看到别处提到「看板」即为过期信息）
 
 ---
 

@@ -42,9 +42,11 @@ P2 | fef2c0 | 可延后
 
 # ===== 状态 / 流程 =====
 status:triage | ededed | 待分类
+status:claimed | d4c5f9 | 已有人认领，正在写——他人勿就同一范围开工
+status:in-review | 1d76db | 已开 PR，评审中——他人勿碰同一批文件
 needs-architecture-review | 6f42c1 | 需架构负责人评审
 needs-design-review | c2e0c6 | 需视觉评审
-blocked | 000000 | 被外部依赖阻塞
+blocked | 000000 | 被外部依赖阻塞（不是待办，别用写代码的方式关闭它）
 good-first-issue | 7057ff | 适合新成员上手
 help-wanted | 008672 | 欢迎社区协助
 compliance | ff0000 | 涉及合规红线（数据 / 伦理 / 财务）
