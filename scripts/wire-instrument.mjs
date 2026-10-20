@@ -16,6 +16,7 @@
  * 手改容易漏、也容易改出差异。脚本保证一致。
  */
 import { readFileSync, writeFileSync, existsSync, copyFileSync, readdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -49,16 +50,23 @@ if (!existsSync(CANONICAL)) {
 /** 已实现仪器的站点（与 shared 包的 IMPLEMENTED_SITES 保持一致） */
 const IMPLEMENTED = new Set([
   '01-gpa-sandbox',
+  '02-spark-teaming',
   '03-grant-audit',
   '04-pat-radar',
+  '05-lit-sonar',
   '06-xingmen-mentor',
+  '07-cold-email-lab',
   '08-lab-kanban',
   '09-matrix-cross',
+  '10-pdf-sniper',
   '11-curvelab-fit',
   '12-repro-check',
+  '13-chart-foundry',
+  '14-review-architect',
   '15-retract-radar',
   '16-yunheng-scale',
   '17-evidence-cv',
+  '18-prejob-multiverse',
 ]);
 
 let wired = 0;
@@ -134,4 +142,25 @@ for (const site of sites) {
 }
 
 console.log(`\n接入 ${wired} 个，跳过 ${skipped} 个，失败 ${failed} 个`);
+
+// 关键收尾：新增 workspace 依赖后必须 pnpm install，否则 node_modules 里
+// 没有对应 junction，tsc 会报 TS2307，进而所有类型退化为 any 触发一片 TS7006。
+// 这个坑踩过两次，固化成脚本的最后一步。
+if (wired > 0) {
+  console.log('\n正在建立 workspace 链接（pnpm install）...');
+  try {
+    execFileSync('pnpm', ['install', '--ignore-scripts'], {
+      cwd: ROOT,
+      stdio: ['ignore', 'pipe', 'inherit'],
+      shell: process.platform === 'win32',
+      timeout: 300000,
+    });
+    console.log('✓ workspace 链接已建立');
+  } catch (e) {
+    console.error('✗ pnpm install 失败，请手动执行：pnpm install');
+    console.error(String(e.message).split('\n')[0]);
+    process.exitCode = 1;
+  }
+}
+
 if (failed > 0) process.exit(1);

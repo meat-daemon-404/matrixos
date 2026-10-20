@@ -441,6 +441,390 @@ export const CV_ENTRIES: readonly CvEntry[] = [
 ];
 
 /* ==========================================================================
+ * 02 · 双创互补组队雷达 —— 技能极坐标互补盘
+ * ========================================================================== */
+
+export interface TeammateCandidate {
+  readonly id: string;
+  readonly name: string;
+  readonly major: string;
+  /** 五维技能评分（0-100）：硬件 / 算法 / 商业 / 实验 / 写作 */
+  readonly skills: {
+    readonly hardware: number;
+    readonly algorithm: number;
+    readonly business: number;
+    readonly experiment: number;
+    readonly writing: number;
+  };
+  /** 与当前用户的互补度（0-100） */
+  readonly complementScore: number;
+}
+
+export const TEAMMATES: readonly TeammateCandidate[] = [
+  {
+    id: 'tm1',
+    name: '陈同学',
+    major: '计算机学院',
+    complementScore: 92.4,
+    skills: { hardware: 35, algorithm: 95, business: 40, experiment: 30, writing: 55 },
+  },
+  {
+    id: 'tm2',
+    name: '林同学',
+    major: '商学院',
+    complementScore: 86.1,
+    skills: { hardware: 20, algorithm: 30, business: 96, experiment: 25, writing: 88 },
+  },
+  {
+    id: 'tm3',
+    name: '赵同学',
+    major: '材料学院',
+    complementScore: 78.5,
+    skills: { hardware: 70, algorithm: 45, business: 30, experiment: 92, writing: 60 },
+  },
+];
+
+/** 当前用户自己的技能画像（对照基准） */
+export const SELF_SKILLS = {
+  hardware: 88,
+  algorithm: 52,
+  business: 35,
+  experiment: 90,
+  writing: 68,
+} as const;
+
+export const SKILL_LABELS: Readonly<Record<keyof typeof SELF_SKILLS, string>> = {
+  hardware: '硬件',
+  algorithm: '算法',
+  business: '商业',
+  experiment: '实验',
+  writing: '写作',
+};
+
+/* ==========================================================================
+ * 05 · 五源跨库引文声呐站 —— 已有 CITATION_NODES，补充边关系
+ * ========================================================================== */
+
+export interface CitationEdge {
+  readonly from: string;
+  readonly to: string;
+  readonly kind: 'cites' | 'extends' | 'refutes';
+}
+
+export const CITATION_EDGES: readonly CitationEdge[] = [
+  { from: 'n2', to: 'n1', kind: 'extends' },
+  { from: 'n1', to: 'n3', kind: 'extends' },
+  { from: 'n3', to: 'n4', kind: 'cites' },
+  { from: 'n4', to: 'n5', kind: 'extends' },
+  { from: 'n5', to: 'n6', kind: 'cites' },
+  { from: 'n4', to: 'n6', kind: 'refutes' },
+];
+
+/** 数据源覆盖情况 */
+export const CITATION_SOURCES = [
+  { id: 'openalex', label: 'OpenAlex', count: 2840 },
+  { id: 'arxiv', label: 'arXiv', count: 1920 },
+  { id: 'pubmed', label: 'PubMed', count: 640 },
+  { id: 'crossref', label: 'Crossref', count: 1740 },
+  { id: 'semantic', label: 'Semantic Scholar', count: 1210 },
+] as const;
+
+/* ==========================================================================
+ * 07 · 证据内嵌式套磁信推演器 —— 双栏红蓝对抗
+ * ========================================================================== */
+
+export interface EmailDraft {
+  readonly id: string;
+  readonly version: string;
+  readonly subject: string;
+  readonly body: string;
+  /** 导师视角评分（0-100），模拟「红队」审阅 */
+  readonly redTeamScore: number;
+  readonly redTeamIssues: readonly string[];
+}
+
+export const EMAIL_DRAFTS: readonly EmailDraft[] = [
+  {
+    id: 'd1',
+    version: '草案 A · 平铺直叙',
+    subject: '关于钙钛矿界面钝化研究的请教',
+    body: `张教授您好，
+
+我是光电专业大三学生孙同学，对您 2025 年发表在 Nature Photonics 上的
+准二维钝化工作非常感兴趣。我正在做大创课题，方向是钙钛矿太阳能电池的
+界面工程。
+
+我已复现了您论文中的双指数衰减拟合（R² = 0.988），并在此基础上尝试了
+R/S-MBA 手性界面的对照实验。
+
+不知您本学期是否有接收本科生的计划？希望能有机会向您请教。
+
+祝好
+孙同学`,
+    redTeamScore: 62,
+    redTeamIssues: ['缺少具体的数据证据锚点', '没有说明能为课题组带来什么', '自我定位不够清晰'],
+  },
+  {
+    id: 'd2',
+    version: '草案 B · 证据嵌入版',
+    subject: '准二维钝化复现结果 + 关于进组学习的请求',
+    body: `张教授您好，
+
+我是光电专业大三学生孙同学（GPA 3.86，专业前 4.2%）。
+
+我复现了您 Nat. Photon. 2025 论文（DOI 10.1038/s41566-025-01234-5）
+Fig. 2b 的双指数衰减拟合，R² = 0.9884，τ₁ = 14.2 ns、τ₂ = 89.5 ns，
+与原文报告值偏差 < 3%（见附件拟合图与残差分析）。
+
+进一步，我在 PEAI 钝化基础上做了 R/S-MBA 手性界面的对照，观察到
+EQE 从 28.4% 降至 25.1%，与 Adv. Mater. 2024 的趋势一致。
+
+我希望能在您课题组学习界面工程的系统方法。如果您本学期有接收计划，
+我可以每周投入 15 小时，从数据整理与样品制备做起。
+
+附：拟合代码仓库 [GitHub 链接]、实验记录本 [PDF]
+
+祝好
+孙同学`,
+    redTeamScore: 91,
+    redTeamIssues: [],
+  },
+];
+
+export const EMAIL_TIPS = [
+  '首段说明来意，不要铺垫过长',
+  '具体引用导师的某篇论文（含 DOI）',
+  '展示你实际做了什么，而非「很感兴趣」',
+  '说明可投入时间与能承担的工作',
+  '附件给可验证的证据（代码、图、记录）',
+] as const;
+
+/* ==========================================================================
+ * 10 · PDF 公式与参量狙击镜 —— 双栏光学瞄准
+ * ========================================================================== */
+
+export interface FormulaEntry {
+  readonly id: string;
+  readonly latex: string;
+  readonly plain: string;
+  /** 物理量纲解释 */
+  readonly dimension: string;
+  readonly explanation: string;
+  readonly python: string;
+}
+
+export const FORMULAS: readonly FormulaEntry[] = [
+  {
+    id: 'f1',
+    latex: 'I(t) = A_1 e^{-t/\\tau_1} + A_2 e^{-t/\\tau_2}',
+    plain: 'I(t) = A₁e^(-t/τ₁) + A₂e^(-t/τ₂)',
+    dimension: 'A₁, A₂ 无量纲（归一化强度）；τ₁, τ₂ 单位 ns',
+    explanation: '双指数衰减模型，描述载流子在快、慢两个通道的复合过程。常用于 TRPL 时间分辨荧光测量。',
+    python: `import numpy as np
+def bi_exp(t, A1, tau1, A2, tau2):
+    return A1 * np.exp(-t / tau1) + A2 * np.exp(-t / tau2)`,
+  },
+  {
+    id: 'f2',
+    latex: 'R^2 = 1 - \\frac{\\sum (y_i - \\hat{y}_i)^2}{\\sum (y_i - \\bar{y})^2}',
+    plain: 'R² = 1 - Σ(yᵢ - ŷᵢ)² / Σ(yᵢ - ȳ)²',
+    dimension: '无量纲，取值范围 (-∞, 1]',
+    explanation: '决定系数，衡量拟合优度。1 表示完美拟合，0 表示与均值预测等效，负值说明模型比均值还差。',
+    python: `def r_squared(y_true, y_pred):
+    ss_res = np.sum((y_true - y_pred) ** 2)
+    ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
+    return 1 - ss_res / ss_tot`,
+  },
+  {
+    id: 'f3',
+    latex: 'EQE = \\frac{J_{sc}}{q \\Phi}',
+    plain: 'EQE = J_sc / (q · Φ)',
+    dimension: 'J_sc 单位 A/m²；q = 1.602×10⁻¹⁹ C；Φ 为单位面积光子通量',
+    explanation: '外量子效率，收集到的电子数与入射光子数之比。EQE 超过 100% 意味着存在多激子产生等增益机制。',
+    python: `q = 1.602e-19  # 元电荷 (C)
+
+def eqe(J_sc, photon_flux):
+    """J_sc: A/m^2, photon_flux: 光子/(m^2·s)"""
+    return J_sc / (q * photon_flux)`,
+  },
+];
+
+/** 模拟双栏 PDF 的原文段落（截图式呈现） */
+export const PDF_SNIPPETS = [
+  {
+    id: 's1',
+    page: 4,
+    text: 'The TRPL decay curves were fitted with a bi-exponential model. The fitted lifetimes were τ₁ = 14.2 ns and τ₂ = 89.5 ns, with R² = 0.9884.',
+    formulaId: 'f1',
+  },
+  {
+    id: 's2',
+    page: 5,
+    text: 'The external quantum efficiency (EQE) was calculated from the J–V measurements and the spectral response.',
+    formulaId: 'f3',
+  },
+  {
+    id: 's3',
+    page: 8,
+    text: 'Goodness of fit was evaluated using the coefficient of determination R² across all devices.',
+    formulaId: 'f2',
+  },
+] as const;
+
+/* ==========================================================================
+ * 13 · Nature 级出版图表熔炉 —— 光学暗房调色台
+ * ========================================================================== */
+
+export interface ChartStyle {
+  readonly id: string;
+  readonly name: string;
+  readonly journal: string;
+  readonly columnWidth: string;
+  readonly fontSize: string;
+  readonly dpi: number;
+  readonly colorBlindSafe: boolean;
+  readonly palette: readonly string[];
+}
+
+export const CHART_STYLES: readonly ChartStyle[] = [
+  {
+    id: 'nature',
+    name: 'Nature 双栏',
+    journal: 'Nature / Nature Photonics',
+    columnWidth: '89 mm（单栏）/ 183 mm（双栏）',
+    fontSize: '5–7 pt',
+    dpi: 300,
+    colorBlindSafe: true,
+    palette: ['#0C2C4D', '#1B7C8C', '#57B8A8', '#E8A33D', '#C94C4C'],
+  },
+  {
+    id: 'ieee',
+    name: 'IEEE Transactions',
+    journal: 'IEEE 系列',
+    columnWidth: '88.9 mm / 181 mm',
+    fontSize: '8 pt',
+    dpi: 600,
+    colorBlindSafe: true,
+    palette: ['#000000', '#4D4D4D', '#0072B2', '#D55E00', '#009E73'],
+  },
+  {
+    id: 'screen',
+    name: '屏幕演示',
+    journal: '答辩 / 幻灯片',
+    columnWidth: '自适应',
+    fontSize: '14–18 pt',
+    dpi: 150,
+    colorBlindSafe: true,
+    palette: ['#6366f1', '#06b6d4', '#10b981', '#f59e0b', '#f43f5e'],
+  },
+];
+
+/* ==========================================================================
+ * 14 · 综述拓扑推演与写作舱 —— 章节逻辑流
+ * ========================================================================== */
+
+export interface ReviewCluster {
+  readonly id: string;
+  readonly school: string;
+  readonly papers: number;
+  readonly citations: number;
+  readonly keyClaim: string;
+  readonly representativeDoi: string;
+}
+
+export const REVIEW_CLUSTERS: readonly ReviewCluster[] = [
+  {
+    id: 'c1',
+    school: '准二维钝化流派',
+    papers: 12,
+    citations: 1840,
+    keyClaim: '引入大有机阳离子形成准二维层，抑制界面非辐射复合',
+    representativeDoi: '10.1038/s41566-025-01234-5',
+  },
+  {
+    id: 'c2',
+    school: '手性界面流派',
+    papers: 7,
+    citations: 620,
+    keyClaim: '利用手性分子诱导 CISS 效应，同时提升效率与自旋选择性',
+    representativeDoi: '10.1002/adma.202401234',
+  },
+  {
+    id: 'c3',
+    school: '双氟代配体交联',
+    papers: 9,
+    citations: 980,
+    keyClaim: '氟代配体交联增强界面稳定性，改善器件寿命',
+    representativeDoi: '10.1021/jacs.4c0112',
+  },
+];
+
+export const REVIEW_OUTLINE = [
+  { id: 'o1', level: 1, text: '引言：钙钛矿太阳能电池的效率瓶颈' },
+  { id: 'o2', level: 2, text: '界面非辐射复合的物理机制' },
+  { id: 'o3', level: 1, text: '界面工程三大技术流派' },
+  { id: 'o4', level: 2, text: '准二维钝化：范式与局限', clusterId: 'c1' },
+  { id: 'o5', level: 2, text: '手性界面：自旋自由度的引入', clusterId: 'c2' },
+  { id: 'o6', level: 2, text: '氟代交联：稳定性优先路线', clusterId: 'c3' },
+  { id: 'o7', level: 1, text: '流派比较与研究空白' },
+] as const;
+
+/* ==========================================================================
+ * 18 · 生涯多重宇宙期望决策树 —— 量子分岔概率光轨
+ * ========================================================================== */
+
+export interface CareerPath {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  /** 五年期望收益（万元） */
+  readonly expectedGain: number;
+  /** 风险评级 */
+  readonly risk: 'low' | 'medium' | 'high';
+  /** 各年收益轨迹（万元），与 expectedGain 自洽 */
+  readonly trajectory: readonly number[];
+  readonly probabilities: {
+    readonly success: number;
+    readonly neutral: number;
+    readonly fail: number;
+  };
+}
+
+/**
+ * 三条生涯路径的五年推演。
+ * 数值自洽性：trajectory 的均值应约等于 expectedGain / 5。
+ */
+export const CAREER_PATHS: readonly CareerPath[] = [
+  {
+    id: 'p1',
+    name: '推免直博',
+    description: '保研本校直博，5 年博士毕业进入高校或研究所',
+    expectedGain: 85,
+    risk: 'medium',
+    trajectory: [2, 4, 6, 8, 15],
+    probabilities: { success: 0.62, neutral: 0.28, fail: 0.1 },
+  },
+  {
+    id: 'p2',
+    name: '头部光企研发',
+    description: '硕士毕业后进入头部光电企业做研发工程师',
+    expectedGain: 120,
+    risk: 'low',
+    trajectory: [18, 22, 25, 27, 28],
+    probabilities: { success: 0.78, neutral: 0.18, fail: 0.04 },
+  },
+  {
+    id: 'p3',
+    name: '选调考公',
+    description: '应届考取定向选调，进入体制内技术管理岗',
+    expectedGain: 70,
+    risk: 'low',
+    trajectory: [10, 12, 14, 16, 18],
+    probabilities: { success: 0.55, neutral: 0.35, fail: 0.1 },
+  },
+];
+
+/* ==========================================================================
  * 站点 → 仪器绑定表
  * ========================================================================== */
 
@@ -488,5 +872,6 @@ export const SITE_INSTRUMENT: Readonly<Record<string, InstrumentKind>> = {
 
 /** 哪些站点已接上真实仪器（未列出的仍为骨架）。 */
 export const IMPLEMENTED_SITES: readonly string[] = [
-  '01', '03', '04', '06', '08', '09', '11', '12', '15', '16', '17',
+  '01', '02', '03', '04', '05', '06', '07', '08', '09',
+  '10', '11', '12', '13', '14', '15', '16', '17', '18',
 ];
