@@ -1,0 +1,116 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# matrix-core 生产 compose 编排
+#
+# 这是 Dockerfile 头部注释引用的那个文件（`docker-compose.prod.yml`）。
+# 与仓库根的 `docker-compose.yml` 分工不同：
+#   根的那份 = **本地开发基础设施**，只起 postgres（matrix-core 被注释掉，
+#               因为开发时直接用 venv 跑 uvicorn 更快，热重载也方便）
+#   本文件   = **生产编排**，postgres + matrix-core 一起起，带资源限制与健康依赖
+#
+# 用法：
+#   cp .env.production.example .env.production   # 再填真实值
+#   docker compose -f services/matrix-core/docker-compose.prod.yml build
+#   docker compose -f services/matrix-core/docker-compose.prod.yml up -d
+#   docker compose -f services/matrix-core/docker-compose.prod.yml \
+#     run --rm matrix-core alembic upgrade head    # 首次上线/每次迁移
+#
+# ⚠️ context 是**仓库根目录**（不是 services/matrix-core）：镜像里要把
+#    `specs/microsites.json` 和 `services/matrix-core/` 一起拷进去，所以
+#    build context 必须是根。dockerfile 路径相对 context 指定。
+# ──────────────────────────────────────────────────────────────────────────────
+
+name: matrixos-prod
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: matrixos-prod-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?必须设置 POSTGRES_USER}
+      # 不加默认值：弱口令默认值是最常见的生产事故来源之一，
+      # 宁可启动直接失败，也不要静默用 matrixos_dev_only 上线。
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?必须设置 POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-matrixos}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - matrixos-prod-pgdata:/var/lib/postgresql/data
+      - ./../../infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    # 不对外暴露 5432：数据库只在 compose 网络内可达，宿主机不监听。
+    # 需要本机连库时用 `docker compose exec postgres psql -U ...`。
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+        reservations:
+          memory: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  matrix-core:
+    build:
+      context: ./../..
+      dockerfile: services/matrix-core/Dockerfile
+    image: matrix-core:0.1.0
+    container_name: matrixos-prod-core
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env.production
+    environment:
+      # 显式覆盖 DATABASE_URL：让它指向 compose 内部的 postgres 服务名，
+      # 而不是 .env.production 里可能写着的外部地址。容器网络里 'postgres'
+      # 才是正确主机名，写 127.0.0.1 会连到自己。
+      #
+      # ⚠️ 注意变量名是 MATRIX_CORE_ 前缀（config.py 的 env_prefix），
+      # 不是 DATABASE_URL。写成 DATABASE_URL 会被 pydantic 忽略，
+      # 然后悄悄退回默认值 —— 这是很难查的静默降级。
+      MATRIX_CORE_DATABASE_URL: >-
+        postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-matrixos}
+      # 生产必须为 false：否则密钥目录空时会自动生成一对密钥，
+      # 多副本各自生成 → 互相验不过对方的 token。
+      MATRIX_CORE_AUTO_GENERATE_KEYS: "false"
+      MATRIX_CORE_APP_ENV: "production"
+      MATRIX_CORE_KEYS_DIR: /var/lib/matrix-core/keys
+    volumes:
+      # 密钥只读挂载：镜像内不含任何私钥（见 Dockerfile 设计取舍第 3 条）。
+      # 宿主机上先用 scripts/matrix-core-gen-keys.py 生成一次。
+      - ./keys:/var/lib/matrix-core/keys:ro
+    ports:
+      # 只绑 127.0.0.1：外层由反向代理（Caddy/Nginx/Cloudflare Tunnel）终结 TLS。
+      # 绑 0.0.0.0 会把无 TLS 的明文端口暴露到公网。
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/v1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+        reservations:
+          memory: 128m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  matrixos-prod-pgdata:
+    name: matrixos-prod-pgdata
