@@ -65,6 +65,12 @@ import { createRequire } from 'node:module';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// 图标与 metadata 段来自 scripts/site-icons.mjs，与 scripts/gen-site-assets.mjs 共用同一份实现。
+// 为什么必须共用：这两处曾各持一份模板 —— 脚手架生成的 layout.tsx 缺 SITE_ORIGIN/icons/robots，
+// 而补丁器生成的是另一形态；跑一次 `gen:site --force` 就会把补齐的 metadata 覆盖回旧形态。
+// 单一事实源让「新站脚手架」与「旧站补丁」产出逐字节一致，不再漂移。
+import { renderMetadataBlock } from './site-icons.mjs';
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const ROSTER_PATH = join(ROOT, 'specs', 'microsites.json');
 const MICRO_ROOT = join(ROOT, 'apps', 'micro-sites');
@@ -705,16 +711,7 @@ import ${JSON.stringify(deps.instrumentUi + '/styles.css')};
 import { SITE } from '../site.config';
 import './globals.css';
 
-export const metadata: Metadata = {
-  metadataBase: new URL('https://' + SITE.domain),
-  title: SITE.name + ' · MatrixOS',
-  description: SITE.desc,
-  applicationName: 'MatrixOS',
-  other: {
-    'matrixos:station-id': SITE.id,
-    'matrixos:orbit': SITE.orbitName,
-  },
-};
+${renderMetadataBlock()}
 
 export const viewport: Viewport = {
   themeColor: '#050814',
@@ -844,6 +841,26 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* 仅嵌入模式取消视口高度（ADR-08：iframe 内不滚，高度跟着 hub 走） */
+body[data-embedded='true'] { min-height: 0; }
+
+/*
+ * 无障碍等价数据表（instrument-ui 的 .iu-sr-only）压制。
+ *
+ * 为什么必须在这里补：库里的 .iu-sr-only 只给了 width/height: 1px，
+ * 而 <table> 的 display 是 table，1px 对表格是「最小宽度」不是上限 ——
+ * 表格按内容撑成 196 × 4164 px（CurveLab 180 行数据点），虽然被 clip 掉看不见，
+ * 却照样计入文档的可滚动溢出区，把页面顶到 4410 px。
+ * 这些表只服务于读屏软件（position: absolute 已脱离文档流），
+ * 所以这里把宽高压成硬上限并改用 block，打断表格布局算法；语义不变，读屏照读。
+ */
+.iu-sr-only {
+  display: block;
+  max-width: 1px;
+  max-height: 1px;
+  overflow: hidden;
+}
+
 .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
 /* ── 视觉签名 1：仪器面板（visual-system §5.2，三个细节都不能省） ───────────── */
@@ -886,6 +903,13 @@ body {
 /* iframe 内降级模式（ADR-08）：hub 嵌入式挂载时隐藏大标题/页脚，只留仪器本体 */
 body[data-embedded='true'] .site-chrome { display: none; }
 body[data-embedded='true'] .site-root { padding: 10px; gap: 10px; }
+
+/* 嵌入模式紧凑布局：不留视口高度、不留 auto 外边距、不收尾留白。
+ * 三条都是「按 iframe 高度自适应」的必要项 —— 只要留一条，内容就会被撑出
+ * iframe 可视区，从而出现内层滚动条（ADR-08 明令禁止的双滚动条）。 */
+body[data-embedded='true'] .site-root { min-height: 0; }
+body[data-embedded='true'] .site-root { margin: 0 auto; }
+body[data-embedded='true'] .site-footer { margin-top: 8px; padding: 8px 0; }
 
 .site-header {
   display: flex;

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- MatrixOS 站点图标 · 01 学分绩点动态配重台 -->
+  <!-- gpa.matrixos.edu · UI 形态：精密推子配重仪 -->
+  <!-- 设计说明：三条推子轨 + 三个档位手柄：手柄高度差 = 不同选修课对核心 GPA 的边际贡献，底部一条配重基线。 -->
+  <!-- 由 scripts/site-icons.mjs 生成，勿手改（改这里 → node scripts/gen-site-assets.mjs） -->
+  <rect width="64" height="64" rx="14" fill="#050814"/>
+  <g stroke="#6366f1" stroke-opacity="0.32" stroke-width="1.6" stroke-linecap="round">
+    <path d="M20 13V51"/>
+    <path d="M32 13V51"/>
+    <path d="M44 13V51"/>
+  </g>
+  <rect x="14.5" y="17" width="11" height="6" rx="3" fill="#6366f1" fill-opacity="0.9"/>
+  <rect x="26.5" y="29" width="11" height="6" rx="3" fill="#6366f1" fill-opacity="0.62"/>
+  <rect x="38.5" y="39" width="11" height="6" rx="3" fill="#6366f1" fill-opacity="0.4"/>
+  <path d="M13 54H51" stroke="#6366f1" stroke-opacity="0.5" stroke-width="1.6" stroke-linecap="round"/>
+</svg>

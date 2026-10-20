@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- MatrixOS 站点图标 · 03 大创五科目经费液位仪 -->
+  <!-- grant-audit.matrixos.edu · UI 形态：五柱流体压差计 -->
+  <!-- 设计说明：五柱流体压差计：五根液柱液位高低不一，上方一道虚线是劳务费红线限位阀，看得见“离超限还有多少”。 -->
+  <!-- 由 scripts/site-icons.mjs 生成，勿手改（改这里 → node scripts/gen-site-assets.mjs） -->
+  <rect width="64" height="64" rx="14" fill="#050814"/>
+  <rect x="13" y="15" width="5.5" height="37" rx="2.75" fill="#8b5cf6" fill-opacity="0.12"/>
+  <rect x="21.5" y="15" width="5.5" height="37" rx="2.75" fill="#8b5cf6" fill-opacity="0.12"/>
+  <rect x="30" y="15" width="5.5" height="37" rx="2.75" fill="#8b5cf6" fill-opacity="0.12"/>
+  <rect x="38.5" y="15" width="5.5" height="37" rx="2.75" fill="#8b5cf6" fill-opacity="0.12"/>
+  <rect x="47" y="15" width="5.5" height="37" rx="2.75" fill="#8b5cf6" fill-opacity="0.12"/>
+  <rect x="13" y="36" width="5.5" height="16" rx="2.75" fill="#8b5cf6" fill-opacity="0.45"/>
+  <rect x="21.5" y="27" width="5.5" height="25" rx="2.75" fill="#8b5cf6" fill-opacity="0.57"/>
+  <rect x="30" y="19" width="5.5" height="33" rx="2.75" fill="#8b5cf6" fill-opacity="0.69"/>
+  <rect x="38.5" y="32" width="5.5" height="20" rx="2.75" fill="#8b5cf6" fill-opacity="0.81"/>
+  <rect x="47" y="23" width="5.5" height="29" rx="2.75" fill="#8b5cf6" fill-opacity="0.93"/>
+  <path d="M10 24H54" stroke="#8b5cf6" stroke-opacity="0.55" stroke-width="1.2" stroke-dasharray="2 3" stroke-linecap="round"/>
+</svg>

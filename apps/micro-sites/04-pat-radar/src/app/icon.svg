@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- MatrixOS 站点图标 · 04 PAT-HOT 学科脉冲雷达 -->
+  <!-- pat-hot.matrixos.edu · UI 形态：24h 频谱瀑布流 -->
+  <!-- 设计说明：频谱瀑布流：横向频带逐层堆叠，亮度=强弱，长度=该时段能量；最亮那条是当天推送的“热卡”。 -->
+  <!-- 由 scripts/site-icons.mjs 生成，勿手改（改这里 → node scripts/gen-site-assets.mjs） -->
+  <rect width="64" height="64" rx="14" fill="#050814"/>
+  <rect x="12" y="14" width="33" height="4.6" rx="2.3" fill="#f59e0b" fill-opacity="0.3"/>
+  <rect x="12" y="21.5" width="40" height="4.6" rx="2.3" fill="#f59e0b" fill-opacity="0.9"/>
+  <rect x="12" y="29" width="24" height="4.6" rx="2.3" fill="#f59e0b" fill-opacity="0.45"/>
+  <rect x="12" y="36.5" width="37" height="4.6" rx="2.3" fill="#f59e0b" fill-opacity="0.6"/>
+  <rect x="12" y="44" width="20" height="4.6" rx="2.3" fill="#f59e0b" fill-opacity="0.32"/>
+</svg>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- MatrixOS 站点图标 · 07 证据内嵌式套磁信推演器 -->
+  <!-- cold-email.matrixos.edu · UI 形态：双栏红蓝对抗推演器 -->
+  <!-- 设计说明：双栏对抗：左右两栏一实一虚，中间两支箭头对撞——红蓝推演就是让两种叙事在同一封套磁信里正面相撞。 -->
+  <!-- 由 scripts/site-icons.mjs 生成，勿手改（改这里 → node scripts/gen-site-assets.mjs） -->
+  <rect width="64" height="64" rx="14" fill="#050814"/>
+  <rect x="11" y="14" width="14" height="36" rx="2.5" fill="#06b6d4" fill-opacity="0.22" stroke="#06b6d4" stroke-opacity="0.5" stroke-width="1.2"/>
+  <rect x="39" y="14" width="14" height="36" rx="2.5" fill="#06b6d4" fill-opacity="0.08" stroke="#06b6d4" stroke-opacity="0.42" stroke-width="1.2" stroke-dasharray="3 2.5"/>
+  <path d="M25 25 L32 32 L25 39" fill="none" stroke="#06b6d4" stroke-opacity="0.95" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M39 25 L32 32 L39 39" fill="none" stroke="#06b6d4" stroke-opacity="0.95" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="32" cy="32" r="1.6" fill="#06b6d4"/>
+</svg>

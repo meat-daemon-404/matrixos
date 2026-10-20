@@ -15,6 +15,9 @@ import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// 共享生成器：单一事实源，避免本文件与 build-static-site.mjs 各写一份导致漏改
+import { pagesHeaders } from './lib/pages-headers.mjs';
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const MICRO = join(ROOT, 'apps', 'micro-sites');
 const ENV_FILE = 'D:\\tmp\\matrixos-cloudflare.env';
@@ -31,30 +34,7 @@ if (!process.env.CLOUDFLARE_API_TOKEN && existsSync(ENV_FILE)) {
   process.env.CLOUDFLARE_ACCOUNT_ID = /CLOUDFLARE_ACCOUNT_ID=(.+)/.exec(txt)?.[1]?.trim();
 }
 
-/** 与 build-static-site.mjs 的 pagesHeaders 保持一致。 */
-function pagesHeaders(station) {
-  const ancestors = [
-    "'self'",
-    'https://mx-orbital.pages.dev',
-    'https://*.mx-orbital.pages.dev',
-    'https://orbital.pages.dev',
-    'https://orbital-hub.pages.dev',
-    'https://orbital.matrixos.edu',
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-  ].join(' ');
-  return `# Cloudflare Pages headers · 自动生成 · scripts/redeploy-headers.mjs
-# 站点：${station}
-
-/*
-  Content-Security-Policy: frame-ancestors ${ancestors}
-  Referrer-Policy: strict-origin-when-cross-origin
-  X-Content-Type-Options: nosniff
-
-/_next/static/*
-  Cache-Control: public, max-age=31536000, immutable
-`;
-}
+/** 共享生成器：scripts/lib/pages-headers.mjs（单一事实源） */
 
 const args = process.argv.slice(2);
 const all = args.includes('--all');

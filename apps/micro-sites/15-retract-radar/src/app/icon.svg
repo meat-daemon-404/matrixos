@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- MatrixOS 站点图标 · 15 撤稿深海声呐与伦理合规仪 -->
+  <!-- retract-radar.matrixos.edu · UI 形态：360° 极坐标声呐盘 -->
+  <!-- 设计说明：360° 声呐盘：三层同心测距环 + 八向方位线，亮扇区是正在扫掠的那一格，最亮的点=命中的撤稿/勘误引文。 -->
+  <!-- 由 scripts/site-icons.mjs 生成，勿手改（改这里 → node scripts/gen-site-assets.mjs） -->
+  <rect width="64" height="64" rx="14" fill="#050814"/>
+  <g fill="none" stroke="#10b981" stroke-opacity="0.2" stroke-width="1.1">
+    <circle cx="32" cy="32" r="9"/>
+    <circle cx="32" cy="32" r="14.5"/>
+    <circle cx="32" cy="32" r="20"/>
+  </g>
+  <path d="M32 32 L32 12 A20 20 0 0 1 48.96 21.4 Z" fill="#10b981" fill-opacity="0.28"/>
+  <path d="M32 12V20M32 44V52M12 32H20M44 32H52" stroke="#10b981" stroke-opacity="0.35" stroke-width="1.2" stroke-linecap="round"/>
+  <circle cx="48.96" cy="21.4" r="1.7" fill="#10b981" fill-opacity="0.9"/>
+  <circle cx="41" cy="24" r="2.4" fill="#10b981"/>
+  <circle cx="32" cy="32" r="1.5" fill="#10b981" fill-opacity="0.8"/>
+</svg>

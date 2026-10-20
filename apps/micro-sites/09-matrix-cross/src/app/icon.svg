@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- MatrixOS 站点图标 · 09 Matrix-Cross 跨论文对比矩阵 -->
+  <!-- matrix-cross.matrixos.edu · UI 形态：激光溯源对比网格 -->
+  <!-- 设计说明：对比网格：3×3 矩阵里一格被点亮（正在对比的参量），一束激光从这一格射向右上角，指回 PDF 原文坐标。 -->
+  <!-- 由 scripts/site-icons.mjs 生成，勿手改（改这里 → node scripts/gen-site-assets.mjs） -->
+  <rect width="64" height="64" rx="14" fill="#050814"/>
+  <g stroke="#10b981" stroke-opacity="0.3" stroke-width="1.2">
+    <rect x="13" y="13" width="38" height="38" rx="2.5" fill="none"/>
+    <path d="M25.67 13V51"/>
+    <path d="M38.33 13V51"/>
+    <path d="M13 25.67H51"/>
+    <path d="M13 38.33H51"/>
+  </g>
+  <rect x="25.67" y="25.67" width="12.66" height="12.66" fill="#10b981" fill-opacity="0.5"/>
+  <path d="M32 32 L55 17" stroke="#10b981" stroke-opacity="0.95" stroke-width="1.8" stroke-linecap="round"/>
+  <circle cx="55" cy="17" r="2.3" fill="#10b981"/>
+</svg>

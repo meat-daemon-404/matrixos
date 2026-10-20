@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- MatrixOS 站点图标 · 10 PDF 公式与参量狙击镜 -->
+  <!-- pdf-sniper.matrixos.edu · UI 形态：双栏光学瞄准阅读器 -->
+  <!-- 设计说明：光学瞄准：双栏页面做底（虚影），十字分划与同心环压在中间——锁定的是文内那一行公式，不是整页。 -->
+  <!-- 由 scripts/site-icons.mjs 生成，勿手改（改这里 → node scripts/gen-site-assets.mjs） -->
+  <rect width="64" height="64" rx="14" fill="#050814"/>
+  <rect x="11" y="15" width="14" height="34" rx="1.6" fill="#10b981" fill-opacity="0.1"/>
+  <rect x="39" y="15" width="14" height="34" rx="1.6" fill="#10b981" fill-opacity="0.06"/>
+  <circle cx="32" cy="32" r="14" fill="none" stroke="#10b981" stroke-opacity="0.55" stroke-width="1.4"/>
+  <circle cx="32" cy="32" r="6" fill="none" stroke="#10b981" stroke-opacity="0.32" stroke-width="1.1"/>
+  <path d="M32 12V26M32 38V52M12 32H26M38 32H52" stroke="#10b981" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="32" cy="32" r="1.9" fill="#10b981"/>
+</svg>

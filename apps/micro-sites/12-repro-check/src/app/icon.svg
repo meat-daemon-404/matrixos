@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- MatrixOS 站点图标 · 12 顶刊代码复现核验舱 -->
+  <!-- repro-check.matrixos.edu · UI 形态：飞行前机械检查单 -->
+  <!-- 设计说明：飞行前检查单：一张清单纸，四行条目，前两项已打勾（环境/种子过了），后两项待核——复现核验就是这个动作。 -->
+  <!-- 由 scripts/site-icons.mjs 生成，勿手改（改这里 → node scripts/gen-site-assets.mjs） -->
+  <rect width="64" height="64" rx="14" fill="#050814"/>
+  <rect x="14" y="11" width="36" height="42" rx="3" fill="#10b981" fill-opacity="0.07" stroke="#10b981" stroke-opacity="0.35" stroke-width="1.2"/>
+  <rect x="19" y="17" width="4.6" height="4.6" rx="1.1" fill="#10b981" fill-opacity="0.9"/>
+  <rect x="19" y="26" width="4.6" height="4.6" rx="1.1" fill="#10b981" fill-opacity="0.9"/>
+  <rect x="19" y="35" width="4.6" height="4.6" rx="1.1" fill="none" stroke="#10b981" stroke-opacity="0.5" stroke-width="1.1"/>
+  <rect x="19" y="44" width="4.6" height="4.6" rx="1.1" fill="none" stroke="#10b981" stroke-opacity="0.5" stroke-width="1.1"/>
+  <path d="M19.9 19.3 L21.5 21.1 L23.1 17.9" fill="none" stroke="#050814" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M19.9 28.3 L21.5 30.1 L23.1 26.9" fill="none" stroke="#050814" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <g stroke="#10b981" stroke-linecap="round">
+    <path d="M28 19.3H44" stroke-opacity="0.7" stroke-width="1.7"/>
+    <path d="M28 28.3H41" stroke-opacity="0.6" stroke-width="1.7"/>
+    <path d="M28 37.3H44" stroke-opacity="0.3" stroke-width="1.7"/>
+    <path d="M28 46.3H38" stroke-opacity="0.3" stroke-width="1.7"/>
+  </g>
+</svg>

@@ -511,11 +511,36 @@
  * 3. 右 68%：折射仪器架
  * ══════════════════════════════════════════════════════════════════════════════ */
 
+/**
+ * 🔴 高度塌陷修复（2026-10-20 线上 P0）
+ *
+ * 症状：点开胶囊后仪器面板（含 iframe）高度为 0，视觉上右侧一片空白。
+ *   .instrument-rack   h = 81px   ← 只剩工具栏
+ *   .rack-grid         h = 44px
+ *   .panel-body        h = 0px    ← 根因
+ *   iframe.panel-iframe h = 0px
+ *
+ * 成因链：
+ *   1. 父容器是 `display:flex; flex-direction:column`
+ *   2. `.instrument-rack` 自身**没有 flex-grow**，在纵向 flex 里被压到内容高度
+ *      （只有工具栏那么高）；`min-height:0` 又允许它继续被压缩
+ *   3. `.rack-grid { flex:1 }` 的 flex-basis 是 0%，父容器已经没高度可分，
+ *      于是它和内部 `.panel-body` 一起被压成 0
+ *
+ * 修复：让 rack 在纵向 flex 里占满剩余空间，同时保留 min-height:0
+ *       （否则 grid 子项无法正确收缩，会出现另一种溢出）。
+ *       `flex: 1 1 auto` 而非 `flex: 1`——basis 用 auto 才不会被压到 0。
+ *
+ * 为什么之前的体检没发现：跨源 iframe 即使外层高 0，`page.frames()` 仍能读到
+ * 内部 DOM，所以「iframe 内容正常」的断言是假阳性。视觉验收必须看截图或量盒子。
+ */
 .instrument-rack {
   position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--hub-gap);
+  /* ↓ 修复：占满父级纵向 flex 的剩余空间 */
+  flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
 }

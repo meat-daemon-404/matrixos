@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from sqlalchemy import text
 
 from app.api.deps import DatabaseDep, SettingsDep
@@ -48,7 +48,7 @@ async def readiness(database: DatabaseDep) -> dict:
 
 @router.get("/detail", summary="依赖明细（hub 星轨三态的数据源）")
 async def detail(
-    database: DatabaseDep, settings: SettingsDep
+    database: DatabaseDep, settings: SettingsDep, request: Request
 ) -> dict:
     components: dict[str, str] = {}
     try:
@@ -58,10 +58,19 @@ async def detail(
     except Exception as exc:  # noqa: BLE001
         components["database"] = f"error:{type(exc).__name__}"
 
+    # 启动前校验的告警数（WARNING 不阻断启动，但运维需要看得到"带病"的程度）。
+    # ERROR 若能出现，说明进程根本没起来——所以这里只暴露告警计数与明细。
+    preflight = getattr(request.app.state, "preflight", None)
+    warnings = [
+        {"setting": item.setting, "detail": item.detail}
+        for item in getattr(preflight, "warnings", [])
+    ]
+
     overall = "ok" if all(value == "ok" for value in components.values()) else "degraded"
     return {
         "status": overall,
         "components": components,
+        "config_warnings": warnings,
         "embedding_provider": settings.embedding_provider,
         "embedding_dim": settings.embedding_dim,
         "access_token_ttl": settings.access_token_ttl_seconds,

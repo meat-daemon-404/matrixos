@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- MatrixOS 站点图标 · 13 Nature 级出版图表熔炉 -->
+  <!-- chart-foundry.matrixos.edu · UI 形态：光学暗房调色台 -->
+  <!-- 设计说明：暗房调色台：坐标轴 + 三条叠放的曲线（主线亮、两条参考线暗）= 同一组数据按出版规范调成不同矢量图层。 -->
+  <!-- 由 scripts/site-icons.mjs 生成，勿手改（改这里 → node scripts/gen-site-assets.mjs） -->
+  <rect width="64" height="64" rx="14" fill="#050814"/>
+  <path d="M13 15V51H53" fill="none" stroke="#10b981" stroke-opacity="0.4" stroke-width="1.4" stroke-linecap="round"/>
+  <path d="M15 45 C24 20 33 42 51 19" fill="none" stroke="#10b981" stroke-opacity="0.28" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M15 48 C26 35 34 47 51 33" fill="none" stroke="#10b981" stroke-opacity="0.18" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M15 41 C25 28 32 37 51 25" fill="none" stroke="#10b981" stroke-opacity="0.95" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="51" cy="25" r="2" fill="#10b981"/>
+</svg>

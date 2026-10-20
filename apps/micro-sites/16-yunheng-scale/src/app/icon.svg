@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- MatrixOS 站点图标 · 16 云衡 · 数字天平综测核算器 -->
+  <!-- yunheng.matrixos.edu · UI 形态：精密三盘电子天平 -->
+  <!-- 设计说明：三盘电子天平：顶部三角支点 + 横梁，三只盘挂在梁上、深浅不同=论文/软著/竞赛三类加分项的配重。 -->
+  <!-- 由 scripts/site-icons.mjs 生成，勿手改（改这里 → node scripts/gen-site-assets.mjs） -->
+  <rect width="64" height="64" rx="14" fill="#050814"/>
+  <path d="M32 11 L36.5 20.5 L27.5 20.5 Z" fill="#22d3ee" fill-opacity="0.6"/>
+  <path d="M22 21.5H42" stroke="#22d3ee" stroke-opacity="0.35" stroke-width="0"/>
+  <path d="M12 22H52" stroke="#22d3ee" stroke-opacity="0.8" stroke-width="1.9" stroke-linecap="round"/>
+  <g stroke="#22d3ee" stroke-opacity="0.4" stroke-width="1.1">
+    <path d="M18 22.5V31"/>
+    <path d="M32 22.5V37"/>
+    <path d="M46 22.5V31"/>
+  </g>
+  <path d="M12 31 Q18 39 24 31" fill="#22d3ee" fill-opacity="0.28" stroke="#22d3ee" stroke-opacity="0.85" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M26 37 Q32 45 38 37" fill="#22d3ee" fill-opacity="0.42" stroke="#22d3ee" stroke-opacity="0.95" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M40 31 Q46 39 52 31" fill="#22d3ee" fill-opacity="0.2" stroke="#22d3ee" stroke-opacity="0.7" stroke-width="1.4" stroke-linejoin="round"/>
+</svg>

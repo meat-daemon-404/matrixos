@@ -16,11 +16,32 @@ from pathlib import Path
 
 from app.core.config import SERVICE_ROOT
 
-# 仓库内的权威花名册（services/matrix-core → 上两级即仓库根）
-_SPEC_CANDIDATES = (
-    SERVICE_ROOT.parents[1] / "specs" / "microsites.json",
-    SERVICE_ROOT / "specs" / "microsites.json",
-    Path("/app/specs/microsites.json"),
+
+def _repo_spec_path() -> Path | None:
+    """仓库根下的 ``specs/microsites.json``；取不到时返回 None。
+
+    为什么不用 ``SERVICE_ROOT.parents[1]`` 直接索引：**容器里会炸**。
+    镜像把服务放在 ``/app``（``WORKDIR /app`` + ``COPY . .``），此时
+    ``SERVICE_ROOT`` 就是 ``/app``，而 ``Path('/app').parents`` 只有 ``['/']``
+    一个元素——``parents[1]`` 抛 ``IndexError``，且是在**模块导入期**抛出，
+    整个进程起不来。本地开发目录层级深，恰好永远踩不到这个雷。
+    """
+    parents = SERVICE_ROOT.parents
+    if len(parents) > 1:
+        return parents[1] / "specs" / "microsites.json"
+    return None
+
+
+# 仓库内的权威花名册（services/matrix-core → 上两级即仓库根）；
+# 镜像里则通常在 /app/specs 或由 MATRIX_CORE_SPECS_DIR 挂载。
+_SPEC_CANDIDATES = tuple(
+    candidate
+    for candidate in (
+        _repo_spec_path(),
+        SERVICE_ROOT / "specs" / "microsites.json",
+        Path("/app/specs/microsites.json"),
+    )
+    if candidate is not None
 )
 
 # 兜底：仅在找不到花名册文件时使用（例如精简镜像）。内容与 specs/microsites.json 的

@@ -22,6 +22,9 @@ import { readFileSync, writeFileSync, existsSync, rmSync, readdirSync } from 'no
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// 共享 _headers 生成器
+import { pagesHeaders } from './lib/pages-headers.mjs';
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const MICRO = join(ROOT, 'apps', 'micro-sites');
 const TEMPLATE = join(ROOT, 'scripts', 'templates', 'next.config.static-export.ts');
@@ -50,54 +53,7 @@ if (!existsSync(TEMPLATE)) {
 
 const templateSrc = readFileSync(TEMPLATE, 'utf8');
 
-/** Cloudflare Pages 的 _headers：用静态托管的方式重建原来 headers() 干的活。 */
-function pagesHeaders(station) {
-  /**
-   * frame-ancestors 白名单。
-   *
-   * 实测教训（2026-10-20）：第一版只写了 `https://orbital.pages.dev` 与
-   * `https://orbital.matrixos.edu`，但实际部署出来的 hub 域名是
-   * `https://mx-orbital.pages.dev`，导致线上 iframe 被 CSP 拦下：
-   *   Framing 'https://mx-gpa.pages.dev/' violates frame-ancestors
-   *
-   * 白名单现在覆盖三类：
-   *   1. 开发期：localhost / 127.0.0.1
-   *   2. 线上 Pages：mx-orbital.pages.dev 及其预览子域（<hash>.mx-orbital.pages.dev）
-   *   3. 未来自定义域名：orbital.matrixos.edu
-   *
-   * 注意 Pages 预览部署的域名形如 https://4ba0551e.mx-orbital.pages.dev，
-   * 与生产域名不同，必须单列，否则预览环境里 iframe 全挂。
-   */
-  const ancestors = [
-    "'self'",
-    // 线上 hub（生产域名）
-    'https://mx-orbital.pages.dev',
-    // hub 的预览部署（每 commit 一个 hash 子域）
-    'https://*.mx-orbital.pages.dev',
-    // 历史/备用命名，保留以防改名
-    'https://orbital.pages.dev',
-    'https://orbital-hub.pages.dev',
-    // 未来自定义域名
-    'https://orbital.matrixos.edu',
-    // 本地开发
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-  ].join(' ');
-  return `# Cloudflare Pages headers · 自动生成 · scripts/build-static-site.mjs
-# 对应原 next.config.ts 的 headers()（静态导出不支持 headers()，改用本文件）
-#
-# 站点：${station}
-
-/*
-  Content-Security-Policy: frame-ancestors ${ancestors}
-  Referrer-Policy: strict-origin-when-cross-origin
-  X-Content-Type-Options: nosniff
-
-# 静态资源长缓存（带 hash 的文件名，内容变了 URL 就变）
-/_next/static/*
-  Cache-Control: public, max-age=31536000, immutable
-`;
-}
+/** _headers 生成器在 scripts/lib/pages-headers.mjs（单一事实源） */
 
 let ok = 0;
 let fail = 0;
