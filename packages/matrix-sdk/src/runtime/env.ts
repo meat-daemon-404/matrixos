@@ -48,8 +48,13 @@ function getGlobalWindow(): WindowLike | null {
 function getGlobalDocument(): DocumentLike | null {
   const candidate = (globalThis as { document?: unknown }).document;
   if (candidate === null || typeof candidate !== 'object') return null;
-  const doc = candidate as { cookie?: unknown };
-  return typeof doc.cookie === 'string' ? { cookie: doc.cookie } : null;
+  const doc = candidate as { cookie?: unknown; referrer?: unknown };
+  if (typeof doc.cookie !== 'string') return null;
+  return {
+    cookie: doc.cookie,
+    // 带上 referrer：tenant 角色靠它推断宿主 origin（详见 `DocumentLike.referrer`）。
+    ...(typeof doc.referrer === 'string' ? { referrer: doc.referrer } : {}),
+  };
 }
 
 /**

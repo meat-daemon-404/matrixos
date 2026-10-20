@@ -31,13 +31,24 @@ import type {
   MessageEventLike,
   MessageListener,
   RuntimeEnv,
+  WindowLike,
 } from '../types.ts';
 import type { OriginAllowList } from '../security/origin.ts';
 
 export const BRIDGE_CHANNEL = 'matrixos/bridge';
 export const BRIDGE_PROTOCOL_VERSION = 1 as const;
 
-/** 桥的能力清单。宿主的 `capabilities` 里没有某项时，子站必须能降级。 */
+/**
+ * 桥的能力清单。宿主的 `capabilities` 里没有某项时，子站必须能降级。
+ *
+ * `layout.compact` 与 `layout.resize` 是**两件不同的事**，别混：
+ *   - `layout.compact` —— 宿主告诉子站「我在一个小框里，你把非核心区块收起来」
+ *     （向下压缩，子站单方面决定怎么压）；
+ *   - `layout.resize` —— 子站告诉宿主「我的内容需要多高」，宿主在自己的可用空间内
+ *     决定给多高（向上撑开，最终高度由宿主裁决）。
+ * 前者省空间，后者消裁切。ADR-08 的本意是两者配合：先在框内压到最紧凑，
+ * 仍装不下时再把框撑到内容高。
+ */
 export const BRIDGE_CAPABILITIES = [
   'sso.idt-issue',
   'sso.cookie-shared',
@@ -45,6 +56,7 @@ export const BRIDGE_CAPABILITIES = [
   'wormhole.ack',
   'manifest.registry',
   'layout.compact',
+  'layout.resize',
   'theme.accent',
 ] as const;
 
@@ -86,6 +98,19 @@ export interface HostBridgeOptions {
   readonly hostOrigin?: string;
   /** 子站 origin。host 角色下用于 `targetOrigin`；省略时必须显式提供或由消息学习。 */
   readonly tenantOrigin?: string;
+  /**
+   * host 角色下，消息要投给哪个窗口 —— 即某个 `<iframe>` 的 `contentWindow`。
+   *
+   * **为什么必须显式给**：`window.postMessage` 是「投给某个窗口」，而宿主窗口里
+   * 通常挂着多个 iframe。旧实现里 host 角色 `post()` 的目标退化成宿主自身的 `win`
+   * （即自己发给自己），于是 `bridge.hello.ack` 永远到不了子站：子站一直
+   * `connected === false`、也永远学不到宿主能力 —— 这是 `layout.resize` 这类
+   * 「宿主先声明能力、子站再决定发不发」的协议在宿主侧完全不通的根因。
+   *
+   * 省略时仍退回 `win`（保持对「单 iframe 且同窗内应答」这类既有用法的行为不变），
+   * 但真正为 iframe 建桥的宿主应当显式传入。
+   */
+  readonly tenantWindow?: WindowLike | null;
   /** 自身能力声明。 */
   readonly capabilities?: readonly string[];
   readonly handshakeTimeoutMs?: number;
@@ -147,8 +172,11 @@ export function createHostBridge(options: HostBridgeOptions): HostBridge {
       return;
     }
     const parent = role === 'tenant' ? win?.parent ?? null : null;
-    const target = parent ?? win;
-    if (target === null) return;
+    // host 角色优先投给显式指定的 tenantWindow（某个 iframe 的 contentWindow），
+    // 否则退化为 win（自己）——见 `HostBridgeOptions.tenantWindow` 的说明。
+    const target =
+      role === 'tenant' ? (parent ?? win) : (options.tenantWindow ?? win);
+    if (target === null || target === undefined) return;
     try {
       target.postMessage(envelope(type, payload), targetOrigin);
     } catch (error) {
@@ -321,7 +349,8 @@ export function createHostBridge(options: HostBridgeOptions): HostBridge {
           reject(new Error(`桥未就绪，无法发送请求（${type}）：尚未确定对端 origin`));
           return;
         }
-        const target = (role === 'tenant' ? win?.parent ?? null : null) ?? win;
+        const target =
+          role === 'tenant' ? ((win?.parent ?? null) ?? win) : (options.tenantWindow ?? win);
         try {
           target?.postMessage(message, targetOrigin);
         } catch (error) {

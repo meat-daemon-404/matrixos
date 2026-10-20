@@ -10,6 +10,9 @@
  *     这是最有效的一道：没创建就没运行时、没 hydration、没 SDK 实例。
  *  2. **IntersectionObserver 可见才 hydrate** —— 面板被 3 台布局挤到可视区外时不加载。
  *  3. **iframe 内不滚**（ADR-08 约定），由 hub 控制外层，避免双滚动条引发的重复测量。
+ *     高度不再是钉死的：微站通过 `layout.resize` 上报内容真实高，本面板按
+ *     `max(内容高, 可用高)` 撑开，超出可用空间的部分由 `.panel-body` 滚动
+ *     —— 滚动条在 hub 侧，**iframe 内部仍然不可滚**。见 `lib/panel-resize.ts`。
  *  4. **load 超时 → failed**（ADR-09 L3），显示明确原因而不是永远转圈。
  *
  * 全屏独立打开（A4 强制能力）：用 <a target="_blank" rel="noopener noreferrer">，
@@ -19,6 +22,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MicrositeStation } from '../lib/microsites.generated';
 import type { PanelMode } from '../lib/hub-types';
+import { usePanelResize } from '../lib/use-panel-resize';
 
 /** iframe 加载超时（ms）。超过就判 failed，别让用户对着骨架屏猜。 */
 const LOAD_TIMEOUT_MS = 12000;
@@ -54,6 +58,7 @@ export function InstrumentPanel({
   onFirstLive,
 }: InstrumentPanelProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const mountedAtRef = useRef<number>(0);
   const [visible, setVisible] = useState(false);
   const [iframeReady, setIframeReady] = useState(false);
@@ -135,6 +140,23 @@ export function InstrumentPanel({
 
   const effectiveMode: PanelMode = timedOut && mode === 'live' ? 'failed' : mode;
 
+  /**
+   * 高度自适应（`layout.resize` 宿主侧）。
+   *
+   * 传 `iframeRef.current` 不够 —— ref 变化不会触发 re-render，而这里必须在
+   * iframe 真的挂上之后才建桥（否则 `contentWindow` 是 null，消息无处可发）。
+   * 所以用 `iframeReady` 作为依赖：`onLoad` 时它翻 true，正好是子站脚本已就绪
+   * 的时刻（微站的 `startAutoResize()` 就挂在那个时机附近）。
+   */
+  usePanelResize({
+    stationId: station.id,
+    iframe: iframeReady ? iframeRef.current : null,
+    panelBody: hostRef.current,
+    src,
+    enabled: shouldRenderIframe && iframeReady && effectiveMode === 'live',
+    ...(process.env.NODE_ENV !== 'production' ? { allowLoopback: true } : {}),
+  });
+
   const modeLabel =
     effectiveMode === 'live'
       ? '全量'
@@ -195,6 +217,7 @@ export function InstrumentPanel({
         {/* ── 全量 iframe ─────────────────────────────────────────────── */}
         {shouldRenderIframe ? (
           <iframe
+            ref={iframeRef}
             className="panel-iframe"
             data-pending={iframeReady ? 'false' : 'true'}
             src={src}

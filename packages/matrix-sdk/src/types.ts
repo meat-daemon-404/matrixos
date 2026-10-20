@@ -457,6 +457,17 @@ export interface WindowLike {
 export interface DocumentLike {
   /** `document.cookie` 原文，SDK 用它读非 HttpOnly 的 CSRF 令牌。 */
   readonly cookie: string;
+  /**
+   * `document.referrer` 原文。
+   *
+   * **为什么必须在这里**：tenant 角色在 iframe 里要确定「往哪个 origin 发消息」，
+   * 而它唯一能自己拿到的线索就是 referrer。旧版 `DocumentLike` 只声明了 `cookie`，
+   * 于是 `readReferrer()` 永远读到 `undefined` → `targetOrigin` 解析失败 →
+   * `bridge.hello` 永久入队、握手永不完成、宿主能力永远学不到。
+   * 这是 `layout.resize` 这类「宿主声明能力、子站据此决定发不发」的协议在
+   * tenant 侧完全不通的根因。
+   */
+  readonly referrer?: string;
 }
 
 export interface RuntimeEnv {
@@ -625,6 +636,17 @@ export interface MatrixSDK {
   createWormholeDropRing(): WormholeDropRing;
 
   useHostBridge(): HostBridge;
+
+  /**
+   * 关掉「内容高度自适应」的自动启动。
+   *
+   * SDK 在 `createMatrixSDK()` 时会**默认自动**启动 `layout.resize` 上报
+   * （见 `sdk.ts` 的说明：不自动启动的话 18 个微站都得各自改一行，
+   * 而其中大部分是 scripts/gen-site.mjs 生成的、改一处要扇出 18 次）。
+   * 站点若要自己控制时机（例如等数据加载完再测），调这个再自己
+   * `startAutoResize()`。幂等。
+   */
+  disableAutoResize(): void;
 
   validateManifest(json: unknown): ManifestValidationResult;
 

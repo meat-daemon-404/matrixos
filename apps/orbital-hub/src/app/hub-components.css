@@ -881,6 +881,15 @@
   color: var(--color-danger);
 }
 
+/* `.panel-body` 是「可用空间」的持有者，也是**唯一**滚动容器。
+ *
+ * ADR-08 的后半句（「由 hub 控制外层滚动」）就落在这条规则上：
+ *   - 默认 `overflow: hidden`（旧行为，零回归）；
+ *   - 微站通过 `layout.resize` 上报的内容比可用空间高时，`panel-resize.ts` 会把
+ *     iframe 撑到内容高，并把这里改成 `overflow-y: auto` —— 于是滚动条出现在
+ *     **hub 侧**，iframe 内部仍然不可滚（子站的 html/body 是 overflow:hidden）。
+ * 刻意不写 `overflow-y: auto` 作为默认值：那会让「装得下」的面板也变成可滚容器，
+ * 触控板惯性滑动时能晃动几个像素，视觉上是明显的廉价感。 */
 .panel-body {
   position: relative;
   flex: 1;
@@ -888,11 +897,20 @@
   overflow: hidden;
 }
 
-/* iframe 必须撑满且无边框；iframe 内不滚由子站自己保证（ADR-08） */
+/* iframe 必须撑满且无边框；iframe 内不滚由子站自己保证（ADR-08）
+ *
+ * ⚠️ 不能再写 `inset: 0`：它等价于 `bottom:0`，会**覆盖** `layout.resize`
+ * 写进来的内联 `height`（绝对定位里 top+bottom 同时给定 + height:auto 才会拉伸，
+ * 而一旦内联 height 有值，`bottom` 与之冲突时 height 生效、但 `inset:0` 仍会
+ * 在计算上参与竞争，实测表现为高度被拉回容器高）。改成只锚 top/left，
+ * 高度由内联样式（决策函数）或下面的默认值决定。 */
 .panel-iframe {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
   width: 100%;
+  /* 默认值 = 完全铺满容器（未收到 layout.resize 时就是旧行为，零回归）。
+   * 收到上报后由 panel-resize.ts 写内联 height 覆盖它。 */
   height: 100%;
   border: 0;
   display: block;

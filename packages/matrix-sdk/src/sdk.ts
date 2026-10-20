@@ -31,6 +31,7 @@ import { AssetClientImpl } from './assets/client.ts';
 import { SSOClientImpl, issueIdtForTenant } from './auth/sso.ts';
 import { IdtExchanger } from './auth/idt.ts';
 import { createHostBridge, BRIDGE_CAPABILITIES } from './iframe/bridge.ts';
+import { createAutoResizeReporter, type AutoResizeReporter } from './iframe/resize.ts';
 import { OriginAllowList, DEFAULT_ALLOWED_ORIGINS, normalizeAppKey, toAppHost } from './security/origin.ts';
 import { createRuntimeEnv, detectRuntimeContext, readCookie } from './runtime/env.ts';
 import { registerWormholeReceiver, WormholeTransport, createWormholeDropRing } from './wormhole/index.ts';
@@ -305,6 +306,7 @@ function buildBridge(
 function createFacade(internals: SDKInternals): MatrixSDK {
   const { env, runtime, options, allowedOrigins, http, bridge, sso, assets, wormhole, manifest, debug, teardown } = internals;
   let disposed = false;
+  let autoResize: AutoResizeReporter | null = null;
 
   const facade: MatrixSDK = {
     appId: normalizeAppKey(options.appId),
@@ -366,6 +368,11 @@ function createFacade(internals: SDKInternals): MatrixSDK {
       return bridge ?? inertBridge();
     },
 
+    disableAutoResize(): void {
+      autoResize?.stop();
+      autoResize = null;
+    },
+
     validateManifest(json: unknown): ManifestValidationResult {
       return validateManifest(json);
     },
@@ -385,6 +392,8 @@ function createFacade(internals: SDKInternals): MatrixSDK {
         }
       }
       teardown.length = 0;
+      autoResize?.stop();
+      autoResize = null;
       bridge?.close();
       internals.idt.reset();
     },
@@ -392,6 +401,32 @@ function createFacade(internals: SDKInternals): MatrixSDK {
 
   // 后台把 manifest 拉起来，供 `getManifest()` 稍后同步返回真实值。
   void manifest.load(http, debug);
+
+  /*
+   * ── 内容高度自适应（`layout.resize`）：默认自动启动 ─────────────────────
+   *
+   * 为什么不要求微站显式调用 `startAutoResize()`：
+   *   1. 18 个官方站里绝大多数是 `scripts/gen-site.mjs` 生成的，加一行要扇出 18 次，
+   *      而每次扇出都可能与 `apps/micro-sites/**` 的其它在制改动撞车；
+   *   2. 忘记调用不会报错，只会表现为「某些面板内容被裁掉」——一类很难归因的静默故障；
+   *   3. 这个能力**只在被 hub 内嵌时才有副作用**（顶层打开时 `useHostBridge()`
+   *      返回惰性空桥，`startAutoResize` 自己就 no-op），所以默认开着的风险很低。
+   *
+   * 微站若要自己控制时机，调 `sdk.disableAutoResize()` 再自行 `startAutoResize()`。
+   */
+  if (bridge !== null) {
+    try {
+      autoResize = createAutoResizeReporter({
+        bridge,
+        appId: normalizeAppKey(options.appId),
+        debug,
+      });
+      void autoResize.start();
+    } catch {
+      // 高度自适应失败不能影响 SDK 初始化：它是增强，不是前置条件。
+      autoResize = null;
+    }
+  }
 
   return facade;
 }

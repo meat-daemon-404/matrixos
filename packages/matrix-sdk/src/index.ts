@@ -202,6 +202,37 @@ export { createHostBridge, BRIDGE_CAPABILITIES, BRIDGE_CHANNEL, BRIDGE_PROTOCOL_
 export type { BridgeCapability, HostBridgeOptions } from './iframe/bridge.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// iframe 高度自适应（`layout.resize`）
+// ─────────────────────────────────────────────────────────────────────────────
+
+export {
+  LAYOUT_RESIZE_CAPABILITY,
+  RESIZE_THRESHOLD_PX,
+  RESIZE_DEBOUNCE_MS,
+  RESIZE_QUIET_MS,
+  RESIZE_MAX_GROWTH_STREAK,
+  RESIZE_MAX_HEIGHT_PX,
+  RESIZE_MIN_HEIGHT_PX,
+  measureContentHeight,
+  measureViewportHeight,
+  isLayoutResizePayload,
+  createAutoResizeReporter,
+  startAutoResize,
+} from './iframe/resize.ts';
+export type {
+  LayoutResizePayload,
+  AutoResizeOptions,
+  AutoResizeReporter,
+  AutoResizeStats,
+  StartAutoResizeOptions,
+  ResizeDocumentLike,
+  ResizeElementLike,
+  ResizeScheduler,
+  ResizeObserverLike,
+  ResizeObserverFactory,
+} from './iframe/resize.ts';
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 安全
 // ─────────────────────────────────────────────────────────────────────────────
 
