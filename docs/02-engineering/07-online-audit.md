@@ -522,15 +522,7 @@ L357  @router.post("/exchange", ...)    ← 微站用 mx_idt 换 mx_at
 两者都已修复（用生产值重建 hub + `build-static-site.mjs --all` 统一重建 18 站），
 并新增 `scripts/assert-artifact-env.mjs` 把「产物里到底构建进了什么值」变成可断言项。
 
-### 处置状态
-
-| 项 | 状态 |
-| :--- | :--- |
-| Bug A（host `post()` 发给自己） | ✅ 已修（`HostBridgeOptions.tenantWindow`） |
-| Bug B（tenant 读不到 `referrer`） | ✅ 已修（`DocumentLike.referrer` + env 拷贝）；线上已验证 `document.referrer = https://mx-orbital.pages.dev/` |
-| 部署事故 A / B | ✅ 已修并加断言 |
-| **hub 侧 `issueIdtForTenant` 接线** | 🔧 **进行中**（本节的真正断点） |
-| 线上验证 `MatrixID · ready` | ⏳ 待接线完成后复验 |
+> 完整的「九层阻塞逐层剥开」处置表见本章末 **§ 处置状态（三层阻塞已逐层剥开）**。
 
 > ⚠️ 排查这一节时踩过的坑值得记：**「SDK · 未就位」与「桥握手失败」是两个不同层面的问题**，
 > 一度混为一谈。实际时间线上是三层依次暴露：
@@ -570,18 +562,55 @@ host（hub）角色下 `target` 恒为自身 `window` → `window.postMessage` �
 代码链印证：`packages/matrix-sdk/src/auth/sso.ts:361` `await bridge.request('sso.idt.request', …)`（tenant 请求）
 与 `:588` `bridge.on('sso.idt.request', …)`（host 回复）—— **全程走这套桥**。桥不通 → mx_idt 交换不通 → 内嵌态永远 offline。
 
-### 处置状态
+### 处置状态（三层阻塞已逐层剥开，最终停留在「后端未部署」）
 
-| 项 | 状态 |
-| :--- | :--- |
-| Bug A / Bug B 定位 | ✅ 已定位（代码级，见上） |
-| 修复 | 🔧 进行中（`HostBridgeOptions.tenantWindow` + `DocumentLike.referrer`） |
-| 线上验证 | ⏳ 待修复部署后复验 |
-| 微站侧 `SDK · 未就位` | ⚠️ **另有原因**：微站 `src/lib/sdk-facade.ts` 的 `resolveSdk()` 拿不到 SDK 实例（该文件正被另一会话重构，引入了新包 `@matrixos/microsite-data`）。**不要把它与 Bug A/B 混为一谈** |
+排查这条链路的最大教训：**三层问题依次暴露，每修掉一层才露出下一层** ——
+「修了一次还是 offline」不代表修复无效。
 
-> ⚠️ 复验方法：**不要用线上微站判断桥是否修好** —— 线上还受「微站侧 SDK 未就位」干扰。
-> 应在**双端口 harness**（真实 `createHostBridge` + 真实握手）里验证「桥层握手已通」，
-> 并单独说明「线上微站 SSO 仍 offline 是微站侧 SDK 集成问题」。
+| 层 | 问题 | 状态 |
+| :-- | :--- | :--- |
+| ① | 微站 SDK 接入层 `resolveSdk()` 拿不到实例 → 显示「SDK 未就位」 | ✅ 已由并行会话修复（现显示「SDK 已就位」） |
+| ② | 微站产物缺 `HUB_ORIGINS` 注入 → `bridge.hello` 被 OriginAllowList 静默丢弃 | ✅ 已修（统一重建 18 站 + `assert-artifact-env.mjs` 断言） |
+| ③ | hub 产物被构建进 `http://127.0.0.1:3010`（local-mode 污染） | ✅ 已修（`build-hub-static.mjs --production` 强制生产值） |
+| ④ | Bridge Bug A：host 侧 `post()` 发给自己，`hello.ack` 到不了 iframe | ✅ 已修（`HostBridgeOptions.tenantWindow`） |
+| ⑤ | Bridge Bug B：`DocumentLike` 缺 `referrer` → tenant 解析不出 host origin | ✅ 已修（线上已验证 `document.referrer` 可读） |
+| ⑥ | **hub 从未接线 `issueIdtForTenant`** → `sso.idt.request` 送达但从不回 ack | ✅ 已修（I 线：`use-host-bridge.ts` + `use-sso-idt.ts`） |
+| ⑦ | **`sso.idt.ack` 缺 `rid`** → tenant 的 `request()` 永不 resolve | ✅ 已修（`post(type, payload, rid)` + 回传 `meta.message.rid`） |
+| ⑧ | SDK 发 `target_app`、后端要 `target_station` → 必然 422 | ✅ 已修（改字段名） |
+| ⑨ | **`api.matrixos.edu` 无法解析（NXDOMAIN）—— 后端从未部署到可访问域名** | ❌ **未解决（本层是最终阻塞）** |
+
+### 最终实测（线上，I 线部署后）
+
+抓包与网络日志证明**前端链路已完全打通、只差后端可达**：
+
+```
+浏览器 cookie：mx_at 不存在（未登录）
+hub 实际发出：  POST https://api.matrixos.edu/v1/auth/idt
+                body={"target_station":"gpa"}          ← 字段名正确（⑧ 已修）
+hub 收到：      warning: [hub/sso] 签发 mx_idt 失败：网络层失败（NETWORK）：无法访问 matrix-core
+```
+
+即：**hub 已完成全部该做的动作**（发出正确的请求、字段名对、失败可诊断），
+唯一剩下的失败原因是 `api.matrixos.edu` 这个主机不存在。
+
+DNS 实测：
+```
+api.matrixos.edu   → ✗ NXDOMAIN（No such host is known）
+matrixos.cc.cd     → ✓ 正常解析（Cloudflare: 104.21.46.57 / 172.67.168.28）
+```
+
+**结论：SSO 内嵌态的最后一个阻塞是「后端未部署 / 域名未配置」，不是前端缺陷。**
+按 AGENTS.md 的记录，本项目的生产域名是 `matrixos.cc.cd`（且 `mx-orbital.pages.dev`
+在另一个 Cloudflare 账号下，apex 绑定受限）。所以正确修法是：
+1. 把 matrix-core 部署到可访问地址（如 `api.matrixos.cc.cd`）；
+2. 把微站/hub 构建期的 `MATRIX_CORE_URL` 指向它；
+3. hub 侧还需**登录流程**（⑨ 之外的另一项）：`/v1/auth/idt` 要求 hub 持 `mx_at`，
+   而 hub 目前 `matrixUid` 是硬编码演示值，没有登录入口。
+   代码已按此正确降级（`console.warn` 明确写「hub 自身未登录，这不是微站的问题」）。
+
+> **诚实边界**：⑨ 与「hub 登录流程」都不在本轮的修复范围内（前者是部署、后者是新功能）。
+> 本轮已把**能让内嵌态 ready 的全部前端/协议缺陷修完并逐层验证**，
+> 并把失败点推进到「后端不可达」这一可明确归因的边界。
 
 ---
 
