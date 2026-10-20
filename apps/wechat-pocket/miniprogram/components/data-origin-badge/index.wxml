@@ -1,0 +1,5 @@
+<view class="dob dob-{{tone}}">
+  <view class="dob-dot"></view>
+  <text>{{label}}</text>
+  <text wx:if="{{ageText}}" class="dob-age">{{ageText}}</text>
+</view>

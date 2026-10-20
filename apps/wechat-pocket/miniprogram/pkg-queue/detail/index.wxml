@@ -1,0 +1,61 @@
+<view class="dt-head">
+  <data-origin-badge origin="{{origin}}" ageMs="{{0}}" />
+</view>
+
+<panel-state
+  state="{{state}}"
+  errorText="{{errorText}}"
+  emptyText="这条待办可能已被移除"
+  bind:retry="onRetry"
+/>
+
+<block wx:if="{{state==='ready'}}">
+  <view class="dt-card mx-panel">
+    <view class="mx-row mx-between">
+      <text class="dt-title">{{title}}</text>
+      <text class="dt-status st-{{status}}">{{statusText}}</text>
+    </view>
+    <text wx:if="{{note}}" class="dt-note">{{note}}</text>
+
+    <view class="dt-kv">
+      <view class="dt-kv-row">
+        <text class="dt-k">目标站点</text>
+        <text class="dt-v dt-mono">{{targetStation}}</text>
+      </view>
+      <view wx:if="{{desktopAction}}" class="dt-kv-row">
+        <text class="dt-k">桌面动作</text>
+        <text class="dt-v">{{desktopAction}}</text>
+      </view>
+      <view class="dt-kv-row">
+        <text class="dt-k">载荷类型</text>
+        <text class="dt-v dt-mono">{{payloadType}}</text>
+      </view>
+      <view class="dt-kv-row">
+        <text class="dt-k">来源</text>
+        <text class="dt-v">{{originText}} · 推入于 {{createdAtText}}</text>
+      </view>
+      <view wx:if="{{claimedText}}" class="dt-kv-row">
+        <text class="dt-k">桌面认领</text>
+        <text class="dt-v">{{claimedText}}</text>
+      </view>
+      <view wx:if="{{receiptId}}" class="dt-kv-row" data-ref="{{receiptId}}" bindtap="onCopy">
+        <text class="dt-k">虫洞收据</text>
+        <text class="dt-v dt-mono dt-copy">{{receiptId}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="dt-evi mx-panel">
+    <text class="dt-evi-title">证据锚点（{{anchors.length}}）</text>
+    <text class="dt-evi-sub">锚点只存引用与页码，正文经虫洞在端侧 P2P 传递（W2）</text>
+    <view wx:for="{{anchors}}" wx:key="key" class="dt-anchor">
+      <view class="dt-anchor-top">
+        <text class="dt-anchor-lv lv-{{item.level}}">{{item.levelText}}</text>
+        <text wx:if="{{item.pageText}}" class="dt-anchor-page mx-mono">{{item.pageText}}</text>
+      </view>
+      <text class="dt-anchor-ref mx-mono" data-ref="{{item.ref}}" bindtap="onCopy">{{item.ref}}</text>
+      <text wx:if="{{item.bboxText}}" class="dt-anchor-bbox mx-mono">bbox {{item.bboxText}}</text>
+    </view>
+    <text class="dt-evi-foot">点编号可复制，到 Crossref / arXiv 独立复核</text>
+  </view>
+</block>

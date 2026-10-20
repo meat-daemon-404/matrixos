@@ -1,0 +1,52 @@
+<view class="ck-hero">
+  <view class="ck-streak">
+    <text class="ck-streak-num mx-mono">{{streak}}</text>
+    <text class="ck-streak-unit">天</text>
+  </view>
+  <view class="ck-hero-info mx-grow">
+    <view class="mx-row mx-between">
+      <text class="ck-kicker">连续打卡</text>
+      <data-origin-badge origin="{{origin}}" ageMs="{{ageMs}}" />
+    </view>
+    <text class="ck-sub">{{date}} · 学期累计 {{termDays}}/{{termTarget}} 天</text>
+    <view class="mx-bar ck-term-bar"><view class="mx-bar-fill" style="width:{{termPct}}%"></view></view>
+  </view>
+</view>
+
+<view class="ck-week">
+  <view wx:for="{{week}}" wx:key="index" class="ck-wc {{item.on ? 'is-on' : ''}}">
+    <view class="ck-wc-dot"></view>
+    <text class="ck-wc-label">{{item.label}}</text>
+  </view>
+</view>
+
+<panel-state
+  state="{{state}}"
+  errorText="{{errorText}}"
+  emptyText="还没有微目标，去桌面端建几个"
+  bind:retry="onRetry"
+/>
+
+<view wx:if="{{state==='ready'}}" class="ck-list">
+  <view
+    wx:for="{{goals}}"
+    wx:key="id"
+    class="ck-goal {{item.done ? 'is-done' : ''}}"
+    data-id="{{item.id}}"
+    bindtap="onToggle"
+  >
+    <view class="ck-check {{item.done ? 'is-checked' : ''}}">
+      <text wx:if="{{item.done}}">✓</text>
+    </view>
+    <view class="mx-grow">
+      <view class="mx-row mx-gap-sm">
+        <text class="ck-goal-title">{{item.title}}</text>
+        <text wx:if="{{item.target}}" class="ck-goal-target mx-mono">{{item.target}}</text>
+      </view>
+      <text wx:if="{{item.note}}" class="ck-goal-note">{{item.note}}</text>
+      <text wx:if="{{item.needsDesktop}}" class="ck-goal-warn">⚠ 本项需在电脑端完成，这里只做标记</text>
+    </view>
+    <view class="ck-kind {{item.kind}}">{{item.kindText}}</view>
+    <view wx:if="{{busyId===item.id}}" class="ck-spin"></view>
+  </view>
+</view>

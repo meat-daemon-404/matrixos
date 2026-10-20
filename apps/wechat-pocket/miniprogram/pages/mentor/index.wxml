@@ -1,0 +1,92 @@
+<view class="mt-head">
+  <view class="mx-row mx-between">
+    <view class="mx-grow">
+      <text class="mt-kicker">星门 · 进组跟进</text>
+      <text wx:if="{{nextEventText}}" class="mt-next">下一个关键节点 {{nextEventText}}</text>
+      <text wx:else class="mt-next mt-next-dim">暂无待面试安排</text>
+    </view>
+    <data-origin-badge origin="{{origin}}" ageMs="{{ageMs}}" />
+  </view>
+  <text wx:if="{{syncedAtText}}" class="mt-synced">与 lab-kanban 同步于 {{syncedAtText}}</text>
+</view>
+
+<panel-state
+  state="{{state}}"
+  errorText="{{errorText}}"
+  emptyText="还没有导师跟进记录"
+  bind:retry="onRetry"
+/>
+
+<scroll-view wx:if="{{state==='ready'}}" scroll-y class="mt-scroll">
+  <view wx:for="{{reminders}}" wx:key="id" class="mt-card">
+
+    <view class="mt-card-top">
+      <view class="mx-grow">
+        <view class="mx-row mx-gap-sm">
+          <text class="mt-name">{{item.mentorName}}</text>
+          <text class="mt-title-tag">{{item.mentorTitle}}</text>
+        </view>
+        <text class="mt-lab">{{item.lab}}</text>
+      </view>
+      <view class="mt-match">
+        <text class="mt-match-num mx-mono">{{item.matchScore}}</text>
+        <text class="mt-match-label">契合</text>
+      </view>
+    </view>
+
+    <view class="mt-stage">
+      <view
+        wx:for="{{[0,1,2,3,4]}}"
+        wx:for-item="step"
+        wx:for-index="si"
+        wx:key="*this"
+        class="mt-stage-dot {{si <= item.stageIdx ? 'is-on' : ''}}"
+      ></view>
+      <text class="mt-stage-text">{{item.stageText}}</text>
+      <text wx:if="{{item.readReceipt}}" class="mt-read">已读回执</text>
+    </view>
+
+    <view wx:if="{{item.hasEvent}}" class="mt-count {{item.urgent ? 'is-urgent' : ''}}">
+      <text class="mt-count-glyph">⏱</text>
+      <text class="mx-grow">{{item.location}}</text>
+      <text class="mt-count-time mx-mono">{{item.countdown}}</text>
+    </view>
+
+    <view wx:if="{{item.anchors.length}}" class="mt-anchors">
+      <text class="mt-anchors-label">代表作证据</text>
+      <view wx:for="{{item.anchors}}" wx:for-item="a" wx:key="ref" class="mt-anchor">
+        <text class="mt-anchor-ref mx-mono">{{a.ref}}</text>
+        <text class="mt-anchor-lv lv-{{a.level}}">{{a.levelText}}</text>
+        <text wx:if="{{a.pageText}}" class="mt-anchor-page mx-mono">{{a.pageText}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{item.outline.length}}" class="mt-outline">
+      <view class="mt-outline-bar" data-id="{{item.id}}" bindtap="onToggleOutline">
+        <text class="mt-outline-title">答辩提纲（{{item.outline.length}} 页）</text>
+        <text class="mt-outline-caret">{{item.outlineOpen ? '收起 ▲' : '展开 ▼'}}</text>
+      </view>
+      <view wx:if="{{item.outlineOpen}}" class="mt-outline-body">
+        <view wx:for="{{item.outline}}" wx:for-item="pg" wx:key="page" class="mt-outline-page">
+          <text class="mt-outline-num mx-mono">{{pg.page}}</text>
+          <view class="mx-grow">
+            <text class="mt-outline-ptitle">{{pg.title}}</text>
+            <text class="mt-outline-points">{{pg.pointsText}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="mt-actions">
+      <button
+        wx:if="{{!item.acknowledged}}"
+        class="mx-btn mx-btn-primary mt-btn"
+        data-id="{{item.id}}"
+        loading="{{busyId === item.id}}"
+        disabled="{{busyId === item.id}}"
+        bindtap="onAck"
+      >确认提醒</button>
+      <text wx:else class="mt-acked">已确认，不会重复强提醒</text>
+    </view>
+  </view>
+</scroll-view>

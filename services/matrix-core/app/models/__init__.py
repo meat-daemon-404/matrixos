@@ -12,6 +12,13 @@ from app.models.auth import (
     RefreshToken,
     TokenBlacklist,
 )
+from app.models.pocket import (
+    CheckinRecord,
+    MentorReminder,
+    MicroGoal,
+    MorningDismissal,
+    QueueItem,
+)
 from app.models.wormhole import WormholeReceipt
 
 __all__ = [
@@ -20,11 +27,16 @@ __all__ = [
     "AssetEdge",
     "AssetNode",
     "AuditEvent",
+    "CheckinRecord",
     "InteractionToken",
     "LoginSession",
     "MatrixUser",
+    "MentorReminder",
+    "MicroGoal",
+    "MorningDismissal",
     "OAuthAuthCode",
     "OAuthClient",
+    "QueueItem",
     "RefreshToken",
     "TokenBlacklist",
     "WormholeReceipt",

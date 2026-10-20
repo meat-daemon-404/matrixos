@@ -1,0 +1,34 @@
+.ps {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20rpx;
+  padding: 80rpx 40rpx;
+}
+.ps-text {
+  font-size: 26rpx;
+  color: var(--mx-text-muted);
+}
+.ps-text-error { color: var(--mx-danger); }
+.ps-glyph {
+  font-size: 56rpx;
+  color: var(--mx-border-strong);
+}
+.ps-glyph-error { color: var(--mx-danger); }
+.ps-retry { margin-top: 8rpx; }
+.ps-spinner {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 50%;
+  border: 5rpx solid var(--mx-border);
+  border-top-color: var(--mx-instrument);
+  animation: ps-spin 0.9s linear infinite;
+}
+@keyframes ps-spin {
+  to { transform: rotate(360deg); }
+}
+/* 减弱动效偏好：静止显示，不转圈（无障碍，与 instrument-ui 同一取向） */
+@media (prefers-reduced-motion: reduce) {
+  .ps-spinner { animation: none; border-top-color: var(--mx-border-strong); }
+}

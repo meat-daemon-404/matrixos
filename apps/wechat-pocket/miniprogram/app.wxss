@@ -1,0 +1,123 @@
+/**
+ * 口袋端全局样式 —— 设计 token 落到 WXSS 自定义属性。
+ *
+ * 口径来自 packages/instrument-ui/src/tokens.css 与 docs/00-analysis/04-visual-system.md：
+ * 五种表面（obsidian 最深 → raised 最亮）、仪器青作主强调色、正文三档。
+ * 这里只保留小程序真正会用到的子集，避免把整个组件库 token 抄进包体（冷启动敏感）。
+ *
+ * 为什么用 CSS 变量而不是散落色值：换肤/对齐组件库时只改一处；
+ * 且小程序基础库已支持 var()。若某机型不支持，退化的只是配色不是功能。
+ */
+page {
+  --mx-obsidian: #050814;
+  --mx-panel: #0b1124;
+  --mx-panel-end: #070b18;
+  --mx-raised: #0f172a;
+  --mx-sunken: #020617;
+
+  --mx-border: #1e293b;
+  --mx-border-strong: #334155;
+
+  --mx-text: #f1f5f9;
+  --mx-text-secondary: #cbd5e1;
+  --mx-text-muted: #94a3b8;
+
+  --mx-instrument: #22d3ee; /* cyan，主强调（仪器/数据） */
+  --mx-positive: #34d399;
+  --mx-warning: #fbbf24;
+  --mx-danger: #fb7185;
+  --mx-action: #818cf8;
+
+  background: var(--mx-obsidian);
+  color: var(--mx-text);
+  font-size: 28rpx;
+  line-height: 1.55;
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+view,
+text,
+scroll-view,
+button {
+  box-sizing: border-box;
+}
+
+/* 通用容器：折射仪器架的“面板 + 内嵌凹槽”观感（双边框即 bezel）。 */
+.mx-panel {
+  background: linear-gradient(160deg, var(--mx-panel), var(--mx-panel-end));
+  border: 2rpx solid var(--mx-border);
+  border-radius: 20rpx;
+  padding: 28rpx;
+  margin: 20rpx 24rpx;
+}
+
+.mx-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: var(--mx-text);
+  letter-spacing: 0.5rpx;
+}
+
+.mx-sub {
+  font-size: 24rpx;
+  color: var(--mx-text-muted);
+}
+
+.mx-mono {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 语义色文本档（都在 obsidian 上过 AA；见 instrument-ui/contrast 守卫） */
+.mx-t-instrument { color: var(--mx-instrument); }
+.mx-t-positive  { color: var(--mx-positive); }
+.mx-t-warning   { color: var(--mx-warning); }
+.mx-t-danger    { color: var(--mx-danger); }
+
+.mx-row { display: flex; flex-direction: row; align-items: center; }
+.mx-between { justify-content: space-between; }
+.mx-wrap { flex-wrap: wrap; }
+.mx-gap-sm { gap: 12rpx; }
+.mx-gap { gap: 20rpx; }
+.mx-grow { flex: 1; min-width: 0; }
+
+.mx-muted { color: var(--mx-text-muted); }
+
+/* 细进度条（热度/学期进度共用） */
+.mx-bar {
+  height: 10rpx;
+  border-radius: 6rpx;
+  background: var(--mx-sunken);
+  overflow: hidden;
+}
+.mx-bar-fill {
+  height: 100%;
+  border-radius: 6rpx;
+  background: linear-gradient(90deg, var(--mx-instrument), var(--mx-positive));
+}
+
+/* 按钮：口袋端主操作走青、次操作走描边，避免一大片实心高饱和。 */
+.mx-btn {
+  border-radius: 14rpx;
+  font-size: 28rpx;
+  line-height: 2.4;
+  padding: 0 28rpx;
+  border: none;
+}
+.mx-btn::after { border: none; }
+.mx-btn-primary {
+  background: var(--mx-instrument);
+  color: var(--mx-obsidian);
+  font-weight: 600;
+}
+.mx-btn-ghost {
+  background: transparent;
+  color: var(--mx-text-secondary);
+  border: 2rpx solid var(--mx-border-strong);
+}
+.mx-btn-danger {
+  background: transparent;
+  color: var(--mx-danger);
+  border: 2rpx solid var(--mx-danger);
+}
+.mx-btn[disabled] { opacity: 0.45; }

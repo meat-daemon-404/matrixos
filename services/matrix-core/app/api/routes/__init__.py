@@ -8,12 +8,13 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.routes import assets, auth, health, wormhole
+from app.api.routes import assets, auth, health, pocket, wormhole
 
 api_router = APIRouter()
 api_router.include_router(health.router)
 api_router.include_router(auth.router)
 api_router.include_router(assets.router)
 api_router.include_router(wormhole.router)
+api_router.include_router(pocket.router)
 
 __all__ = ["api_router"]

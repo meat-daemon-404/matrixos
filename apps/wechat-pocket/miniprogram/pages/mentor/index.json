@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "进组提醒",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "light",
+  "usingComponents": {
+    "data-origin-badge": "/components/data-origin-badge/index",
+    "panel-state": "/components/panel-state/index"
+  }
+}

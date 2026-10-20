@@ -1,0 +1,50 @@
+<view class="q-head">
+  <view class="mx-row mx-between">
+    <view class="mx-grow">
+      <text class="q-kicker">桌面待办队列</text>
+      <text class="q-sub">手机推入 · 桌面认领处理</text>
+    </view>
+    <data-origin-badge origin="{{origin}}" ageMs="{{ageMs}}" />
+  </view>
+
+  <view class="q-status">
+    <text class="q-pending mx-mono">{{pendingCount}} 条待处理</text>
+    <view class="q-link {{desktopOnline ? 'is-online' : 'is-offline'}}">
+      <text class="q-link-dot"></text>
+      <text wx:if="{{desktopOnline}}">桌面在线</text>
+      <text wx:else>桌面离线</text>
+      <text wx:if="{{!desktopOnline}}" class="q-link-btn" catchtap="onReconnect">重连</text>
+    </view>
+  </view>
+</view>
+
+<panel-state
+  state="{{state}}"
+  errorText="{{errorText}}"
+  emptyText="还没有推送到桌面的待办"
+  bind:retry="onRetry"
+/>
+
+<scroll-view wx:if="{{state==='ready'}}" scroll-y class="q-scroll">
+  <view wx:for="{{items}}" wx:key="id" class="q-item st-{{item.status}}" data-id="{{item.id}}" bindtap="onOpen">
+    <view class="q-rail"></view>
+    <view class="mx-grow">
+      <view class="mx-row mx-between">
+        <text class="q-title">{{item.title}}</text>
+        <text class="q-time mx-mono">{{item.timeText}}</text>
+      </view>
+      <view class="q-tags">
+        <text class="q-tag q-tag-station">{{item.stationLabel}}</text>
+        <text class="q-tag q-tag-status">{{item.statusText}}</text>
+        <text wx:if="{{item.anchorCount}}" class="q-tag q-tag-evi">证据 {{item.anchorCount}}</text>
+        <text class="q-tag q-tag-origin">{{item.originText}}</text>
+      </view>
+      <text wx:if="{{item.desktopAction}}" class="q-action">桌面：{{item.desktopAction}}</text>
+      <text wx:if="{{item.claimedText}}" class="q-claimed">桌面认领于 {{item.claimedText}}</text>
+      <text wx:if="{{item.receiptId}}" class="q-receipt mx-mono">收据 {{item.receiptId}}</text>
+    </view>
+    <text class="q-del" data-id="{{item.id}}" catchtap="onRemove">删</text>
+  </view>
+</scroll-view>
+
+<text wx:if="{{state==='ready'}}" class="q-foot">认领与完成在电脑端进行 · 手机只做查看和移除</text>

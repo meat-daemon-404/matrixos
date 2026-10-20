@@ -1,0 +1,50 @@
+.dt-head { display: flex; justify-content: flex-end; padding: 20rpx 24rpx 0; }
+
+.dt-card { padding-bottom: 12rpx; }
+.dt-title { font-size: 34rpx; font-weight: 600; color: var(--mx-text); flex: 1; min-width: 0; margin-right: 16rpx; }
+.dt-status {
+  flex: none;
+  font-size: 20rpx;
+  padding: 6rpx 16rpx;
+  border-radius: 999rpx;
+  border: 2rpx solid var(--mx-border-strong);
+  color: var(--mx-text-muted);
+}
+.dt-status.st-pending { color: var(--mx-instrument); border-color: rgba(34,211,238,0.4); }
+.dt-status.st-claimed { color: var(--mx-warning); border-color: rgba(251,191,36,0.4); }
+.dt-status.st-done { color: var(--mx-positive); border-color: rgba(52,211,153,0.4); }
+.dt-note { display: block; font-size: 24rpx; color: var(--mx-text-secondary); margin-top: 12rpx; }
+
+.dt-kv { margin-top: 24rpx; border-top: 2rpx dashed var(--mx-border); padding-top: 8rpx; }
+.dt-kv-row {
+  display: flex;
+  gap: 16rpx;
+  padding: 14rpx 0;
+  border-bottom: 2rpx solid var(--mx-border);
+}
+.dt-kv-row:last-child { border-bottom: none; }
+.dt-k { flex: none; width: 150rpx; font-size: 22rpx; color: var(--mx-text-muted); }
+.dt-v { flex: 1; min-width: 0; font-size: 24rpx; color: var(--mx-text-secondary); word-break: break-all; }
+.dt-mono { font-family: "SFMono-Regular", Consolas, monospace; font-size: 22rpx; }
+.dt-copy { color: var(--mx-instrument); }
+
+.dt-evi-title { display: block; font-size: 28rpx; color: var(--mx-text); }
+.dt-evi-sub { display: block; font-size: 20rpx; color: var(--mx-text-muted); margin-top: 6rpx; }
+.dt-anchor {
+  padding: 18rpx 0;
+  border-bottom: 2rpx solid var(--mx-border);
+}
+.dt-anchor:last-of-type { border-bottom: none; }
+.dt-anchor-top { display: flex; align-items: center; gap: 12rpx; }
+.dt-anchor-lv {
+  font-size: 18rpx;
+  padding: 3rpx 12rpx;
+  border-radius: 999rpx;
+}
+.lv-Level_A_Verified { color: var(--mx-positive); background: rgba(52,211,153,0.12); }
+.lv-Level_B_Preprint { color: var(--mx-text-muted); background: rgba(148,163,184,0.12); }
+.lv-Retracted_Warning { color: var(--mx-danger); background: rgba(251,113,133,0.14); }
+.dt-anchor-page { font-size: 20rpx; color: var(--mx-text-secondary); }
+.dt-anchor-ref { display: block; font-size: 22rpx; color: var(--mx-instrument); margin-top: 10rpx; word-break: break-all; }
+.dt-anchor-bbox { display: block; font-size: 18rpx; color: var(--mx-text-muted); margin-top: 4rpx; }
+.dt-evi-foot { display: block; font-size: 20rpx; color: var(--mx-text-muted); margin-top: 16rpx; }

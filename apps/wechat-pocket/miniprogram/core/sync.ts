@@ -47,6 +47,7 @@ export type SyncEvent =
   | { type: 'queue.done'; itemId: string; doneAt: string }
   | { type: 'queue.count'; pendingCount: number }
   | { type: 'mentor.read'; reminderId: string; readAt: string }
+  | { type: 'mentor.stage'; reminderId: string; stage: string; stageLabel: string }
   | { type: 'briefing.ready'; briefingDate: string }
   | { type: 'resync'; reason: string };
 
@@ -337,6 +338,17 @@ class SyncChannel {
         return;
       case 'mentor.read':
         this.emit({ type: 'mentor.read', reminderId: msg.reminderId, readAt: msg.readAt });
+        return;
+      case 'mentor.stage':
+        // 桌面/lab-kanban 推进了进组状态机 → 手机进组页需要重新拉取。
+        // types.ts 早就声明了这个下行消息，之前 dispatch 漏了 case，
+        // 事件被静默吞进 default 分支——补齐它，否则「改完状态手机端不更新」。
+        this.emit({
+          type: 'mentor.stage',
+          reminderId: msg.reminderId,
+          stage: msg.stage,
+          stageLabel: msg.stageLabel,
+        });
         return;
       case 'briefing.ready':
         this.emit({ type: 'briefing.ready', briefingDate: msg.briefingDate });

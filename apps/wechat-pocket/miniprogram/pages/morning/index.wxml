@@ -1,0 +1,71 @@
+<view class="mn-head">
+  <view class="mn-head-l">
+    <text class="mn-date">{{briefingDate}}</text>
+    <text class="mn-kicker">晨间早报 · 08:00</text>
+  </view>
+  <view class="mn-head-r">
+    <data-origin-badge origin="{{origin}}" ageMs="{{ageMs}}" />
+    <navigator class="mn-queue" url="/pkg-queue/queue/index" hover-class="none">
+      桌面待办
+      <text wx:if="{{queueCount>0}}" class="mn-badge">{{queueCount}}</text>
+    </navigator>
+  </view>
+</view>
+
+<panel-state
+  state="{{state}}"
+  errorText="{{errorText}}"
+  emptyText="今天还没有早报"
+  bind:retry="onRetry"
+/>
+
+<scroll-view wx:if="{{state==='ready'}}" scroll-y class="mn-scroll">
+  <view wx:for="{{cards}}" wx:key="id" class="mn-card {{item.dismissed ? 'is-dismissed' : ''}}">
+    <view class="mn-card-top">
+      <view class="mn-idx">{{item.index}}</view>
+      <view class="mn-grow">
+        <text class="mn-src">{{item.source}}</text>
+        <text class="mn-title">{{item.title}}</text>
+      </view>
+      <text class="mn-time">{{item.publishedAtText}}</text>
+    </view>
+
+    <text class="mn-summary">{{item.summary}}</text>
+
+    <view class="mn-heat">
+      <view class="mx-bar mn-heat-bar"><view class="mx-bar-fill" style="width:{{item.heat}}%"></view></view>
+      <text class="mn-heat-text mx-mono">{{item.heatText}}</text>
+    </view>
+
+    <view wx:if="{{item.metrics.length}}" class="mn-metrics">
+      <view wx:for="{{item.metrics}}" wx:for-item="m" wx:key="label" class="mn-chip">
+        <text class="mn-chip-label">{{m.label}}</text>
+        <text class="mn-chip-value mx-mono">{{m.value}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{item.fitNote}}" class="mn-fit">
+      <text class="mn-fit-glyph">⌁</text>
+      <text>{{item.fitNote}}</text>
+    </view>
+
+    <view wx:if="{{item.dismissed}}" class="mn-done-note">已忽略</view>
+    <view wx:else class="mn-actions">
+      <button class="mx-btn mx-btn-ghost mn-btn" data-id="{{item.id}}" bindtap="onDismissTap">忽略</button>
+      <button
+        class="mx-btn mx-btn-primary mn-btn"
+        data-id="{{item.id}}"
+        disabled="{{pushingId === item.id}}"
+        loading="{{pushingId === item.id}}"
+        bindtap="onPushTap"
+      >{{item.pushed ? '已推入' : '推入电脑端'}}</button>
+    </view>
+
+    <view wx:if="{{item.evidenceAnchors.length}}" class="mn-evi">
+      <text class="mn-evi-label">证据</text>
+      <text wx:for="{{item.evidenceAnchors}}" wx:for-item="a" wx:key="source_doi_or_url" class="mn-evi-doi mx-mono">
+        {{a.source_doi_or_url}}
+      </text>
+    </view>
+  </view>
+</scroll-view>

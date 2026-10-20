@@ -1,0 +1,19 @@
+<block wx:if="{{state !== 'ready'}}">
+  <view class="ps ps-{{state}}">
+    <block wx:if="{{state === 'loading'}}">
+      <view class="ps-spinner"></view>
+      <text class="ps-text">{{loadingText}}</text>
+    </block>
+
+    <block wx:elif="{{state === 'empty'}}">
+      <text class="ps-glyph">◇</text>
+      <text class="ps-text">{{emptyText}}</text>
+    </block>
+
+    <block wx:elif="{{state === 'error'}}">
+      <text class="ps-glyph ps-glyph-error">!</text>
+      <text class="ps-text ps-text-error">{{errorText}}</text>
+      <button wx:if="{{canRetry}}" class="mx-btn mx-btn-ghost ps-retry" bindtap="onRetry">重试</button>
+    </block>
+  </view>
+</block>

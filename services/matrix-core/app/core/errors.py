@@ -65,6 +65,11 @@ class ErrorCode:
     # 注册表（manifest 校验，Stage 2 扩展）
     REGISTRY_MANIFEST_INVALID = "registry.manifest_invalid"
 
+    # 口袋端（/v1/pocket/*）
+    POCKET_ITEM_NOT_FOUND = "pocket.item_not_found"
+    POCKET_BAD_TRANSITION = "pocket.bad_transition"
+    POCKET_EVIDENCE_REQUIRED = "pocket.evidence_required"
+
 
 # 错误码默认的 HTTP 状态码；未列出的按 400 处理
 DEFAULT_STATUS: dict[str, int] = {
@@ -102,6 +107,9 @@ DEFAULT_STATUS: dict[str, int] = {
     ErrorCode.WORMHOLE_RECEIPT_NOT_FOUND: 404,
     ErrorCode.WORMHOLE_RECEIPT_EMIT_DENIED: 403,
     ErrorCode.REGISTRY_MANIFEST_INVALID: 422,
+    ErrorCode.POCKET_ITEM_NOT_FOUND: 404,
+    ErrorCode.POCKET_BAD_TRANSITION: 409,
+    ErrorCode.POCKET_EVIDENCE_REQUIRED: 422,
 }
 
 

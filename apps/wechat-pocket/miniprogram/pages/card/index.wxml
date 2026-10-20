@@ -1,0 +1,72 @@
+<view class="cd-head">
+  <data-origin-badge origin="{{origin}}" ageMs="{{ageMs}}" />
+</view>
+
+<panel-state
+  state="{{state}}"
+  errorText="{{errorText}}"
+  emptyText="还没有可展示的名片"
+  bind:retry="onRetry"
+/>
+
+<block wx:if="{{state==='ready'}}">
+  <!-- 名片主体：像一张实体卡，验真等级压在右上角 -->
+  <view class="cd-card mx-panel">
+    <view class="cd-card-top">
+      <view class="mx-grow">
+        <text class="cd-name">{{displayName}}</text>
+        <text wx:if="{{subtitle}}" class="cd-subtitle">{{subtitle}}</text>
+        <text wx:if="{{schoolLine}}" class="cd-school">{{schoolLine}}</text>
+      </view>
+      <view class="cd-level tone-{{levelTone}}">
+        <text class="cd-level-dot"></text>
+        <text>{{levelText}}</text>
+      </view>
+    </view>
+
+    <view class="cd-metrics">
+      <view wx:for="{{metrics}}" wx:key="label" class="cd-metric">
+        <text class="cd-metric-value mx-mono">{{item.value}}</text>
+        <text class="cd-metric-label">{{item.label}}</text>
+        <text wx:if="{{item.hint}}" class="cd-metric-hint">{{item.hint}}</text>
+      </view>
+    </view>
+
+    <text wx:if="{{updatedAtText}}" class="cd-updated">更新于 {{updatedAtText}}</text>
+  </view>
+
+  <!-- 二维码：内容 = 服务端 qrPayload，前端不改写 -->
+  <view class="cd-qr mx-panel">
+    <text class="cd-qr-title">扫码验真</text>
+    <view class="cd-qr-stage">
+      <canvas type="2d" id="qr-canvas" class="cd-qr-canvas" style="width:220px;height:220px;"></canvas>
+      <view wx:if="{{!qrReady}}" class="cd-qr-mask">
+        <text>{{qrError ? qrError : '生成中…'}}</text>
+      </view>
+    </view>
+    <text class="cd-qr-hint">扫此码打开本人学术主页，逐条核对证据</text>
+  </view>
+
+  <!-- 证据清单：每条可长按/点击复制 ref 去 Crossref 复核 -->
+  <view class="cd-evi mx-panel">
+    <text class="cd-evi-title">证据链（{{evidences.length}}）</text>
+    <view
+      wx:for="{{evidences}}"
+      wx:key="id"
+      class="cd-evi-row"
+      data-ref="{{item.ref}}"
+      bindtap="onCopyRef"
+    >
+      <view class="cd-evi-kind {{item.verification}}">
+        <text>{{item.kindText}}</text>
+      </view>
+      <view class="mx-grow">
+        <text class="cd-evi-label">{{item.label}}</text>
+        <text class="cd-evi-ref mx-mono">{{item.ref}}</text>
+        <text wx:if="{{item.verifiedNote}}" class="cd-evi-note">{{item.verifiedNote}}</text>
+      </view>
+      <text class="cd-evi-veri v-{{item.verification}}">{{item.verificationText}}</text>
+    </view>
+    <text class="cd-evi-foot">点任意一条可复制编号，到 Crossref / GitHub 独立复核</text>
+  </view>
+</block>

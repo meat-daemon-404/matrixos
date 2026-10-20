@@ -1,0 +1,22 @@
+.dob {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  border: 2rpx solid var(--mx-border);
+  background: rgba(2, 6, 23, 0.6);
+}
+.dob-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+}
+.dob-ok { color: var(--mx-instrument); }
+.dob-ok .dob-dot { background: var(--mx-instrument); }
+.dob-warn { color: var(--mx-warning); border-color: rgba(251, 191, 36, 0.5); }
+.dob-warn .dob-dot { background: var(--mx-warning); }
+.dob-muted { color: var(--mx-text-muted); }
+.dob-muted .dob-dot { background: var(--mx-text-muted); }
+.dob-age { opacity: 0.8; }
