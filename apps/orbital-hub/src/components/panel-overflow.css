@@ -1,0 +1,63 @@
+/**
+ * InstrumentPanel · 内容溢出 / 自适应未接通 的提示条（ADR-09）
+ *
+ * 刻意放在**独立文件**而不是追加进 `hub-components.css`：
+ *   1. 后者里有已实证的 P0 修复（`.instrument-rack { flex: 1 1 auto }` 等），
+ *      并行会话也在改它，追加只会白送一次冲突；
+ *   2. 这条提示的生命周期与面板布局无关，独立文件将来要删要换更省事。
+ * 类名前缀 `panel-overflow` 与 hub 现有的 `.panel-*` 不重叠命名空间冲突
+ * （`.panel-*` 只出现在本文件与 hub-components.css 的互斥选择器里）。
+ *
+ * 视觉取向：**克制**。一条 18px 的窄条、mono 9px、只用语义色描边，
+ * 不抢星轨与 iframe 的注意力 —— 但必须看得见（ADR-09 不允许静默降级）。
+ *
+ * 位置：`.panel` 纵向 flex 的最后一个孩子，`.panel-body` 之外。
+ * 这点很关键：它**不覆盖 iframe 一个像素**，因此不存在「提示条挡住微站交互」
+ * 的问题；代价是面板可用高少 18px，而这一变化会经 ResizeObserver 正常进入
+ * `decidePanelResize`，不会与布局打架（出现只会让可用高变小，不会反过来
+ * 让提示消失，因此不存在来回振荡）。
+ */
+
+.panel-overflow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  min-width: 0;
+  padding: 3px 8px;
+  border-top: 1px solid rgba(245, 158, 11, 0.32);
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--color-warning);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+/* 桥没接通是「协议没生效」，比「内容有点长」更严重：用危险色区分，避免两者
+ * 看起来是同一件事（两者的修复方向完全不同，用户/排障者必须能一眼分开）。 */
+.panel-overflow[data-kind='bridge-gap'] {
+  border-top-color: rgba(244, 63, 94, 0.34);
+  background: rgba(244, 63, 94, 0.1);
+  color: var(--color-danger);
+}
+
+.panel-overflow-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.panel-overflow-action {
+  margin-left: auto;
+  flex: none;
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dotted currentColor;
+  opacity: 0.9;
+}
+
+.panel-overflow-action:hover {
+  opacity: 1;
+  border-bottom-style: solid;
+}

@@ -23,6 +23,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MicrositeStation } from '../lib/microsites.generated';
 import type { PanelMode } from '../lib/hub-types';
 import { usePanelResize } from '../lib/use-panel-resize';
+import { useHostBridge } from '../lib/use-host-bridge';
+import { useSsoIdtIssuer } from '../lib/use-sso-idt';
+import { describePanelNotice } from '../lib/panel-overflow';
+// 上限只有这一处定义（`panel-resize.ts`），提示层不另抄一份 —— 见 panel-overflow.ts 文件头。
+import { MAX_IFRAME_HEIGHT_PX } from '../lib/panel-resize';
+import './panel-overflow.css';
 
 /** iframe 加载超时（ms）。超过就判 failed，别让用户对着骨架屏猜。 */
 const LOAD_TIMEOUT_MS = 12000;
@@ -140,21 +146,87 @@ export function InstrumentPanel({
 
   const effectiveMode: PanelMode = timedOut && mode === 'live' ? 'failed' : mode;
 
+  /** 桥是否该工作：只有 live 且 iframe 真的挂上才谈通信。 */
+  const bridgeEnabled = shouldRenderIframe && iframeReady && effectiveMode === 'live';
+
   /**
-   * 高度自适应（`layout.resize` 宿主侧）。
+   * **每个面板唯一的那一个宿主桥**。
    *
-   * 传 `iframeRef.current` 不够 —— ref 变化不会触发 re-render，而这里必须在
-   * iframe 真的挂上之后才建桥（否则 `contentWindow` 是 null，消息无处可发）。
-   * 所以用 `iframeReady` 作为依赖：`onLoad` 时它翻 true，正好是子站脚本已就绪
-   * 的时刻（微站的 `startAutoResize()` 就挂在那个时机附近）。
+   * 建在这里（而不是各自的 hook 里）是刻意的：`layout.resize`（H 线）与
+   * `sso.idt.request`（I 线）必须消费**同一个** `HostBridge` 实例。
+   * 建两个桥会有两个 `message` listener 抢同一条消息，且各自锁定自己的
+   * `peerOrigin` —— SDK 用它防 origin 漂移，分裂后 `sso.idt.ack` 可能发到错的
+   * targetOrigin。完整论证见 `lib/use-host-bridge.ts` 文件头。
+   *
+   * 传 `iframeRef.current` 不够：ref 变化不触发 re-render，而建桥必须等 iframe
+   * 真的挂上（否则 `contentWindow` 是 null，消息无处可发）。所以用 `iframeReady`
+   * 作为门闩 —— `onLoad` 翻 true 的时刻正好是子站脚本已就绪的时候。
    */
-  usePanelResize({
+  const hostBridge = useHostBridge({
     stationId: station.id,
     iframe: iframeReady ? iframeRef.current : null,
-    panelBody: hostRef.current,
     src,
-    enabled: shouldRenderIframe && iframeReady && effectiveMode === 'live',
+    enabled: bridgeEnabled,
     ...(process.env.NODE_ENV !== 'production' ? { allowLoopback: true } : {}),
+  });
+
+  /** 高度自适应（H 线）：只消费桥，不建桥。 */
+  const resizeState = usePanelResize({
+    hostBridge,
+    iframe: iframeReady ? iframeRef.current : null,
+    panelBody: hostRef.current,
+    stationId: station.id,
+    enabled: bridgeEnabled,
+    ...(process.env.NODE_ENV !== 'production' ? { debug: false } : {}),
+  });
+
+  /**
+   * 宿主侧签发 `mx_idt`（I 线）。
+   *
+   * 修的是「内嵌态永远 offline」：微站已经发出 `sso.idt.request`，但 hub 此前
+   * 从未订阅它，于是微站只能超时。接线后由 SDK 的 `issueIdtForTenant` 完成
+   * 「白名单 → POST /v1/auth/idt → 只回发起方」整条链路。
+   *
+   * 与上面的 `layout.resize` 挂在**同一个桥**上（SDK 的 `on()` 是 Set 订阅，
+   * 多订阅者互不干扰）—— 这正是「一个面板只能有一个桥」约束下的正确用法。
+   */
+  useSsoIdtIssuer({
+    bridge: hostBridge,
+    ...(process.env.NODE_ENV !== 'production' ? { debug: true } : {}),
+  });
+
+  /*
+   * 提示条的数据全部来自上一步的**实测/实报**值，没有一处是推测的：
+   *   - `scrollRange > 0` 才能说「装不下」；它是 `usePanelResize` 用**已经写进 DOM
+   *     的两个高度**相减得到的（不是重跑 `decidePanelResize`）—— 熔断时决策值会
+   *     比实际可滚距离大，用它会向用户报一个滚不到的数值；
+   *   - 没上报时说「未接通」，`bridgeWaitMs` 未过宽限期则一律不说（避免狼来了）。
+   *
+   * 水合安全：`describePanelNotice` 是纯函数，输入的初始值就是全零
+   * （`EMPTY_PANEL_RESIZE_STATE`），SSR 与 CSR 首帧因此渲染出完全相同的 DOM
+   * —— 这里**不读** `window` / `document` / `Date.now()`，React #418 的成因被从
+   * 根上排除，而不是靠 `useEffect` 补一个 `mounted` 标志来规避。
+   *
+   * 只在 live 态谈桥：snapshot / failed / dormant 下根本没有 iframe，也就无所谓
+   * 「自适应接通没接通」，说出来只是噪音。
+   */
+  const notice = describePanelNotice({
+    overflow: {
+      scrollRange: resizeState.scrollRange,
+      contentHeight: resizeState.contentHeight,
+      availableHeight: resizeState.availableHeight,
+      iframeHeight: resizeState.iframeHeight,
+      maxHeightPx: MAX_IFRAME_HEIGHT_PX,
+      frozen: resizeState.frozen,
+    },
+    bridge:
+      shouldRenderIframe && effectiveMode === 'live'
+        ? {
+            connected: resizeState.connected,
+            hasReport: resizeState.hasReport,
+            elapsedMs: resizeState.bridgeWaitMs,
+          }
+        : null,
   });
 
   const modeLabel =
@@ -297,6 +369,32 @@ export function InstrumentPanel({
           </div>
         ) : null}
       </div>
+
+      {/*
+        ── 内容溢出 / 自适应未接通 的提示条（ADR-09） ─────────────────────
+        放在 `.panel-body` **之外**、`.panel` 的最后一个孩子：
+          - 不覆盖 iframe 一个像素，因此绝不会挡住微站交互（若用 absolute 浮层，
+            「滚动条底部」恰是最需要点的位置，挡住就是新 bug）；
+          - 它是 flex 里 `flex: none` 的一条，占 18px 会把 `.panel-body` 压小 18px，
+            这次变化经 ResizeObserver 正常回流到 `decidePanelResize`，方向单一
+            （可用高只会变小 → 溢出判定只会更保守），不存在来回振荡。
+        用 `role="status"` + `aria-live="polite"`：读屏用户也要能知道内容被裁了。
+      */}
+      {notice.visible ? (
+        <div
+          className="panel-overflow"
+          data-kind={notice.kind}
+          role="status"
+          aria-live="polite"
+          title={notice.detail}
+        >
+          <span aria-hidden="true">{notice.kind === 'bridge-gap' ? '⚠' : '⇅'}</span>
+          <span className="panel-overflow-text">{notice.text}</span>
+          <a className="panel-overflow-action" href={src} target="_blank" rel="noopener noreferrer">
+            {notice.action}
+          </a>
+        </div>
+      ) : null}
     </section>
   );
 }
