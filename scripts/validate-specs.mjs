@@ -13,7 +13,7 @@
  * 无第三方依赖，CI 与本地都能直接跑：node scripts/validate-specs.mjs
  */
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -143,7 +143,7 @@ if (existsSync(whPath)) {
 }
 
 // --------------------------------------------------------------- bundle 存在
-console.log('\n[5/5] 交付物归档完整性');
+console.log('\n[5/6] 交付物归档完整性');
 const bundleChecks = [
   ['bundle/MatrixOS_v3_完整交互规范与UI图谱_高清版.html', 'HTML 交互规范图谱'],
   ['bundle/matrix_os_agent_execution_spec.md', 'Agent 执行规范'],
@@ -158,6 +158,52 @@ if (existsSync(rendersDir)) {
   if (jpgs.length === 4) ok('4 张 UI 渲染图已归档');
   else fail(`UI 渲染图应为 4 张，实际 ${jpgs.length}`);
 } else fail('bundle/UI_Renders/ 不存在');
+
+// --------------------------------------------------------------- bundle 存在
+console.log('\n[6/6] 中文编码完整性（U+FFFD + BOM 扫描）');
+/**
+ * 双重编码检查：
+ *  1. U+FFFD —— PowerShell 5.1 在 GBK 代码页下处理 UTF-8 中文会静默损坏内容，
+ *     表现为 U+FFFD 替换字符。损坏是静默的：文件能打开、链接能解析，
+ *     只有逐字节检查才能发现。
+ *  2. BOM —— Windows PowerShell 的 `Set-Content -Encoding UTF8` 会写入 BOM，
+ *     导致 JSON.parse 报 "Unexpected token '\ufeff'"。
+ *
+ * 参见 .github/CONTRIBUTING.md 与 Issue「中文文档禁用 PowerShell 文本管道」。
+ */
+{
+  const SCAN_DIRS = ['docs', 'specs', 'bundle', 'scripts', '.github'];
+  const SCAN_EXT = /\.(md|json|mjs|js|txt|yml|yaml)$/i;
+  let scanned = 0;
+  let badCount = 0;
+
+  const walkScan = (dir) => {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (['node_modules', '.git', 'UI_Renders'].includes(entry.name)) continue;
+        walkScan(p);
+      } else if (SCAN_EXT.test(entry.name)) {
+        scanned++;
+        const buf = readFileSync(p);
+        if (buf.length >= 3 && buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) {
+          badCount++;
+          fail(`${relative(ROOT, p)} 含 UTF-8 BOM（会导致 JSON.parse 失败）`);
+        }
+        const n = (buf.toString('utf8').match(/\uFFFD/g) || []).length;
+        if (n > 0) {
+          badCount++;
+          fail(`${relative(ROOT, p)} 含 ${n} 处 U+FFFD（中文已损坏）`);
+        }
+      }
+    }
+  };
+
+  for (const d of SCAN_DIRS) walkScan(join(ROOT, d));
+
+  if (badCount === 0) ok(`扫描 ${scanned} 个文件，无 U+FFFD、无 BOM`);
+}
 
 // ------------------------------------------------------------------ 汇总
 console.log('\n' + '─'.repeat(56));

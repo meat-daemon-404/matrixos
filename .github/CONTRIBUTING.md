@@ -150,6 +150,30 @@ Closes #42
 - Python ≥ 3.11（后端）
 - Git 提交前会跑 lint-staged（配置在 Stage 1 落地）
 
+### 🔴 中文编码红线（有实际损失，务必遵守）
+
+**中文 Markdown / JSON 一律用 `write` / `edit` 工具，不要走 PowerShell 文本管道。**
+
+已发生过的两次事故：
+
+| 事故 | 原因 | 后果 |
+| :--- | :--- | :--- |
+| 约 600 处中文损坏 | PowerShell 5.1 在 GBK 代码页下把 UTF-8 当 GBK 解码 | **静默损坏**：文件能打开、链接能解析，只有逐字节检查才发现 |
+| `microsites.json` 解析失败 | `Set-Content -Encoding UTF8` 写入 BOM | `JSON.parse` 报 `Unexpected token '\ufeff'` |
+
+**禁止**
+- ❌ `Get-Content ... | Set-Content ...`（引入 BOM + 编码转换）
+- ❌ `Out-File` 写中文
+- ❌ 用 `-replace` 做中文批量替换后回写
+
+**若必须用脚本处理**，显式指定无 BOM UTF-8：
+
+```powershell
+[System.IO.File]::WriteAllText($path, $content, (New-Object System.Text.UTF8Encoding($false)))
+```
+
+**已加入自动化防线**：`scripts/validate-specs.mjs` 的第 6 项检查会扫描全库，发现 `U+FFFD` 或 BOM 即报错。本地 `pnpm check` 与 CI（计费恢复后）都会拦。
+
 ---
 
 ## 九、沟通
