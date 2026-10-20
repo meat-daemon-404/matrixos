@@ -6,6 +6,35 @@
 
 ---
 
+## ⚠️ 本文正文的判定已被 2026-10-20 晚间一轮实现推翻（增量更正见下，正文保留原貌备查）
+
+一轮针对「P0/P1 双端协同」的落地改了本文多处判定。以下是**复核后**的增量：
+
+| 本文原结论 | 现在的实测状态 | 复现命令 |
+| :--- | :--- | :--- |
+| matrix-core「零自动化测试」「无 pocket 路由」 | 新增 `app/{api/routes,models,schemas,services}/pocket*` 四层实现（13 端点 + 桌面扩展 `claim`/`done` + WS `/v1/pocket/stream`）；**196 passed**（基线 132 + 新增 64） | `cd services/matrix-core; .\.venv\Scripts\python.exe -m pytest tests` |
+| wechat-pocket「视图层 0 个页面、无法启动」 | `app.ts` + 6 页面四件套（4 主包 + 2 分包）+ 2 复用组件 + 8 张 81×81 tabBar PNG；tsc **0 错误** | `cd apps/wechat-pocket; npx tsc -p tsconfig.json`；`node scripts/verify-view-layer.cjs` |
+| `mock-server/` 整个不存在 | `server.cjs`（零依赖，16 端点 + 手写 RFC6455 WS）+ `selftest.cjs`（**63 条断言全绿**）+ README | `cd apps/wechat-pocket; node mock-server/selftest.cjs` |
+| orbital-hub「无队列接收器」（全量搜 pocket/queue 零命中） | `src/lib/queue-client.ts`（fetch/WebSocket/timer 全注入）+ `components/QueueReceiver.tsx`，挂在 `app/page.tsx` 与 OrbitalHub 平级；**21 用例全绿** | `cd apps/orbital-hub; node --test src/lib/queue-client.test.mjs` |
+| instrument-ui「test 指向不存在的 self-test.mjs，pnpm test 直接失败」 | 改用仓库既有约定 `node --test "test/**/*.test.ts"`；**77 用例**覆盖 math/stats/contrast | `cd packages/instrument-ui; node --test "test/**/*.test.ts"` |
+
+**通过测试总数：385 → 679**（385 + instrument-ui 77 + matrix-core 196 + hub 21）。
+mock-server 的 63 条是独立自测脚本，不经 turbo，未计入该总数。
+
+两处**源码缺陷**是补测试过程中发现并修掉的，不是测试写错：
+
+1. `inverseNormalCdf(p)` 在 `p = 0 / 1 / NaN` 时走到 `sqrt(-2·log(0)) = ∞` 再 `∞/∞ = NaN`。它喂给置信带宽度，NaN 等于让 Canvas **静默画不出**置信带——比画错更难排查。改法：退化端夹进 `[1e-12, 1−1e-12]`，开区间内取值一字节未动，`<1.15e-9` 精度承诺不受影响。
+2. 小程序 `core/sync.ts` 的 `dispatch()` 漏了 `mentor.stage` 分支，而 `types.ts` 早就声明过这条下行——事件被 `default` 分支静默吞掉，表现是「桌面推进进组阶段后手机端不更新」。已补 `SyncEvent` 与 case。
+
+顺带把两条「写在文档里但没落到脚本」的约定做实：
+
+- `contrast.test.ts` 现在解析 `tokens.css` 的比值注释并断言其等于 `worstContrast(hex, SURFACE_LIST)`（实测 17/17 精确命中，最坏情况即最亮表面 `#0f172a`），并校验 `✓ AA/AAA` 站得住、`✗` 确实不过 4.5:1。这正是 `contrast.ts` 头注释自陈缺失的「可执行的守卫」。
+- `scripts/safe-build.mjs` 兜底注入 `--concurrency=2`（显式指定则尊重），于是 §4 描述的 ENOENT 假红灯不再由 `pnpm build` 触发。
+
+**仍然成立、本轮未动**：18 微站的业务完备度、copilot-router `api.py`/`api_models.py` 0% 覆盖、pat-worker 未接入 matrix-core、`pnpm test` 看不见三个 Python 服务。
+
+---
+
 ## 一句话结论
 
 **脚手架已经铺满 9 个模块，但"能构建"不等于"有功能"。**
