@@ -909,7 +909,7 @@ body[data-embedded='true'] { overflow: hidden; height: 100%; }
 
 /* iframe 内降级模式（ADR-08）：hub 嵌入式挂载时隐藏大标题/页脚，只留仪器本体 */
 body[data-embedded='true'] .site-chrome { display: none; }
-body[data-embedded='true'] .site-root { padding: 10px; gap: 10px; }
+body[data-embedded='true'] .site-root { padding: 10px 10px 0; gap: 10px; }
 
 /* 嵌入模式紧凑布局：不留视口高度、不留 auto 外边距、不收尾留白。
  * 三条都是「按 iframe 高度自适应」的必要项 —— 只要留一条，内容就会被撑出
@@ -917,6 +917,15 @@ body[data-embedded='true'] .site-root { padding: 10px; gap: 10px; }
 body[data-embedded='true'] .site-root { min-height: 0; }
 body[data-embedded='true'] .site-root { margin: 0 auto; }
 body[data-embedded='true'] .site-footer { margin-top: 8px; padding: 8px 0; }
+
+/* ADR-08 原文要求「iframe 内降级模式（隐藏自身导航，适配紧凑布局）」。
+ * 嵌入时对用户无意义的介绍性内容一并收起：
+ *   .meta-grid  = 「UI 形态 / 独立台账 / 原型来源」三张身份卡（60px）
+ *   .site-footer = 域名 + 生成器署名（34px）
+ * 这两块纯说明性质，嵌入态占 94px 却把仪器挤出可视区。
+ * 注意：不隐藏 .instrument-slot（那是核心）与 .status-row（那是运行态指示）。 */
+body[data-embedded='true'] .meta-grid { display: none; }
+body[data-embedded='true'] .site-footer { display: none; }
 
 .site-header {
   display: flex;

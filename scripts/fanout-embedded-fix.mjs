@@ -2,23 +2,24 @@
 /**
  * scripts/fanout-embedded-fix.mjs
  *
- * 幂等扇出：把微站的嵌入模式（ADR-08）修复扇出到 18 站。
+ * 幂等扇出：把微站「iframe 内降级模式」（ADR-08）的全部修复扇出到 18 站。
  *
- *   补丁 1（P1）  sr-only 等价数据表压制 + 嵌入模式取消视口高度
- *                锚点：`.mono { font-family: var(--font-mono)` 之前
- *   补丁 2（P2）  嵌入模式紧凑布局（min-height / margin / footer 留白三行）
- *                锚点：`body[data-embedded='true'] .site-root { padding: 10px; gap: 10px; }` 之后
- *   补丁 3（P3）  ADR-08：iframe 内彻底不可滚（压掉 html 与 body 两层滚动容器）
- *                锚点：`body[data-embedded='true'] { min-height: 0; }` 之后
+ *   P1  嵌入模式取消视口高度 + sr-only 等价数据表压制
+ *       锚点：`.mono { font-family: var(--font-mono)` 之前
+ *   P3  ADR-08：iframe 内彻底不可滚（html + body 双层 overflow/height）
+ *       锚点：`body[data-embedded='true'] { min-height: 0; }` 之后（该行由 P1 引入）
+ *   P2  嵌入模式紧凑布局（min-height / margin / footer 留白三行）
+ *       锚点：`.site-root { padding: …; gap: 10px; }` 之后
+ *   P4  ADR-08 紧凑布局：隐藏嵌入态无意义的介绍性区块（.meta-grid / .site-footer）
+ *       锚点：P2 的 footer 留白行之后；同时把 .site-root 的底部 padding 归零（与既有行合并，不留两条冲突规则）
  *
  * 设计约束：
- *   - 只遍历 apps/micro-sites/<site>/src/app/globals.css；不碰 layout.tsx / services / docs。
- *   - 幂等：每个补丁有自己的标记；已落标记的补丁跳过，重复执行零写入、字节级不变。
- *   - 按锚点**整行**定位插入，绝不按行号（各站行数不同）；每插一次都重新定位锚点，天然免疫索引漂移。
- *   - 锚点找不到 / 锚点不唯一 / 状态异常 => 记 FAIL 并跳过该站，绝不静默写错位置。
- *   - P1 必须先于 P3：P3 的锚点行正是 P1 引入的（已落则跳过，顺序仍成立）。
- *   - --dry-run 只报告不写盘。
- *   - 末尾汇总「改了 N 站 / 跳过 M 站 / 失败 K 站」；有 FAIL 时退出码 1。
+ *   - 只写 apps/micro-sites/<site>/src/app/globals.css；不碰 layout.tsx / services / docs。
+ *   - 幂等：每补丁有自己的标记；已落则跳过，重复执行零写入、字节级不变。
+ *   - 按锚点**整行**定位，绝不按行号；每插一次都重新定位，天然免疫索引漂移。
+ *   - 锚点找不到 / 锚点不唯一 / 半落状态 => FAIL 并跳过该站，绝不静默写错位置。
+ *   - 前置自检：脚本内补丁常量必须与 scripts/gen-site.mjs 模板逐字一致，否则拒绝扇出。
+ *   - --dry-run 只报告不写盘；有 FAIL 时退出码 1。
  *
  * 用法：
  *   node scripts/fanout-embedded-fix.mjs --dry-run
@@ -35,19 +36,35 @@ const SITES_DIR = path.join(REPO_ROOT, 'apps', 'micro-sites');
 const REFERENCE_SITE = '11-curvelab-fit';
 const GEN_SITE = path.join(REPO_ROOT, 'scripts', 'gen-site.mjs');
 
-/* ── 锚点（整行匹配；取自各站 globals.css 的实际文本） ─────────────────────── */
+/* ── 锚点 ──────────────────────────────────────────────────────────────────── */
 const ANCHOR_MONO_PREFIX = '.mono { font-family: var(--font-mono)';
-const ANCHOR_EMBED_PADDING = "body[data-embedded='true'] .site-root { padding: 10px; gap: 10px; }";
 const ANCHOR_EMBED_MINHEIGHT = "body[data-embedded='true'] { min-height: 0; }";
+const ANCHOR_P2_FOOTER = "body[data-embedded='true'] .site-footer { margin-top: 8px; padding: 8px 0; }";
 
-/* ── 幂等标记（各自只可能来自对应补丁） ───────────────────────────────────── */
+/* `.site-root { padding: …; gap: 10px; }` 在 P4 前后有两种合法形态：
+ *   P4 前：padding: 10px;
+ *   P4 后：padding: 10px 10px 0;
+ * P2 的锚点必须两种都认，否则重跑会「找不到锚点」。 */
+const RE_PADDING_LINE = /^body\[data-embedded='true'\] \.site-root \{ padding: 10px( 10px 0)?; gap: 10px; \}$/;
+
+const OLD_PADDING_LINE = "body[data-embedded='true'] .site-root { padding: 10px; gap: 10px; }";
+const NEW_PADDING_LINE = "body[data-embedded='true'] .site-root { padding: 10px 10px 0; gap: 10px; }";
+
+/* ── 幂等标记 ──────────────────────────────────────────────────────────────── */
 const MARKER_P1 = 'max-height: 1px';
+const MARKER_P3_HTML = "html:has(body[data-embedded='true']) { overflow: hidden; height: 100%; }";
+const MARKER_P3_BODY = "body[data-embedded='true'] { overflow: hidden; height: 100%; }";
+const MARKER_P2 = ANCHOR_P2_FOOTER;
+const MARKER_P4_META = "body[data-embedded='true'] .meta-grid { display: none; }";
+const MARKER_P4_FOOTER = "body[data-embedded='true'] .site-footer { display: none; }";
 
-/* ── 补丁原文（逐字；首/末空串=与相邻段落之间的空行分隔） ─────────────────── */
-const P1_BLOCK = [
+/* ── 补丁原文（逐字；首/末空串 = 与相邻段落的空行分隔） ───────────────────── */
+const P1_HEAD = [
   '/* 仅嵌入模式取消视口高度（ADR-08：iframe 内不滚，高度跟着 hub 走） */',
   ANCHOR_EMBED_MINHEIGHT,
   '',
+];
+const P1_TAIL = [
   '/*',
   ' * 无障碍等价数据表（instrument-ui 的 .iu-sr-only）压制。',
   ' *',
@@ -66,8 +83,20 @@ const P1_BLOCK = [
   '}',
   '',
 ];
+/** P1 在 P3 落地后会被「劈开」：头部 + P3 + 尾部。故 block 由两段组成。 */
+const P1_BLOCK = [...P1_HEAD, ...P1_TAIL];
 
-/** P2 以「前导空行」开头，正好对位参考站里锚点行与规则之间的那个空行。 */
+const P3_BLOCK = [
+  '',
+  '/* ADR-08：iframe 内不滚 —— 必须同时压掉 html 与 body 两层滚动容器。',
+  ' * 只写 body{overflow:hidden} 不够：实测 <html> 的 overflow:visible 才是真正的',
+  ' * 滚动容器，maxScroll 仍为 142px（虽然滚轮动不了，但可滚空间仍在，',
+  ' * 触控/键盘/scrollIntoView 仍能滚）。加上 html 的 overflow 与 height 才彻底归零。 */',
+  MARKER_P3_HTML,
+  MARKER_P3_BODY,
+  '',
+];
+
 const P2_BLOCK = [
   '',
   '/* 嵌入模式紧凑布局：不留视口高度、不留 auto 外边距、不收尾留白。',
@@ -75,35 +104,35 @@ const P2_BLOCK = [
   ' * iframe 可视区，从而出现内层滚动条（ADR-08 明令禁止的双滚动条）。 */',
   "body[data-embedded='true'] .site-root { min-height: 0; }",
   "body[data-embedded='true'] .site-root { margin: 0 auto; }",
-  "body[data-embedded='true'] .site-footer { margin-top: 8px; padding: 8px 0; }",
+  ANCHOR_P2_FOOTER,
   '',
 ];
 
-/** P3 同样以「前导空行」开头，插在 min-height 行之后、`.iu-sr-only` 注释之前。 */
-const P3_BLOCK = [
+const P4_BLOCK = [
   '',
-  '/* ADR-08：iframe 内不滚 —— 必须同时压掉 html 与 body 两层滚动容器。',
-  ' * 只写 body{overflow:hidden} 不够：实测 <html> 的 overflow:visible 才是真正的',
-  ' * 滚动容器，maxScroll 仍为 142px（虽然滚轮动不了，但可滚空间仍在，',
-  ' * 触控/键盘/scrollIntoView 仍能滚）。加上 html 的 overflow 与 height 才彻底归零。 */',
-  "html:has(body[data-embedded='true']) { overflow: hidden; height: 100%; }",
-  "body[data-embedded='true'] { overflow: hidden; height: 100%; }",
+  '/* ADR-08 原文要求「iframe 内降级模式（隐藏自身导航，适配紧凑布局）」。',
+  ' * 嵌入时对用户无意义的介绍性内容一并收起：',
+  ' *   .meta-grid  = 「UI 形态 / 独立台账 / 原型来源」三张身份卡（60px）',
+  ' *   .site-footer = 域名 + 生成器署名（34px）',
+  ' * 这两块纯说明性质，嵌入态占 94px 却把仪器挤出可视区。',
+  ' * 注意：不隐藏 .instrument-slot（那是核心）与 .status-row（那是运行态指示）。 */',
+  MARKER_P4_META,
+  MARKER_P4_FOOTER,
   '',
 ];
-
-const MARKER_P3_HTML = "html:has(body[data-embedded='true']) { overflow: hidden; height: 100%; }";
-const MARKER_P3_BODY = "body[data-embedded='true'] { overflow: hidden; height: 100%; }";
-const MARKER_P2_FOOTER = "body[data-embedded='true'] .site-footer { margin-top: 8px; padding: 8px 0; }";
 
 /**
- * 补丁表。**顺序即应用顺序**：P1 必须先于 P3（P3 的锚点行由 P1 引入）。
- * present(text) 判定该补丁是否已落；block 为插入原文；marker 用于写后自检。
+ * 补丁表。**数组顺序即应用顺序**：
+ *   P1 必须先于 P3（P3 的锚点行由 P1 引入）
+ *   P2 必须先于 P4（P4 的锚点行由 P2 引入）
  */
 const PATCHES = [
   {
     id: 'P1',
     name: 'sr-only 压制 + 取消视口高度',
     block: P1_BLOCK,
+    /** P3 会把 P1 从中间劈开，故一致性自检要按两段（有序）比对。 */
+    runs: [P1_HEAD, P1_TAIL],
     mode: 'before',
     anchor: (l) => l.startsWith(ANCHOR_MONO_PREFIX),
     anchorLabel: 'P1 锚点 .mono',
@@ -114,6 +143,7 @@ const PATCHES = [
     id: 'P3',
     name: 'ADR-08 iframe 内不可滚',
     block: P3_BLOCK,
+    runs: [P3_BLOCK],
     mode: 'after',
     anchor: (l) => l === ANCHOR_EMBED_MINHEIGHT,
     anchorLabel: 'P3 锚点 embedded min-height',
@@ -124,11 +154,30 @@ const PATCHES = [
     id: 'P2',
     name: '嵌入模式紧凑布局',
     block: P2_BLOCK,
+    runs: [P2_BLOCK],
     mode: 'after',
-    anchor: (l) => l === ANCHOR_EMBED_PADDING,
-    anchorLabel: 'P2 锚点 embedded padding',
-    present: (t) => t.includes(MARKER_P2_FOOTER),
-    markers: [MARKER_P2_FOOTER],
+    anchor: (l) => RE_PADDING_LINE.test(l),
+    anchorLabel: 'P2 锚点 embedded padding/gap',
+    present: (t) => t.includes(MARKER_P2),
+    markers: [MARKER_P2],
+  },
+  {
+    id: 'P4',
+    name: 'ADR-08 紧凑布局（隐藏 .meta-grid / .site-footer）',
+    block: P4_BLOCK,
+    runs: [P4_BLOCK],
+    mode: 'after',
+    anchor: (l) => l === ANCHOR_P2_FOOTER,
+    anchorLabel: 'P4 锚点 P2 footer 留白行',
+    /**
+     * P4 是二段式：① 把 padding 行就地改写（合并，不留两条冲突规则）；② 追加隐藏规则。
+     * present 必须两段都满足，否则视为「半落」→ FAIL。
+     */
+    present: (t) =>
+      t.includes(MARKER_P4_META) && t.includes(MARKER_P4_FOOTER) && t.includes(NEW_PADDING_LINE),
+    markers: [MARKER_P4_META, MARKER_P4_FOOTER, NEW_PADDING_LINE],
+    /** 就地替换（要求唯一命中）。已替换过则跳过。 */
+    replaceLine: { from: OLD_PADDING_LINE, to: NEW_PADDING_LINE },
   },
 ];
 
@@ -137,7 +186,6 @@ function rel(p) {
   return r === '' ? '.' : r;
 }
 
-/** 行尾风格：CRLF 与 LF 都支持，写回时保持原样。 */
 function detectEol(text) {
   return text.includes('\r\n') ? '\r\n' : '\n';
 }
@@ -146,7 +194,7 @@ function toLines(text, eol) {
   return text.split(eol);
 }
 
-/** 整行锚点定位：要求唯一命中。返回 {ok, index, reason}。 */
+/** 整行定位：要求唯一命中。 */
 function findUniqueLine(lines, match, label) {
   const hits = [];
   for (let i = 0; i < lines.length; i++) if (match(lines[i])) hits.push(i);
@@ -155,105 +203,85 @@ function findUniqueLine(lines, match, label) {
   return { ok: true, index: hits[0] };
 }
 
-/** 在 lines 上就地插入一个补丁块（'before' 锚点行之前 / 'after' 锚点行之后）。 */
+/** 判断 lines 中是否按顺序包含若干连续行段（每段内部必须连续）。 */
+function hasRunsInOrder(lines, runs) {
+  let cursor = 0;
+  for (const run of runs) {
+    let found = -1;
+    for (let i = cursor; i + run.length <= lines.length; i++) {
+      let hit = true;
+      for (let k = 0; k < run.length; k++) if (lines[i + k] !== run[k]) { hit = false; break; }
+      if (hit) { found = i; break; }
+    }
+    if (found === -1) return false;
+    cursor = found + run.length;
+  }
+  return true;
+}
+
+/** 在 lines 上就地插入补丁块。 */
 function insertPatch(lines, patch) {
   const a = findUniqueLine(lines, patch.anchor, patch.anchorLabel);
   if (!a.ok) return { ok: false, reason: a.reason };
+
   if (patch.mode === 'before') {
     lines.splice(a.index, 0, ...patch.block);
     return { ok: true };
   }
   const after = a.index + 1;
-  // 块自带前导空行：锚点行下紧邻空行时用它替换，保证段落间距与参考站同构。
+  // 块自带前导空行：锚点行下紧邻空行时用它替换，保持段落间距稳定。
   if (lines[after] === '') lines.splice(after, 1, ...patch.block);
   else lines.splice(after, 0, ...patch.block.slice(1));
   return { ok: true };
 }
 
-/**
- * 嵌入模式区域的两种合法形态（逐字）。
- * P3 插在 P1 的 min-height 行之后，因此会把 P1 块**从中间劈开**：
- *   无 P3：[c1, min-height, '', srOnly 注释 ... '}', '']
- *   有 P3：[c1, min-height, '', P3 正文, srOnly 注释 ... '}', '']
- * 前置校验按这两种形态整段比对，而不是假设 P1 永远连续。
- */
-const P1_HEAD = P1_BLOCK.slice(0, 2);
-const P1_TAIL = P1_BLOCK.slice(3);
-const REGION_NO_P3 = [...P1_BLOCK];
-const REGION_WITH_P3 = [...P1_HEAD, '', ...P3_BLOCK.slice(1), ...P1_TAIL];
-
-/** 抽出「嵌入模式区域」：从 P1 首行到 `.mono` 行之前。 */
-function embeddedRegion(lines) {
-  const start = findUniqueLine(lines, (l) => l === P1_BLOCK[0], 'P1 首行（嵌入模式区域起点）');
-  if (!start.ok) return { ok: false, reason: start.reason };
-  const end = findUniqueLine(lines, (l) => l.startsWith(ANCHOR_MONO_PREFIX), '区域终点 .mono 锚点');
-  if (!end.ok) return { ok: false, reason: end.reason };
-  if (end.index <= start.index) return { ok: false, reason: '区域终点在起点之前' };
-  return { ok: true, region: lines.slice(start.index, end.index) };
-}
-
-/** 比较两个行数组是否逐字相同。 */
-function sameLines(a, b) {
-  return a.length === b.length && a.every((v, i) => v === b[i]);
+/** 就地替换一行（要求唯一命中）。 */
+function replaceUniqueLine(lines, from, to, label) {
+  const a = findUniqueLine(lines, (l) => l === from, label);
+  if (!a.ok) return { ok: false, reason: a.reason };
+  lines[a.index] = to;
+  return { ok: true };
 }
 
 /**
- * 前置自检：脚本内补丁常量必须与**权威副本**逐字一致，否则拒绝扇出。
- * 权威副本 = scripts/gen-site.mjs 的 renderGlobalsCss 模板（漂移的上游）。
- * 参考站 11-curvelab-fit 另做一次形态校验（允许「无 P3」或「有 P3」两种合法形态）。
+ * 前置自检：脚本内四处补丁常量必须与 scripts/gen-site.mjs 模板逐字一致。
+ * 生成器是漂移的**上游**，它一旦不同步，下次 `gen:site --force` 就会冲掉全部修复。
  */
-function verifyConstants(messages) {
-  let ok = true;
-
-  // (a) 生成器模板：嵌入区域必须等于「有 P3」形态；P2 段落逐字比对。
+function verifyAgainstGenerator(messages) {
   if (!existsSync(GEN_SITE)) {
     messages.push('  ! scripts/gen-site.mjs 不存在，跳过生成器模板自检');
-  } else {
-    const gen = readFileSync(GEN_SITE, 'utf8');
-    const genLines = toLines(gen, detectEol(gen));
-
-    const r = embeddedRegion(genLines);
-    if (!r.ok) {
-      messages.push(`  ✗ 生成器模板嵌入区域定位失败：${r.reason}`);
-      ok = false;
-    } else if (!sameLines(r.region, REGION_WITH_P3)) {
-      messages.push('  ✗ 生成器模板的嵌入区域与脚本内 P1+P3 常量不一致（两侧需同步）');
-      ok = false;
-    }
-
-    const a2 = findUniqueLine(genLines, (l) => l === ANCHOR_EMBED_PADDING, '生成器模板 P2 锚点');
-    if (!a2.ok) {
-      messages.push(`  ✗ 生成器模板 P2 锚点异常：${a2.reason}`);
-      ok = false;
-    } else if (!sameLines(genLines.slice(a2.index + 1, a2.index + 1 + P2_BLOCK.length), P2_BLOCK)) {
-      messages.push('  ✗ 生成器模板的 P2 段落与脚本内 P2 常量不一致（两侧需同步）');
-      ok = false;
-    }
-
-    if (ok) messages.push('  ✓ 生成器模板自检：gen-site.mjs 的嵌入区域(P1+P3) 与 P2 段落均与脚本常量逐字相同');
+    return true;
   }
+  const gen = readFileSync(GEN_SITE, 'utf8');
+  const genLines = toLines(gen, detectEol(gen));
 
-  // (b) 参考站：必须是两种合法形态之一（扇出前=无 P3，扇出后=有 P3）。
+  let ok = true;
+  for (const patch of PATCHES) {
+    if (!hasRunsInOrder(genLines, patch.runs)) {
+      messages.push(`  ✗ 脚本内 ${patch.id} 与 scripts/gen-site.mjs 模板不一致（两侧需同步）`);
+      ok = false;
+    }
+  }
+  // P4 的就地改写结果也必须出现在模板里
+  if (!genLines.includes(NEW_PADDING_LINE)) {
+    messages.push('  ✗ 生成器模板缺少 P4 的 padding 归零行（.site-root { padding: 10px 10px 0; gap: 10px; }）');
+    ok = false;
+  }
+  if (ok) messages.push('  ✓ 生成器模板自检：gen-site.mjs 的 P1/P2/P3/P4 与脚本常量逐字相同');
+  return ok;
+}
+
+/** 参考站形态自检：只作提示，不阻断（权威是生成器模板 + verify-fanout 逐字节比对）。 */
+function describeReference(messages) {
   const refPath = path.join(SITES_DIR, REFERENCE_SITE, 'src', 'app', 'globals.css');
   if (!existsSync(refPath)) {
-    messages.push(`  ! 参考站文件不存在（${rel(refPath)}），跳过参考站自检`);
-  } else {
-    const ref = readFileSync(refPath, 'utf8');
-    const refLines = toLines(ref, detectEol(ref));
-    const r = embeddedRegion(refLines);
-    if (!r.ok) {
-      messages.push(`  ✗ 参考站嵌入区域定位失败：${r.reason}`);
-      ok = false;
-    } else if (sameLines(r.region, REGION_WITH_P3)) {
-      messages.push(`  ✓ 参考站自检：${REFERENCE_SITE} 嵌入区域已含 P3，与脚本常量逐字相同`);
-    } else if (sameLines(r.region, REGION_NO_P3)) {
-      messages.push(`  ✓ 参考站自检：${REFERENCE_SITE} 嵌入区域尚未含 P3（扇出前状态），P1 与脚本常量逐字相同`);
-    } else {
-      messages.push(`  ✗ 参考站嵌入区域既不等于「含 P3」也不等于「不含 P3」形态（常量已漂移）`);
-      ok = false;
-    }
+    messages.push(`  · 参考站文件不存在（${rel(refPath)}），跳过参考站形态提示`);
+    return;
   }
-  return ok;
+  const ref = readFileSync(refPath, 'utf8');
+  const have = PATCHES.filter((p) => p.present(ref)).map((p) => p.id);
+  const miss = PATCHES.filter((p) => !p.present(ref)).map((p) => p.id);
+  messages.push(`  · 参考站 ${REFERENCE_SITE} 已含 [${have.join(',') || '无'}]，缺 [${miss.join(',') || '无'}]`);
 }
 
 function main() {
@@ -270,7 +298,8 @@ function main() {
   const dryRun = argv.includes('--dry-run');
 
   const messages = [];
-  const constantsOk = verifyConstants(messages);
+  const constantsOk = verifyAgainstGenerator(messages);
+  describeReference(messages);
 
   const sites = readdirSync(SITES_DIR)
     .filter((n) => /^\d\d-/.test(n))
@@ -285,7 +314,7 @@ function main() {
   for (const m of messages) console.log(m);
   if (!constantsOk) {
     console.log('');
-    console.error('[前置校验失败] 脚本内补丁常量与权威副本（参考站 / 生成器模板）不一致，拒绝扇出。');
+    console.error('[前置校验失败] 脚本内补丁常量与 scripts/gen-site.mjs 模板不一致，拒绝扇出。');
     return 1;
   }
   console.log('');
@@ -306,39 +335,47 @@ function main() {
 
     if (missing.length === 0) {
       skipped.push(site);
-      console.log(`  ${label} skip    已处于目标状态（P1+P2+P3 全落），零写入`);
+      console.log(`  ${label} skip    已处于目标状态（P1+P2+P3+P4 全落），零写入`);
       continue;
     }
 
-    // 状态异常守卫：P3 已落却 P1 未落，说明曾被人为手改；此时再插 P1 会引入
-    // 第二条 min-height 行，令 P3 锚点失去唯一性 —— 宁可 FAIL 交人核对。
-    if (PATCHES[1].present(text0) && !PATCHES[0].present(text0)) {
+    // 半落状态守卫：依赖关系不成立说明被人为手改过，宁可 FAIL 交人核对。
+    const anomalies = [];
+    if (PATCHES[1].present(text0) && !PATCHES[0].present(text0)) anomalies.push('P3 已落但 P1 未落');
+    if (PATCHES[3].present(text0) && !PATCHES[2].present(text0)) anomalies.push('P4 已落但 P2 未落');
+    if (anomalies.length) {
       failed.push(site);
-      console.log(`  ${label} FAIL    状态异常：P3 已落但 P1 未落（会重复引入 min-height 行），需人工核对`);
+      console.log(`  ${label} FAIL    状态异常：${anomalies.join('；')}，需人工核对`);
       continue;
     }
 
     const lines = toLines(text0, eol);
     const applied = [];
+    let failure = null;
     for (const patch of missing) {
-      const r = insertPatch(lines, patch);
-      if (!r.ok) {
-        failed.push(site);
-        console.log(`  ${label} FAIL    ${patch.id} ${r.reason}`);
-        break;
+      // P4 的二段式：先就地改写 padding 行（已改过则跳过），再追加隐藏规则。
+      if (patch.replaceLine) {
+        const already = lines.includes(patch.replaceLine.to);
+        if (!already) {
+          const r = replaceUniqueLine(lines, patch.replaceLine.from, patch.replaceLine.to, `${patch.id} 就地改写 padding 行`);
+          if (!r.ok) { failure = `${patch.id} ${r.reason}`; break; }
+        }
       }
+      const r = insertPatch(lines, patch);
+      if (!r.ok) { failure = `${patch.id} ${r.reason}`; break; }
       applied.push(patch.id);
     }
-    if (failed.includes(site)) continue;
+    if (failure) {
+      failed.push(site);
+      console.log(`  ${label} FAIL    ${failure}`);
+      continue;
+    }
 
     const text = lines.join(eol);
-    const selfCheck = {
-      allMarkers: PATCHES.every((p) => p.markers.every((m) => text.includes(m))),
-      grew: text.length > text0.length,
-    };
-    if (!selfCheck.allMarkers || !selfCheck.grew) {
+    const allMarkers = PATCHES.every((p) => p.markers.every((m) => text.includes(m)));
+    if (!allMarkers || text.length <= text0.length) {
       failed.push(site);
-      console.log(`  ${label} FAIL    写前自检未通过（全部标记=${selfCheck.allMarkers} 变长=${selfCheck.grew}）`);
+      console.log(`  ${label} FAIL    写前自检未通过（全部标记=${allMarkers}）`);
       continue;
     }
 
@@ -350,8 +387,7 @@ function main() {
     }
 
     writeFileSync(file, text, 'utf8');
-    const back = readFileSync(file, 'utf8');
-    if (back !== text) {
+    if (readFileSync(file, 'utf8') !== text) {
       failed.push(site);
       console.log(`  ${label} FAIL    写盘后回读与预期不一致：${rel(file)}`);
       continue;
