@@ -110,3 +110,27 @@ cutover.sql
 *.sqlite
 *.sqlite3
 *.db
+
+# ---- 并发会话/子代理在仓库根留下的临时文件 ----
+# 实测：多个 Claude Code / 子代理进程同时工作时，工具会在 cwd 里
+# 创建 tmpXXXXXXXX 形式的一次性文件（0 字节或几行日志），用完即弃。
+# 它们在 git add -A 时会被误收进提交（曾误提交 tmpja2ykuf9 / tmpxew3dl5f）。
+# 加通配符排除；不要试图删除它们——可能正被别的进程占用。
+/tmp*
+
+# ---- pytest 临时目录与静态导出备份 ----
+# `pytest-of-<user>/` 是 pytest 的 tmp_path 基目录（pytest 的 basetemp），
+# 里面是测试跑出来的密钥对（public.pem）与临时库——**全是运行时垃圾，
+# 不含源码**，但 git add -A 会一次收进几十个文件。
+# `next.config.ts.deploybak` 是 build-static-site.mjs 的临时备份，
+# 正常路径下会在 finally 里删掉；进程被强杀时会残留。
+pytest-of-*/
+**/pytest-of-*/
+next.config.ts.deploybak
+**/next.config.ts.deploybak
+
+# ---- 仓库根部与各包的 tmp 一次性文件 ----
+# 工具/编辑器/subprocess 在 cwd 里创建的一次性文件，形如 tmp95qd1_3n。
+# 曾因 git add -A 误提交两个 0 字节文件并 push 到 origin。
+# 用 **/ 覆盖所有层级——只写 /tmp* 只能挡仓库根，services/ 下的漏网。
+**/tmp[A-Za-z0-9_]*

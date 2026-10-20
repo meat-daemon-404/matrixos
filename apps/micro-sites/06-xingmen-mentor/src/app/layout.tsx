@@ -12,10 +12,6 @@ import "@matrixos/instrument-ui/styles.css";
 import { SITE } from '../site.config';
 import './globals.css';
 
-// MATRIXOS_METADATA_V2 —— 由 scripts/upgrade-metadata.mjs 生成
-// 生产 URL 通过 MATRIXOS_PUBLIC_BASE 控制（绑自定义域名时改这一个）
-const PUBLIC_URL = 'https://mx-mentor.pages.dev';
-
 const SITE_ORIGIN = 'https://mx-' + SITE.appId + '.pages.dev';
 
 export const metadata: Metadata = {
@@ -51,7 +47,7 @@ export const metadata: Metadata = {
     'matrixos:station-id': SITE.id,
     'matrixos:orbit': SITE.orbitName,
   },
-};;
+};
 
 export const viewport: Viewport = {
   themeColor: '#050814',

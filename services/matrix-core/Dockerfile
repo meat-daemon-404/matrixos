@@ -65,13 +65,19 @@ RUN pip install --upgrade pip \
 # ═════════════════════════════════════════════════════════════════════════════
 FROM python:${PYTHON_VERSION}-slim-bookworm AS runtime
 
+# 容器内默认值；生产请显式覆盖（尤其 DATABASE_URL / KEYS_DIR）。
+#
+# MATRIX_CORE_AUTO_GENERATE_KEYS 必须显式关掉：Settings 的出厂默认是 true（为方便本地
+# 开发），而 MATRIX_CORE_APP_ENV=production 会触发严格校验——不覆盖的话 preflight 会以
+# auto_generate_keys 直接拒绝启动（Dockerfile 与 preflight 自相矛盾）。
+# 生产密钥一律由卷 / Secret 注入（见文末「密钥注入」）。
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONFAULTHANDLER=1 \
     PATH="/opt/venv/bin:${PATH}" \
-    # 容器内默认值；生产请显式覆盖（尤其 DATABASE_URL / KEYS_DIR / APP_ENV）
     MATRIX_CORE_APP_ENV=production \
     MATRIX_CORE_LOG_JSON=true \
+    MATRIX_CORE_AUTO_GENERATE_KEYS=false \
     PORT=8000
 
 # 运行时只需要 libpq5 + curl（healthcheck 用）。curl 装完不删——
