@@ -18,7 +18,7 @@
  * 用法：node scripts/deploy-hub.mjs [--dry-run]
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -58,9 +58,49 @@ process.env.CLOUDFLARE_ACCOUNT_ID = account;
 /* ── 产物前置检查 ── */
 const outIndex = join(HUB, 'out', 'index.html');
 if (!existsSync(outIndex)) {
-  console.error('✗ apps/orbital-hub/out/index.html 不存在 —— 先跑 node scripts/build-hub-static.mjs');
+  console.error('✗ apps/orbital-hub/out/index.html 不存在 —— 先跑 node scripts/build-hub-static.mjs --production');
   process.exit(1);
 }
+
+/**
+ * 关键自检：产物里**不得**含 local-mode 的 localhost 地址。
+ *
+ * 2026-10-21 真实事故：hub 产物被构建进 `http://127.0.0.1:3010`（`.env.example`
+ * 的 LOCAL_MODE=true 被 Next DefinePlugin 静态替换），线上 iframe src 指向
+ * 用户浏览器连不到的本地端口 → 内嵌态白屏 / 握手不通 / SSO 永远 offline。
+ *
+ * 若这里报错，正确修法是**用 --production 重建**：
+ *   node scripts/build-hub-static.mjs --production
+ */
+function scanJs(dir) {
+  const out = [];
+  const walk = (d) => {
+    if (!existsSync(d)) return;
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const p = join(d, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.name.endsWith('.js')) out.push(readFileSync(p, 'utf8'));
+    }
+  };
+  walk(dir);
+  return out.join('\n');
+}
+{
+  const js = scanJs(join(HUB, 'out', '_next'));
+  const localHits = [...new Set(js.match(/https?:\/\/(?:localhost|127\.0\.0\.1):\d+/g) || [])];
+  if (localHits.length > 0) {
+    console.error(`✗ hub 产物含 localhost 微站地址：${localHits.slice(0, 3).join(', ')}`);
+    console.error('  这是 local-mode 被构建进产物的事故 —— 用 --production 重建：');
+    console.error('  node scripts/build-hub-static.mjs --production');
+    process.exit(1);
+  }
+  if (!/mx-\{appId\}\.pages\.dev|mx-[a-z-]+\.pages\.dev/.test(js)) {
+    console.error('✗ hub 产物未含 pages.dev 地址模板 —— 地址注入异常，拒绝部署');
+    process.exit(1);
+  }
+  console.log('✓ 产物 URL 自检通过（无 localhost，含 pages.dev 模板）');
+}
+
 const outHeaders = join(HUB, 'out', '_headers');
 if (!existsSync(outHeaders)) {
   console.error('✗ out/_headers 不存在 —— 会丢安全头');

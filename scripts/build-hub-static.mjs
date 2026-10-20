@@ -14,7 +14,8 @@
  *   这样 hub 整体变成纯静态，可以正常部署到 Pages。
  *
  * 用法：
- *   node scripts/build-hub-static.mjs
+ *   node scripts/build-hub-static.mjs                 本地/harness 构建（允许环境变量覆盖地址）
+ *   node scripts/build-hub-static.mjs --production    生产构建（**强制**生产地址，忽略环境值）
  */
 import { execFileSync } from 'node:child_process';
 import { existsSync, rmSync, writeFileSync, readFileSync, renameSync, cpSync } from 'node:fs';
@@ -26,6 +27,18 @@ const HUB = join(ROOT, 'apps', 'orbital-hub');
 const CFG = join(HUB, 'next.config.ts');
 const PH_DIR = join(HUB, 'src', 'app', 'placeholder');
 const PH_BAK = join(HUB, 'src', 'app', '__placeholder.disabled');
+
+/**
+ * `--production`：生产构建。
+ * 强制忽略 `NEXT_PUBLIC_MICROSITE_LOCAL_MODE` 等环境覆盖值。
+ *
+ * 为什么必须存在（2026-10-21 真实事故）：
+ * 并行会话的 shell 里残留 `NEXT_PUBLIC_MICROSITE_LOCAL_MODE=true`（本地联调所致），
+ * 它重建 hub 时该值被 Next 的 DefinePlugin 静态替换进产物 → 线上 iframe src 变成
+ * `http://127.0.0.1:3010`，用户浏览器连不到 → 内嵌态白屏、握手不通、SSO 永远 offline。
+ * 部署前的正确做法：`node scripts/build-hub-static.mjs --production`。
+ */
+const PRODUCTION_BUILD = process.argv.includes('--production');
 
 const origCfg = readFileSync(CFG);
 
@@ -131,12 +144,36 @@ try {
         shell: !binField && process.platform === 'win32',
         env: {
           ...process.env,
+          // NODE_ENV 必须强制为 production（本地 harness 也可能在 dev shell 里跑）。
           NODE_ENV: 'production',
           NEXT_TELEMETRY_DISABLED: '1',
-          // 生产：iframe 指向已部署的 pages.dev 微站
-          NEXT_PUBLIC_MICROSITE_LOCAL_MODE: 'false',
-          NEXT_PUBLIC_MICROSITE_ORIGIN_TEMPLATE: 'https://mx-{appId}.pages.dev',
-          NEXT_PUBLIC_MICROSITE_PLACEHOLDER: 'false',
+          /*
+           * 下面三项允许调用方**覆盖**（不设时就是生产取值）。
+           *
+           * 为什么需要这个能力：本地双端口 harness 要验「跨源握手」，就必须让
+           * hub 的 iframe 指向本地构建的微站而不是线上 pages.dev。
+           * 做成显式环境变量，比「脚本去改源码再改回来」安全得多 ——
+           * 后者一旦中途失败，错误地址会留在产物里，而 git 看不出占位符被替换过。
+           *
+           * ⚠️ 但这个「允许覆盖」曾造成一次真实线上事故（2026-10-21）：
+           *   并行会话的 shell 里有 `NEXT_PUBLIC_MICROSITE_LOCAL_MODE=true`
+           *   （本地联调留下的），它重建 hub 时该值被 Next 的 DefinePlugin
+           *   **静态替换进产物** → 线上 `mx-orbital.pages.dev` 的 iframe src 变成
+           *   `http://127.0.0.1:3010`，用户浏览器根本连不到 → 内嵌态永远白屏、
+           *   bridge 握手永不完成、SSO 永远 offline。
+           *
+           * 所以新增 `--production` 旗标：**显式请求生产构建时，强制忽略环境值**。
+           * 部署流程（deploy-hub.mjs）应带该旗标；本地 harness 不带，保留覆盖能力。
+           */
+          NEXT_PUBLIC_MICROSITE_LOCAL_MODE: PRODUCTION_BUILD
+            ? 'false'
+            : (process.env.NEXT_PUBLIC_MICROSITE_LOCAL_MODE ?? 'false'),
+          NEXT_PUBLIC_MICROSITE_ORIGIN_TEMPLATE: PRODUCTION_BUILD
+            ? 'https://mx-{appId}.pages.dev'
+            : (process.env.NEXT_PUBLIC_MICROSITE_ORIGIN_TEMPLATE ?? 'https://mx-{appId}.pages.dev'),
+          NEXT_PUBLIC_MICROSITE_PLACEHOLDER: PRODUCTION_BUILD
+            ? 'false'
+            : (process.env.NEXT_PUBLIC_MICROSITE_PLACEHOLDER ?? 'false'),
         },
         timeout: 900000,
       });
