@@ -844,6 +844,13 @@ body {
 /* 仅嵌入模式取消视口高度（ADR-08：iframe 内不滚，高度跟着 hub 走） */
 body[data-embedded='true'] { min-height: 0; }
 
+/* ADR-08：iframe 内不滚 —— 必须同时压掉 html 与 body 两层滚动容器。
+ * 只写 body{overflow:hidden} 不够：实测 <html> 的 overflow:visible 才是真正的
+ * 滚动容器，maxScroll 仍为 142px（虽然滚轮动不了，但可滚空间仍在，
+ * 触控/键盘/scrollIntoView 仍能滚）。加上 html 的 overflow 与 height 才彻底归零。 */
+html:has(body[data-embedded='true']) { overflow: hidden; height: 100%; }
+body[data-embedded='true'] { overflow: hidden; height: 100%; }
+
 /*
  * 无障碍等价数据表（instrument-ui 的 .iu-sr-only）压制。
  *

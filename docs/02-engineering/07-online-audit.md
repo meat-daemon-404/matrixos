@@ -188,7 +188,7 @@ Lead 的独立复核（三种方法，与 auditor 各自独立测得同样结果
 | 优先级 | 问题 | 处理 | 状态 |
 | :--- | :--- | :--- | :--- |
 | **P0** | P1 微站页面大量空白 | 压制 `.iu-sr-only` 表格（扇出 18 站） | ✅ **已修 + 线上实证**（curvelab 4410→900 px；sr-only 表 4164→1 px） |
-| **P0** | P5 微站替自己预留视口高 | 嵌入模式紧凑布局（扇出 18 站） | ✅ 部分修 + 线上实证（`min-height` 归零）；**但 iframe 内仍可滚 → 见 TODO-1** |
+| **P0** | P5 微站替自己预留视口高 / iframe 内可滚 | 紧凑布局 + `html`/`body` 双层 `overflow:hidden` 不可滚（扇出 18 站） | ✅ **已修 + 本地实证**（嵌入 `maxScroll`=0、独立仍可滚）；线上待复检 |
 | **P0** | P4 hub 面板高度塌陷为 0 | `.instrument-rack { flex: 1 1 auto }` | ✅ **已修 + 线上实证**（413→0 变为 713→626 px） |
 | P1 | P2 favicon 404 | 18 站补 `src/app/icon.svg` | ✅ **已修 + 线上实证**（控制台错误 1→0；`/icon.svg` 200） |
 | — | P3 hub 检测误报 | 改脚本选择器为 hub 自身语汇 | ✅ 已修（脚本侧） |
@@ -271,10 +271,66 @@ Lead 的独立复核（三种方法，与 auditor 各自独立测得同样结果
 
 | ID | 事项 | 现状 | 影响 / 下一步 |
 | :--- | :--- | :--- | :--- |
-| **TODO-1** | **ADR-08「iframe 内不滚」仍被违反** | 微站 `min-height` 已归零、hub `.panel-body{overflow:hidden}` 已成，但 **iframe 内部仍可真实滚动**（实测滚轮 `scrollTop` 0→499、程序化跨帧稳定 499） | 与 ADR-08 字面约定不符。修复在**微站侧**：需 `html` + `body` 双层 `overflow:hidden; height:100%`（方案已实测可行：`maxScroll` 142→**0**）。已开单（task-5） |
+| **TODO-1** | ~~ADR-08「iframe 内不滚」被违反~~ | ✅ **已修 + 线上实证**：微站侧 `html`+`body` 双层 `overflow:hidden; height:100%`，18 站已扇出并部署 | 见下「E 线修复与终验」 |
 | TODO-2 | `/favicon.ico` 裸探针仍 404 | 页面已声明 `/icon.svg`（200），浏览器不再回退请求 `/favicon.ico`，控制台已干净（18/18 站 0 错误） | 仅影响「浏览器/爬虫直接猜 `/favicon.ico`」的场景；如需覆盖可加 `public/favicon.ico` |
 | TODO-3 | hub 静态产物未纳入统一 `_headers` 生成器 | 已在 `build-hub-static.mjs` 内联对齐 | 长期应抽成共享生成器的「无 CSP 变体」，避免再次分叉 |
 | TODO-4 | `--inject-css` 参数解析曾静默忽略 `--name=value` | 已修 | 记录在案：审计脚本的参数解析本身也需要测试，否则会静默少跑站 |
+
+### E 线修复：ADR-08「iframe 内不滚」真正落地
+
+**修复**（18 站 `globals.css`，由 `scripts/fanout-embedded-fix.mjs` 幂等扇出）：
+
+```css
+/* ADR-08：iframe 内不滚 —— 必须同时压掉 html 与 body 两层滚动容器。
+ * 只写 body{overflow:hidden} 不够：实测 <html> 的 overflow:visible 才是真正的
+ * 滚动容器，maxScroll 仍为 142px（滚轮动不了，但可滚空间仍在，
+ * 触控/键盘/scrollIntoView 仍能滚）。加上 html 的 overflow 与 height 才彻底归零。 */
+html:has(body[data-embedded='true']) { overflow: hidden; height: 100%; }
+body[data-embedded='true'] { overflow: hidden; height: 100%; }
+```
+
+**为什么 `height: 100%` 必需**（Lead 的候选方案对比实测，同一产物同一度量代码）：
+
+| 方案 | `maxScroll` | 真实滚轮后 `scrollTop` | 判定 |
+| :--- | ---: | ---: | :--- |
+| 修复前 | 142 | 142 | ✗ 可滚 |
+| 仅 `body{overflow:hidden}` | 142 | 0 | ✗ 可滚空间仍在 |
+| `body` + `html{overflow:hidden}` | 142 | 0 | ✗ 同上 |
+| **`html`+`body` 均 `overflow:hidden; height:100%`** | **0** | **0** | ✅ 不可滚 |
+
+**Lead 独立终验** —— 分两层：本地产物 + 已部署的线上。
+
+**第一层：本地产物**（双端口 harness，三个样本站覆盖有/无 sr-only 两类）：
+
+| 判据 | 01-gpa | 11-curvelab | 15-retract-radar |
+| :--- | ---: | ---: | ---: |
+| 嵌入模式 `maxScroll` | **0** | **0** | **0** |
+| 真实滚轮后 `scrollTop` | **0** | **0** | **0** |
+| `html` / `body` 计算 overflow | hidden / hidden | hidden / hidden | hidden / hidden |
+| `html` / `body` 计算 height | 626px / 626px | 626px / 626px | 626px / 626px |
+| **standalone 仍可滚**（回归判据） | ✓ `scrollY`=304 | ✓ 无溢出 | ✓ 无溢出 |
+| `.instrument-slot` 高度（未截断） | 955px | 598px | 516px |
+
+**第二层：线上（部署后，Lead 独立复核）**：
+
+| 判据 | 线上实测（`mx-orbital.pages.dev` 内挂载 `mx-gpa.pages.dev`） |
+| :--- | :--- |
+| iframe 内 `maxScroll` | **0** |
+| 真实鼠标滚轮 ×5 后 `scrollTop` | **0 → 0** |
+| 程序化 `scrollTop=99999` 跨两帧 / 250ms | **0 / 0** |
+| `html` / `body` 计算 overflow | **hidden / hidden** |
+| `html` / `body` 计算 height | **626px / 626px** |
+| `CSS.supports('selector(html:has(body))')` | **true**（`html:has(...)` 规则确实命中） |
+| **standalone 线上仍可滚**（回归） | ✓ `scrollY`=304（`maxScroll`=304） |
+| 线上 CSS 含修复（遍历全部 5 个 `<link>`） | 4/4 样本站 ✓ |
+
+即：**嵌入模式彻底不可滚、独立模式不受影响** —— ADR-08 的字面约定首次真正满足，且已在线上生效。
+
+> ⚠️ **复核方法教训**：Lead 第一次复核线上时**只取了 HTML 里第一个 `<link>` 指向的 CSS**，便下了「线上仍无修复」的结论 —— **错**。Next 一次引用 **5 个** CSS 文件，修复在其中之一。**校验必须遍历全部引用的资源**，不能取首个匹配。这条已与 §「方法论教训」并列记录。
+
+> ⚠️ 依赖 `:has()` 选择器（Chrome 105+ / Safari 15.4+ / Firefox 121+）。实测本会话 Chromium `CSS.supports('selector(html:has(body))') === true`。
+> 但**仓库内无 browserslist / 目标浏览器基线声明**（`package.json`、`.browserslistrc`、ADR 文档均未声明），
+> 因此「所有目标浏览器均支持」无法从仓库证实 —— 若将来要支持更低基线，应改用给 `<html>` 加类名的方案，避免 `html:has()` 整条**静默失效**。
 
 ---
 
