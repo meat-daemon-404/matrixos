@@ -16,10 +16,14 @@ MatrixOS 把四个已独立上线并验证过的原型系统，解耦重构为�
 
 | 原型 | 现有能力 | 在 v3 中的归属 |
 | :--- | :--- | :--- |
-| **ScholarMatrix** | 42+ 学术工具、跨论文对比矩阵、统计拟合台、综述生成 | 拆解为 12 个科研微站（轨道 1/2/5）+ 云衡 |
-| **星门 Xingmen** | 导师画像、自适应套磁信、进组台账 | 3 个微站（轨道 4：mentor / cold-email / lab-kanban） |
-| **PAT-HOT** | 物理·天文·光电 24h 流式情报监听 | 1 个微站（轨道 3：pat-hot） |
-| **预职 Pre-Job** | 证据级简历、升学/考公/求职决策树 | 2 个微站（轨道 7：evidence-cv / prejob） |
+| **ScholarMatrix** | 42+ 学术工具、跨论文对比矩阵、统计拟合台、综述生成 | 拆解为 **10 个纯源微站**（01/02/05/09/10/11/12/13/14/15）+ 与预职共担 1 站（16 yunheng）＝**涉及 11 站** |
+| **星门 Xingmen** | 导师画像、自适应套磁信、进组台账 | **3 个微站**（轨道 4：06 mentor / 07 cold-email / 08 lab-kanban） |
+| **PAT-HOT** | 物理·天文·光电 24h 流式情报监听 | **1 个微站**（轨道 3：04 pat-hot） |
+| **预职 Pre-Job** | 证据级简历、升学/考公/求职决策树 | **2 个微站**（轨道 7：17 evidence-cv / 18 prejob）+ 与 ScholarMatrix 共担 16 yunheng |
+| **MatrixOS 原创** | v3 全新设计，非任何原型拆解 | **1 个微站**（03 grant-audit 大创经费液位仪） |
+
+> 口径说明：10（纯 ScholarMatrix）+ 3（星门）+ 1（PAT-HOT）+ 2（纯预职）+ 1（原创 grant-audit）+ 1（双源 yunheng）= **18**。
+> 归属明细以 [`specs/microsites.json`](specs/microsites.json) 的 `source` 字段为准。
 
 ### 五大锁定架构决策（Q1–Q5）
 
