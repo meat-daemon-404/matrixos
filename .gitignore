@@ -88,3 +88,11 @@ operation-state.json
 route-audit.md
 pentest/
 *.probe.log
+# ---- Python 测试产物 ----
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+**/.pytest_cache/
+# ---- Next.js 自动生成（build 时会改写，不应入库）----
+next-env.d.ts

@@ -1,0 +1,355 @@
+/* =============================================================================
+ * demo · 演示台外壳样式
+ * -----------------------------------------------------------------------------
+ * 只做「舞台」，不复刻组件内部视觉：颜色一律走 tokens.css 的 --iu-*，
+ * 组件本身自带的 .iu-panel / .iu-label / .iu-readout 已经是设计系统的口径。
+ *
+ * 这里唯一新增的是 demo 自己的栅格与分节标题 —— 它们不属于组件库，
+ * 不应被下游宿主继承。
+ * ========================================================================== */
+
+@import '../src/styles.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--iu-bg);
+  color: var(--iu-text);
+  font-family: var(--iu-font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+}
+
+/* 页面级底噪：两团极低透明度的辉光，制造「仪器台被点亮」的纵深。
+   用 fixed 伪元素而非背景图，避免滚动时重绘。 */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(60rem 40rem at 15% -10%, rgb(var(--iu-instrument-rgb) / 0.14), transparent 60%),
+    radial-gradient(50rem 36rem at 88% 4%, rgb(var(--iu-action-rgb) / 0.12), transparent 62%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::before {
+    display: none;
+  }
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+/* -----------------------------------------------------------------------------
+ * 布局骨架
+ * -------------------------------------------------------------------------- */
+
+.dz-page {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: var(--iu-space-8) var(--iu-space-6) 120px;
+}
+
+.dz-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--iu-space-4);
+  padding-bottom: var(--iu-space-5);
+  margin-bottom: var(--iu-space-6);
+  border-bottom: 1px solid var(--iu-border);
+}
+
+.dz-title {
+  margin: 0;
+  font-size: var(--iu-text-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--iu-text-strong);
+}
+
+.dz-title small {
+  display: block;
+  margin-top: var(--iu-space-2);
+  font-family: var(--iu-font-mono);
+  font-size: var(--iu-text-xs);
+  font-weight: 400;
+  letter-spacing: var(--iu-tracking-label);
+  text-transform: uppercase;
+  color: var(--iu-text-muted);
+}
+
+.dz-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--iu-space-2);
+}
+
+/* -----------------------------------------------------------------------------
+ * 按钮（demo 自有，不是组件库导出物）
+ * -------------------------------------------------------------------------- */
+
+.dz-btn {
+  appearance: none;
+  cursor: pointer;
+  font-family: var(--iu-font-mono);
+  font-size: var(--iu-text-xs);
+  letter-spacing: 0.04em;
+  padding: 6px 12px;
+  border-radius: var(--iu-radius-sm);
+  border: 1px solid var(--iu-border-strong);
+  background: var(--iu-bg-raised);
+  color: var(--iu-text-secondary);
+  transition:
+    border-color var(--iu-dur-fast) var(--iu-ease-base),
+    color var(--iu-dur-fast) var(--iu-ease-base),
+    background-color var(--iu-dur-fast) var(--iu-ease-base);
+}
+
+.dz-btn:hover {
+  border-color: var(--iu-accent-bright);
+  color: var(--iu-text-strong);
+}
+
+.dz-btn[aria-pressed='true'] {
+  border-color: var(--iu-accent-bright);
+  background: rgb(var(--iu-accent-rgb) / 0.18);
+  color: var(--iu-accent-text);
+}
+
+.dz-btn:focus-visible {
+  outline: 2px solid var(--iu-accent-bright);
+  outline-offset: 2px;
+}
+
+/* -----------------------------------------------------------------------------
+ * 分节
+ * -------------------------------------------------------------------------- */
+
+.dz-section {
+  margin-top: var(--iu-space-8);
+}
+
+.dz-section-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--iu-space-3);
+  margin-bottom: var(--iu-space-4);
+}
+
+.dz-section-index {
+  font-family: var(--iu-font-mono);
+  font-size: var(--iu-text-xs);
+  color: var(--iu-accent-text);
+  padding: 2px 7px;
+  border: 1px solid rgb(var(--iu-accent-rgb) / 0.4);
+  border-radius: var(--iu-radius-xs);
+}
+
+.dz-section-title {
+  margin: 0;
+  font-size: var(--iu-text-lg);
+  font-weight: 600;
+  color: var(--iu-text-strong);
+}
+
+.dz-section-note {
+  flex: 1 1 22rem;
+  font-size: var(--iu-text-xs);
+  color: var(--iu-text-muted);
+  line-height: var(--iu-leading-snug);
+}
+
+/* 组件展示卡：承载单个仪器，保留 .iu-panel 的金属倒角 */
+.dz-stage {
+  display: grid;
+  gap: var(--iu-space-5);
+}
+
+.dz-stage--split {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+}
+
+.dz-card {
+  padding: var(--iu-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--iu-space-4);
+  min-width: 0;
+}
+
+.dz-card--center {
+  align-items: center;
+  justify-content: center;
+}
+
+.dz-card--wide {
+  grid-column: 1 / -1;
+}
+
+.dz-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--iu-space-2);
+}
+
+.dz-card-title {
+  font-family: var(--iu-font-mono);
+  font-size: var(--iu-text-xs);
+  font-weight: 600;
+  letter-spacing: var(--iu-tracking-label);
+  text-transform: uppercase;
+  color: var(--iu-accent-text);
+}
+
+.dz-card-sub {
+  font-size: var(--iu-text-xs);
+  color: var(--iu-text-muted);
+}
+
+/* 事件回显：把 props/events 的往来变成可见证据 */
+.dz-echo {
+  font-family: var(--iu-font-mono);
+  font-size: var(--iu-text-xs);
+  color: var(--iu-text-secondary);
+  background: var(--iu-bg-sunken);
+  border: 1px solid var(--iu-border);
+  border-radius: var(--iu-radius-sm);
+  padding: var(--iu-space-2) var(--iu-space-3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iu-space-3);
+  align-items: center;
+  min-height: 34px;
+}
+
+.dz-echo b {
+  color: var(--iu-accent-text);
+  font-weight: 600;
+}
+
+.dz-echo span {
+  white-space: nowrap;
+}
+
+/* 旋钮行 */
+.dz-knobs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iu-space-6);
+  align-items: flex-start;
+  justify-content: center;
+}
+
+/* 证据徽章行 */
+.dz-evidence-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iu-space-4);
+  align-items: center;
+}
+
+.dz-evidence-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iu-space-2);
+  padding: var(--iu-space-3);
+  border: 1px solid var(--iu-border);
+  border-radius: var(--iu-radius-sm);
+  background: var(--iu-bg-sunken);
+}
+
+.dz-evidence-name {
+  font-size: var(--iu-text-xs);
+  color: var(--iu-text-muted);
+}
+
+/* 对比度面板 */
+.dz-contrast {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: var(--iu-space-2);
+}
+
+.dz-contrast-row {
+  display: flex;
+  align-items: center;
+  gap: var(--iu-space-2);
+  padding: var(--iu-space-2) var(--iu-space-3);
+  border: 1px solid var(--iu-border);
+  border-radius: var(--iu-radius-sm);
+  background: var(--iu-bg-sunken);
+  font-family: var(--iu-font-mono);
+  font-size: var(--iu-text-xs);
+}
+
+.dz-contrast-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex: 0 0 auto;
+  border: 1px solid rgb(255 255 255 / 0.16);
+}
+
+.dz-contrast-value {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--iu-text-strong);
+}
+
+.dz-badge {
+  font-family: var(--iu-font-mono);
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid currentColor;
+  letter-spacing: 0.04em;
+}
+
+.dz-badge[data-level='AAA'] {
+  color: var(--iu-positive-text);
+}
+.dz-badge[data-level='AA'] {
+  color: var(--iu-instrument-text);
+}
+.dz-badge[data-level='AA-large'] {
+  color: var(--iu-warning-text);
+}
+.dz-badge[data-level='FAIL'] {
+  color: var(--iu-danger-text);
+}
+
+/* 全宽组件容器（星轨 / 看板） */
+.dz-full {
+  width: 100%;
+  min-width: 0;
+}
+
+.dz-footnote {
+  margin-top: var(--iu-space-8);
+  padding-top: var(--iu-space-4);
+  border-top: 1px solid var(--iu-border);
+  font-size: var(--iu-text-xs);
+  color: var(--iu-text-muted);
+  line-height: var(--iu-leading-base);
+}

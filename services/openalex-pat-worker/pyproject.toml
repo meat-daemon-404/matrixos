@@ -40,6 +40,7 @@ e2e = [
 pat-worker = "pat_worker.__main__:main"
 
 [tool.setuptools.packages.find]
+where = ["src"]
 include = ["pat_worker*"]
 
 [tool.pytest.ini_options]
@@ -48,6 +49,8 @@ testpaths = ["tests"]
 addopts = "-ra -q"
 filterwarnings = ["error::DeprecationWarning:pat_worker.*"]
 asyncio_mode = "auto"
+# src/ 布局：不装包也能 `import pat_worker`
+pythonpath = ["src"]
 markers = [
   "live: 需要真实网络的用例，默认不跑（pytest -m live）",
 ]

@@ -108,7 +108,41 @@ section('TypeScript typecheck（turbo，全仓）');
   }
 }
 
-// ───────────────────── 4. Python 语法 ─────────────────────
+// ───────────────────── 4. 生产构建（CSS / 打包管线）─────────────────────
+// 为什么需要这一步：
+// typecheck 只看类型，抓不到 CSS 语法、打包器配置、静态生成期错误。
+// 实际踩过：instrument-ui 的 base.css 块注释里写了 "aria-" + 星号 + "/role"，
+// 其中星号紧跟斜杠构成了块注释终止符，提前结束了注释，让后续中文被当成
+// 选择器，cssnano 压缩时抛 "Unexpected '/'"，导致 next build 失败——
+// 而当时 typecheck 是 25/25 全绿的。
+//
+// 默认跳过（慢，1-2 分钟），用 --full 显式开启。
+if (!QUICK && process.argv.includes('--full')) {
+  section('生产构建（turbo build）');
+  const r = run('build', 'npx', ['turbo', 'run', 'build', '--continue'], {
+    shell: process.platform === 'win32',
+  });
+  const text = r.out;
+  const m = text.match(/Tasks:\s+(\d+) successful,\s+(\d+) total/);
+  if (m) {
+    const [, ok, total] = m;
+    if (ok === total) pass(`build ${ok}/${total} 通过`);
+    else {
+      fail(`build ${ok}/${total}（${total - ok} 个失败）`);
+      const errs = text.split('\n').filter((l) => /error|Error:/.test(l)).slice(0, 10);
+      if (errs.length) console.log(errs.join('\n'));
+    }
+  } else if (r.ok) {
+    pass('build 完成');
+  } else {
+    fail('build 未通过');
+    console.log(text.split('\n').slice(-20).join('\n'));
+  }
+} else {
+  console.log(`\n${C.d}（默认跳过生产构建；用 --full 开启，能抓到 CSS/打包管线错误）${C.x}`);
+}
+
+// ───────────────────── 5. Python 语法 ─────────────────────
 if (QUICK) {
   console.log(`\n${C.d}（--quick：跳过 Python 语法扫描）${C.x}`);
 } else {

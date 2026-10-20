@@ -748,9 +748,87 @@ def expires_at_of(ttl_seconds: int) -> object:
     return now() + timedelta(seconds=ttl_seconds)
 
 
+# ---------------------------------------------------------------- 登录会话（S1-08 前半段）
+
+
+async def create_login_session(
+    session: AsyncSession,
+    *,
+    settings: Settings,
+    user: MatrixUser,
+    client_id: str,
+    redirect_uri: str,
+    scope: str,
+    code_challenge: str | None = None,
+    code_challenge_method: str | None = None,
+) -> str:
+    """统一登录页认证成功后建立一个短时会话（默认 15 min）。
+
+    返回明文 ``session_secret``；库内只存其 SHA-256。有了它，浏览器在
+    ``/authorize`` 时不必每次重输密码，而后端仍然不持有任何长期凭据。
+    """
+    session_id = new_jti()
+    secret = random_token("mxses", nbytes=32)
+    session.add(
+        LoginSession(
+            session_id=session_id,
+            session_hash=hash_secret(secret),
+            matrix_uid=user.matrix_uid,
+            client_id=client_id,
+            redirect_uri=redirect_uri,
+            scope=scope,
+            code_challenge=code_challenge,
+            code_challenge_method=code_challenge_method,
+            expires_at=plus_seconds(settings.login_session_ttl_seconds),
+        )
+    )
+    await audit.record(
+        session,
+        action="auth.login_session_created",
+        matrix_uid=user.matrix_uid,
+        client_id=client_id,
+        detail={"session_id": session_id},
+    )
+    return f"{session_id}.{secret}"
+
+
+async def resolve_login_session(
+    session: AsyncSession, *, raw: str | None
+) -> LoginSession | None:
+    """校验登录会话（形状 ``<session_id>.<secret>``），过期/不匹配返回 None。
+
+    返回 None 而不是抛错：调用方据「有无会话」决定是要求登录还是继续。
+    """
+    if not raw or not isinstance(raw, str):
+        return None
+    session_id, dot, secret = raw.rpartition(".")
+    if not dot or not session_id or not secret:
+        return None
+    record = await session.get(LoginSession, session_id)
+    if record is None:
+        return None
+    if record.session_hash != hash_secret(secret):
+        return None
+    if ts_of(record.expires_at) <= ts_of(now()):
+        return None
+    return record
+
+
+async def drop_login_session(session: AsyncSession, *, raw: str | None) -> bool:
+    """登出时销毁登录会话。"""
+    record = await resolve_login_session(session, raw=raw)
+    if record is None:
+        return False
+    await session.execute(delete(LoginSession).where(LoginSession.session_id == record.session_id))
+    return True
+
+
 __all__ = [
     "AuthorizeOutcome",
     "IssuedTokens",
+    "create_login_session",
+    "drop_login_session",
+    "resolve_login_session",
     "TOKEN_TYPE_ACCESS",
     "TOKEN_TYPE_IDT",
     "TOKEN_TYPE_REFRESH",

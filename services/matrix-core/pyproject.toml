@@ -76,8 +76,10 @@ exclude_lines = [
   "if TYPE_CHECKING:",
   "raise NotImplementedError",
   "if __name__ == .__main__.:",
-  r"^\s*\.\.\.",
+  # TOML literal string: keeps the backslashes verbatim for Python's regex engine.
+  '^\s*\.\.\.',
 ]
+
 
 [tool.ruff]
 line-length = 100
