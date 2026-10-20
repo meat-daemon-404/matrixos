@@ -15,7 +15,11 @@ import { join, dirname, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const SKIP_DIRS = new Set(['node_modules', '.git', '.next', 'dist', 'build', '.turbo', 'coverage']);
+const SKIP_DIRS = new Set(['node_modules', '.git', '.next', 'dist', 'build', '.turbo', 'coverage', '.tmp', '.worktrees', 'scratch']);
+// .tmp / scratch：gitignore 的一次性目录（脚本与子代理的暂存产物）。它们的内容随时出现又消失，
+//   不该参与文档门禁。实测教训：#28 期间生成的 .tmp/pr-body.md 被扫出一条「断链」，
+//   而它根本不是仓库文档——扫它只会让正常提交被无关文件拦下。
+// .worktrees：claim.mjs branch 创建的并行工作区，属于另一个检出，不是本检出的引用对象。
 
 function walk(dir, out = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
