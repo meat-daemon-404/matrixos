@@ -72,7 +72,7 @@
 | `S1-01` | 初始化 Turborepo monorepo 骨架（`apps/` `packages/` `services/` `infra/` `e2e/`），配置 pnpm workspace、turbo.json 任务流水线 | P0 | 3 | TL | `pnpm install && pnpm build && pnpm lint && pnpm typecheck` 四命令在空仓库全绿；新增一个包后 `turbo build` 自动纳入且命中缓存 |
 | `S1-02` | 建立 `packages/twin-schema`：三份已冻结 schema（`specs/contracts/*.schema.json`）的 TS 类型 + 运行时校验器（zod/ajv）+ `AssetNode`/`AssetEdge` 契约 | P0 | 8 | BE1 | 三份 schema 均有正例/负例单测（每套 ≥ 8 例）；`WormholeEnvelope` 缺 `evidence_anchors` 时校验必失败；TS 类型与 schema 由代码生成保证一致 |
 | `S1-03e` | 调研并验证校园 CAS / 微信开放平台接入可行性，产出鉴权方案验证报告 | P0 | 4 | BE2 | 报告含：两家 CAS 的对接方式、微信小程序资质要求与审批周期、兜底方案（邮箱+密码）的取舍；附一次真实的 CAS 测试登录截图 |
-| `S1-04` | 契约漂移检查 CI：`specs/contracts/` schema 变更未同步生成物则 CI 红（与已有 `scripts/validate-specs.mjs` 打通） | P0 | 3 | TL | 故意改一个 schema 字段不同步生成物，CI 必须红；补齐后转绿。录制两次 CI 结果作为证据 |
+| `S1-04` | 契约漂移检查：`specs/contracts/` schema 变更未同步生成物则校验红（与已有 `scripts/validate-specs.mjs` 打通） | P0 | 3 | TL | 故意改一个 schema 字段不同步生成物，`pnpm check` 必须红；补齐后转绿。录制两次输出作为证据。⚠️ 原计划走 GitHub Actions，因账户计费已改为本地 pre-commit 钩子（见 BLK-001） |
 | `S1-05` | `turbo.json` 远程缓存 + CI 缓存，18 站构建产物复用 | P1 | 3 | TL | 第二次 CI 构建时间相比首次下降 ≥ 50%；`packages/*` 未变更时微站不重复编译（日志可见 cache hit） |
 
 ### Epic S1-E2：MatrixID 鉴权与资产底座（5 任务）

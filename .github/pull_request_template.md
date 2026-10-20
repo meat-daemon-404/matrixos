@@ -39,6 +39,7 @@ Closes #
 
 - [ ] 已 rebase 到最新 `main`
 - [ ] 提交信息符合 Conventional Commits
+- [ ] `pre-commit` 校验已通过（`pnpm check` 或提交时自动执行）
 - [ ] 无 `node_modules` / `.env` / 构建产物
 - [ ] 无真实用户数据或未发表实验数据
 - [ ] 无硬编码 API Key

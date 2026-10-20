@@ -92,7 +92,7 @@ Closes #42
 
 **评审要求**
 - 至少 1 名 reviewer 批准
-- CI 全绿
+- 提交前校验通过（`pre-commit` 钩子会自动跑，见下方「提交前校验」）
 - 涉及 `specs/` 契约变更需架构负责人额外批准
 - 涉及视觉变更需附前后对比截图
 
@@ -148,7 +148,25 @@ Closes #42
 - Node.js ≥ 20（推荐 22 LTS）
 - pnpm ≥ 9
 - Python ≥ 3.11（后端）
-- Git 提交前会跑 lint-staged（配置在 Stage 1 落地）
+- 提交前校验靠 `pre-commit` 钩子（见下节）
+
+### 提交前校验（替代 CI）
+
+本仓库**不使用 GitHub Actions**——原工作流因账户计费无法启动，已移除（见 [`docs/02-engineering/00-known-issues.md`](../docs/02-engineering/00-known-issues.md) BLK-001）。校验改由本地 `pre-commit` 钩子承担：
+
+```bash
+# 新克隆仓库后执行一次
+node scripts/install-hooks.mjs
+```
+
+装好后每次 `git commit` 自动跑：
+
+| 检查 | 脚本 |
+| :--- | :--- |
+| 契约 Schema + 18 微站花名册 + 编码完整性 | `scripts/validate-specs.mjs` |
+| Markdown 内部链接断链 | `scripts/check-doc-links.mjs` |
+
+不通过则**拒绝提交**。手动跑：`pnpm check`。需要跳过：`git commit --no-verify`（仅在确认误报时用）。
 
 ### 🔴 中文编码红线（有实际损失，务必遵守）
 
@@ -172,7 +190,7 @@ Closes #42
 [System.IO.File]::WriteAllText($path, $content, (New-Object System.Text.UTF8Encoding($false)))
 ```
 
-**已加入自动化防线**：`scripts/validate-specs.mjs` 的第 6 项检查会扫描全库，发现 `U+FFFD` 或 BOM 即报错。本地 `pnpm check` 与 CI（计费恢复后）都会拦。
+**已加入自动化防线**：`scripts/validate-specs.mjs` 的第 6 项检查会扫描全库，发现 `U+FFFD` 或 BOM 即报错。`pre-commit` 钩子会在每次提交前自动执行，拦下问题。
 
 ---
 

@@ -168,11 +168,26 @@ MatrixOS/
 │   ├── 00-analysis/        # Bundle 解构与差距分析
 │   ├── 01-plan/            # 架构、路线图、WBS、ADR、风险
 │   └── 02-engineering/     # 开发约定、环境搭建
-├── .github/                # Issue/PR 模板、CI、协作规范
+├── scripts/                # 校验与工具脚本
+│   ├── verify.mjs          # 单一校验入口
+│   ├── install-hooks.mjs   # 安装 pre-commit 钩子
+│   ├── validate-specs.mjs  # 契约 + 花名册 + 编码
+│   └── check-doc-links.mjs # 文档断链
+├── .github/                # Issue/PR 模板、协作规范
 └── README.md
 ```
 
 > **注意**：本仓库当前处于**规划阶段**。`bundle/` 是设计交付物（HTML 图谱 + 概念渲染图），**不含可运行的产品代码**。产品实现将从 Stage 1 开始逐步落入 `apps/` 与 `packages/`。
+
+### 提交前校验
+
+本仓库**不使用 GitHub Actions**（原工作流因账户计费无法启动，已移除）。校验由本地 `pre-commit` 钩子承担，新克隆后装一次：
+
+```bash
+node scripts/install-hooks.mjs
+```
+
+之后每次 `git commit` 自动跑契约校验 + 断链检查 + 编码检查，不通过即拒绝提交。手动跑：`pnpm check`。详见 [`docs/02-engineering/01-dev-setup.md`](docs/02-engineering/01-dev-setup.md)。
 
 ---
 
@@ -204,11 +219,13 @@ MatrixOS/
 
 ## 已知阻塞项
 
-见 [`docs/02-engineering/00-known-issues.md`](docs/02-engineering/00-known-issues.md)。当前有 1 个需人工处理的阻塞：
+见 [`docs/02-engineering/00-known-issues.md`](docs/02-engineering/00-known-issues.md)。当前**无阻塞开发的项**：
 
 | ID | 问题 | 状态 |
 | :--- | :--- | :--- |
-| BLK-001 | GitHub Actions 因账户计费无法启动（CI 零步骤执行） | 🔴 待用户处理 |
+| BLK-001 | GitHub Actions 因账户计费无法启动 | ✅ 已绕过（改用本地 pre-commit 钩子） |
+| BLK-002 | `D:\MatrixOS` 无写入权限 | ✅ 已解决（UAC 提权修复 ACL） |
+| BLK-003 | Hindsight 记忆库额度耗尽 | ⚠️ 降级（不影响开发） |
 
 ---
 

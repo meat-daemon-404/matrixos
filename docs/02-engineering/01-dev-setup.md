@@ -57,20 +57,36 @@ pnpm dev
 
 ## 三、当前可跑的校验
 
-不依赖任何第三方包，装完 Node 就能跑：
+不依赖任何第三方包，装完 Node 就能跑。
+
+### 先装钩子（新克隆仓库后做一次）
 
 ```bash
-# 契约 + 微站花名册 + 归档完整性
-node scripts/validate-specs.mjs
-
-# Markdown 内部链接断链检查
-node scripts/check-doc-links.mjs
-
-# 两个一起
-pnpm check
+node scripts/install-hooks.mjs
 ```
 
-**这两个脚本在 CI 里也会跑**（`.github/workflows/validate.yml`）。本地先跑一遍能省一次往返。
+装完之后**每次 `git commit` 都会自动跑校验**，不通过直接拒绝提交。这是替代 GitHub Actions 的机制（原工作流因账户计费无法启动已移除，见 [00-known-issues.md](00-known-issues.md) 的 BLK-001）。
+
+### 手动跑
+
+```bash
+# 全部校验（推荐）
+node scripts/verify.mjs
+# 或
+pnpm check
+
+# 单独跑某一项
+node scripts/validate-specs.mjs   # 契约 + 花名册 + 编码
+node scripts/check-doc-links.mjs  # Markdown 断链
+```
+
+### 跳过钩子
+
+```bash
+git commit --no-verify
+```
+
+仅在确认是误报时使用，提交前请说明原因。
 
 ### validate-specs.mjs 检查什么
 
@@ -84,6 +100,7 @@ pnpm check
 | 枚举一致性 | `matrix-app-manifest` 与 `dispatch-contract` 的 `orbit_station` 必须与 7 站一致 |
 | **合规红线** | `evidence_anchors` 必须强制 `source_doi_or_url` + `verification_level`，三档不可缺 |
 | 归档完整性 | `bundle/` 下 6 个交付物齐全 |
+| **编码完整性** | 全库扫描 `U+FFFD` 与 UTF-8 BOM（PowerShell 会静默损坏中文，见 [CONTRIBUTING](../../.github/CONTRIBUTING.md)） |
 
 ---
 
