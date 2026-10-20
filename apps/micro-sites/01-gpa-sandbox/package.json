@@ -15,7 +15,8 @@
     "@matrixos/sdk": "workspace:*",
     "next": "^15.5.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "@matrixos/microsite-data": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

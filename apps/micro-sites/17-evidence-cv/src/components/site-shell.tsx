@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { SITE } from '../site.config';
 import { Bezel, bezelSource } from '../lib/instrument-facade';
+import { SiteInstrument } from './site-instrument';
 import {
   initSSO,
   onWormholeDrop,
@@ -17,9 +18,6 @@ import {
   type SessionState,
   type WormholeReceipt,
 } from '../lib/sdk-facade';
-
-/** 占位仪器的柱状高度：确定性序列（不用随机数，避免 SSR/CSR 不一致）。 */
-const GAUGE_HEIGHTS = [38, 62, 47, 81, 55, 70, 44, 92, 66, 51];
 
 export function SiteShell() {
   const [embedded, setEmbedded] = useState(false);
@@ -94,13 +92,7 @@ export function SiteShell() {
       </dl>
 
       <Bezel className="instrument-slot">
-        <h2>{SITE.uiStyle} · 占位仪器</h2>
-        <p>{SITE.desc}</p>
-        <div className="placeholder-gauges" role="img" aria-label="占位仪器示数">
-          {GAUGE_HEIGHTS.map((height, index) => (
-            <span className="placeholder-gauge" key={index} style={{ height: height + '%' }} />
-          ))}
-        </div>
+        <SiteInstrument siteId={SITE.id} />
         <div className="status-row">
           <span className="chip" data-tone={tone}>
             MatrixID · {session.phase}
