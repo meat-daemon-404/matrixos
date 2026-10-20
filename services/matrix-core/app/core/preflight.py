@@ -81,7 +81,8 @@ class ConfigError(RuntimeError):
         super().__init__(
             "启动前配置校验失败（拒绝带病启动）。请修正以下配置后重试：\n"
             f"{body}\n"
-            "提示：完整环境变量清单见 services/matrix-core/.env.production.example"
+            "提示：完整环境变量清单见 services/matrix-core/.env.production.example，"
+            "部署步骤与平台选型见 docs/02-engineering/09-backend-deploy.md"
         )
 
 
@@ -173,6 +174,39 @@ def _check_always(settings: Settings, report: PreflightReport) -> None:
             )
 
 
+def _allows_pages_dev_origins(settings: Settings) -> bool:
+    """配置是否放行了 ``https://mx-*.pages.dev`` 来源。
+
+    「放行 pages.dev」在配置层有**三个**互相独立的表达方式，三者都算放行——漏掉任何
+    一个，跨站 Cookie 告警都会静默失效（这正是本函数存在的唯一理由）：
+
+    1. ``cors_allow_pages_dev=True``：布尔开关，**线上正在用的就是这条**
+       （18 个微站全量部署在 ``mx-*.pages.dev``）。它不直接出现在
+       ``cors_origin_regex`` 的比较里，而是由 ``Settings.cors_origin_regex``
+       这个 property 派生出 ``MATRIXOS_PAGES_ORIGIN_REGEX``。
+    2. ``cors_allowed_origin_regex``：手写正则。**注意点通常被转义成 ``\\.``**，
+       所以绝不能用 ``"pages.dev" in regex`` 直接判断——正则里的字面量是
+       ``pages\\.dev``，那种子串判断恒为 False（本检查原先就踩了这个坑）。
+    3. ``cors_allowed_origins``：精确白名单，可以逐条列出 pages.dev 来源。
+
+    这里刻意做成「宁可多报」：跨站 Cookie 只是 WARNING，多报一条运维看一眼即可；
+    而漏报的表现是「前端已登录却一直 401」，且 Bearer 链路完全正常，单测与 e2e 都
+    发现不了，只有在真实浏览器里才炸。
+    """
+    if settings.cors_allow_pages_dev:
+        return True
+
+    regex = settings.cors_origin_regex
+    if regex:
+        # 正则里的点写成 ``\.``（MATRIXOS_PAGES_ORIGIN_REGEX 就是
+        # ``^https://mx-[a-z0-9-]+\.pages\.dev$``）。先归一化去掉转义反斜杠，
+        # 再做子串判断；否则 ``"pages.dev" in "…pages\\.dev…"`` 永远为 False。
+        if "pages.dev" in regex.replace("\\.", "."):
+            return True
+
+    return any("pages.dev" in origin for origin in settings.cors_allowed_origins)
+
+
 def _check_strict(settings: Settings, report: PreflightReport) -> None:
     """staging / production 额外要求。"""
 
@@ -262,6 +296,25 @@ def _check_strict(settings: Settings, report: PreflightReport) -> None:
         report.issues.append(
             Issue("ERROR", "cookie_samesite", "SameSite=None 必须同时 cookie_secure=true")
         )
+
+    # ---- 跨站 Cookie：微站在 pages.dev、API 在自有域名，属于**跨站**请求 ----
+    # 浏览器对跨站 fetch/XHR 只携带 SameSite=None 的 Cookie。lax/strict 下 mx_at 不会
+    # 被带上，deps.get_current_token 的 Cookie 兜底于是静默失效：表现是「前端明明已登录
+    # 却一直是 401」，且没有任何报错。Authorization: Bearer 链路正常，所以单测与 e2e
+    # （都走 Bearer）发现不了这个问题，只有真实浏览器里才炸——因此在这里显式提醒。
+    # 刻意不判 ERROR：纯 Bearer 架构（iframe SDK 把 token 放请求头）在 lax 下完全可用。
+    if settings.cookie_samesite in {"lax", "strict"} and _allows_pages_dev_origins(settings):
+        report.issues.append(
+            Issue(
+                "WARNING",
+                "cookie_samesite",
+                f"当前 {settings.cookie_samesite!r} 且放行了 pages.dev 来源：跨站 fetch 不会携带 "
+                f"{settings.access_cookie_name}/{settings.refresh_cookie_name} Cookie，依赖 Cookie "
+                "的页面会一直 401。前端若用 Authorization: Bearer 则不受影响；"
+                "要走 Cookie 必须 cookie_samesite=none（cookie_secure 已是硬要求）",
+            )
+        )
+
     if settings.cookie_domain and not settings.cookie_domain.startswith("."):
         report.issues.append(
             Issue(

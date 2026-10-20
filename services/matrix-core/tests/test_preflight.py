@@ -342,6 +342,111 @@ def test_summary_counts_errors_and_warnings(paired_keys_dir: Path) -> None:
 
 
 # ─────────────────────────────────────────────────────────────
+# 3b. 跨站 Cookie（pages.dev 微站 → 自有域名 API）
+# ─────────────────────────────────────────────────────────────
+
+
+def test_lax_cookie_with_pages_dev_cors_warns(paired_keys_dir: Path) -> None:
+    """路径①：``cors_allow_pages_dev=True`` + SameSite=lax → WARNING。
+
+    这是前端上线时的真实配置：19 个微站在 ``mx-*.pages.dev``，API 在自有域名，
+    属于跨站请求。浏览器不会带上 lax 的 ``mx_at``，于是依赖 Cookie 的页面一直 401，
+    而 Authorization: Bearer 链路完全正常——单测与 e2e 都发现不了，只在真浏览器里炸。
+    """
+    settings = prod_settings(cors_allow_pages_dev=True, cookie_samesite="lax")
+
+    report = check_settings(settings, keys_dir=paired_keys_dir)
+
+    hits = [
+        issue
+        for issue in report.issues
+        if issue.setting == "cookie_samesite" and issue.level == "WARNING"
+    ]
+    assert hits, f"应给出跨站 Cookie 告警：{[i.render() for i in report.issues]}"
+    assert "401" in hits[0].detail
+    # 只是告警：纯 Bearer 架构在 lax 下可用，不该阻断启动
+    assert report.ok is True, errors_of(report)
+
+
+def test_lax_cookie_with_escaped_pages_dev_regex_warns(paired_keys_dir: Path) -> None:
+    """路径②：手写 ``cors_allowed_origin_regex``（点被转义成 ``\\.``）+ lax → WARNING。
+
+    **这条是此前红掉的真正原因**：正则里的字面量是 ``pages\\.dev``，用
+    ``"pages.dev" in regex`` 做子串判断恒为 False——而点转义恰恰是正确写法
+    （``MATRIXOS_PAGES_ORIGIN_REGEX`` 自己就是转义的）。所以判断必须先归一化转义。
+    """
+    settings = prod_settings(
+        cors_allowed_origin_regex=r"^https://mx-[a-z0-9-]+\.pages\.dev$",
+        cookie_samesite="lax",
+    )
+    # 前置断言：确保这里测的确实是「转义点」这种最容易踩坑的写法
+    assert "\\." in (settings.cors_origin_regex or "")
+
+    report = check_settings(settings, keys_dir=paired_keys_dir)
+
+    hits = [
+        issue
+        for issue in report.issues
+        if issue.setting == "cookie_samesite" and issue.level == "WARNING"
+    ]
+    assert hits, f"转义点的 pages.dev 正则漏报：{[i.render() for i in report.issues]}"
+    assert "401" in hits[0].detail
+    assert report.ok is True, errors_of(report)
+
+
+def test_lax_cookie_with_pages_dev_in_exact_allowlist_warns(paired_keys_dir: Path) -> None:
+    """路径③：精确白名单 ``cors_allowed_origins`` 直接列 pages.dev 来源 + lax → WARNING。
+
+    第三条独立的放行方式（不走正则、也不走布尔开关）。只列了自有域名时不该告警，
+    但一旦列了 pages.dev 就同样构成跨站 Cookie 场景。
+    """
+    settings = prod_settings(
+        cors_allowed_origins=["https://mx-gpa.pages.dev"],
+        cookie_samesite="lax",
+    )
+
+    report = check_settings(settings, keys_dir=paired_keys_dir)
+
+    hits = [
+        issue
+        for issue in report.issues
+        if issue.setting == "cookie_samesite" and issue.level == "WARNING"
+    ]
+    assert hits, f"白名单里的 pages.dev 漏报：{[i.render() for i in report.issues]}"
+    assert report.ok is True, errors_of(report)
+
+
+def test_none_cookie_with_pages_dev_cors_is_clean(paired_keys_dir: Path) -> None:
+    """SameSite=none（且 cookie_secure=true）是跨站 Cookie 的正解 → 不再告警。"""
+    settings = prod_settings(cors_allow_pages_dev=True, cookie_samesite="none")
+
+    report = check_settings(settings, keys_dir=paired_keys_dir)
+
+    assert not [
+        issue
+        for issue in report.issues
+        if issue.setting == "cookie_samesite"
+    ], [i.render() for i in report.issues]
+
+
+def test_lax_cookie_without_pages_dev_cors_is_clean(paired_keys_dir: Path) -> None:
+    """没放行 pages.dev（同域反代 / 自有域名精确白名单）时不该乱告警。"""
+    settings = prod_settings(
+        cors_allow_pages_dev=False,
+        cors_allowed_origins=["https://gpa.matrixos.edu"],
+        cookie_samesite="lax",
+    )
+
+    report = check_settings(settings, keys_dir=paired_keys_dir)
+
+    assert not [
+        issue
+        for issue in report.issues
+        if issue.setting == "cookie_samesite" and issue.level == "WARNING"
+    ], [i.render() for i in report.issues]
+
+
+# ─────────────────────────────────────────────────────────────
 # 4. 密钥目录
 # ─────────────────────────────────────────────────────────────
 

@@ -332,6 +332,38 @@ body[data-embedded='true'] { overflow: hidden; height: 100%; }
 > 但**仓库内无 browserslist / 目标浏览器基线声明**（`package.json`、`.browserslistrc`、ADR 文档均未声明），
 > 因此「所有目标浏览器均支持」无法从仓库证实 —— 若将来要支持更低基线，应改用给 `<html>` 加类名的方案，避免 `html:has()` 整条**静默失效**。
 
+#### ⚠️ E 线修复的**产品副作用**：面板外的内容变为不可达（待决策）
+
+ADR-08 字面达标带来一个必须让产品侧知道的后果。Lead 独立实测（iframe 高 `626px`，量各站 `.site-root` 内容高）：
+
+| 站 | 内容高 | 超出面板（不可达） |
+| :--- | ---: | ---: |
+| 18-prejob-multiverse | 1802 px | **1176 px** |
+| 05-lit-sonar | 1391 px | **765 px** |
+| 01-gpa-sandbox | 1125 px | **499 px** |
+| 07-cold-email-lab | 1082 px | **456 px** |
+| 13-chart-foundry | 1075 px | **449 px** |
+| 03-grant-audit | 837 px | 211 px |
+| 10-pdf-sniper | 824 px | 198 px |
+| 11-curvelab-fit | 768 px | 142 px |
+| 02-spark-teaming | 752 px | 126 px |
+| 12-repro-check | 726 px | 100 px |
+| 04 / 15 / 14 / 06 | 687 / 686 / 669 / 647 | 61 / 60 / 43 / 21 px |
+| 08 / 09 / 16 / 17 | 603 / 482 / 601 / 519 | **0**（全部可见） |
+
+**共 14/18 站有不可达内容**。
+
+**归因**：这**不是** E 线补丁引入的布局缺陷 —— A/B 实测（在 iframe 内临时撤销 ADR-08 规则再比各子元素高度）显示 `.site-root` 与全部子元素高度**前后完全一致**，补丁对布局零影响。
+它是「原本可滚 → 现在锁死」的**行为变化**：修复前用户能在面板内滚到全部内容（但违反 ADR-08），修复后超出 `626px` 的部分**永远看不到**，除非点面板右上角 `↗ 全屏独立打开`。
+
+**需要产品决策（四选一，未实施）**：
+1. **增大 hub 面板高度** —— 最直接，但会挤压星轨区（左 32%）与「同屏 2–3 台」的布局目标；
+2. **面板内允许滚动** —— 放弃 ADR-08 字面约定（需同步改 ADR 与本文档判据）；
+3. **明确引导「全屏独立打开」** —— 成本最低，但等于承认面板只是「预览」；建议至少在面板底部加一句提示；
+4. **微站提供真正的「嵌入模式紧凑布局」** —— 把内容压进 `626px`（工作量大，但最符合 ADR-08 的初衷「iframe 内降级为紧凑布局」，见 `04-tech-decisions.md:349`）。
+
+> 现状记录：当前实现选了「字面满足 ADR-08」，因此上表 14 站的面板内容被裁切。**是否接受**属产品判断，Lead 不代为决定。
+
 ---
 
 ## 方法论教训（比结论更重要）
@@ -348,6 +380,20 @@ body[data-embedded='true'] { overflow: hidden; height: 100%; }
 
    **教训**：跨边界（iframe / worker / 进程 / 网段）的样式与行为，**父侧属性推不出子侧结论**，必须进到子侧实测。「裁切了外观」与「禁止了滚动」是两件事。
 
+5. **校验资源必须遍历全部引用，不能取首个匹配**。Lead 复核线上是否含新 CSS 时，用正则只取了 HTML 里**第一个** `<link>` 就下结论「线上仍无修复」——**错**。Next 一次引用 **5 个** CSS 文件，修复在其中之一。同类坑在批量复检里还有一个变体：fixer-css 18 站连扫时 `mx-spark`/`mx-curvelab` 报 ✗，单独重测即 ✓ —— 是并发扫描下的 CDN/连接抖动。**批量复检必须「遍历全部资源 + 带重试」**，否则会同时产出假红与假绿。
+
+6. **「测试红」要先分清是「已入库回归」还是「未提交在制品」，且**归因必须实测而不能靠读代码推断**。本轮 `pytest` 出现 1 条红（`test_lax_cookie_with_pages_dev_cors_warns`），初看像回归；用 `git show HEAD:<file>` 一查发现该用例与其实现**都不在 HEAD** —— 是工作区里另一会话未提交的半成品，不是已入库代码的回归。
+
+   **Lead 的第一版归因是错的**，值得完整记录：
+   - **错误归因**：「`cors_allow_pages_dev` 与 `cors_origin_regex` 是两条独立配置路径，实现只认后者」。
+   - **实际根因**：`cors_origin_regex` 在 `config.py:195` 是 **property**，`cors_allow_pages_dev=True` 时它**就返回** `MATRIXOS_PAGES_ORIGIN_REGEX` —— 两者**并非独立**。真正致红的是**正则转义**：常量是 `r"^https://mx-[a-z0-9-]+\.pages\.dev$"`，点是转义的（`pages\.dev`），所以 `"pages.dev" in regex` **恒为 False**。
+   - **实测证据**：`"pages.dev" in R` → `False`；`"pages.dev" in R.replace("\\.", ".")` → `True`。
+   - **后果差异**：按错误归因给出的 `settings.cors_allow_pages_dev or (...)` 方案只能救回 flag 一条，**手写转义正则与精确白名单两条仍会漏报**。「放行 pages.dev」在配置层有**三个**独立表达方式（flag / 手写正则 / 精确白名单），只补一条等于换个地方继续漏。
+
+   **修正后的实现**：新增 `_allows_pages_dev_origins()` 覆盖三条路径（flag → 正则经 `replace("\\.", ".")` 归一化 → 扫 `cors_allowed_origins`），并加两条反例防误报。Lead 独立核验 6/6 符合预期（3 条正例 + 3 条不应误报的负例）。
+
+   **教训**：读代码得出的「配置层结构」推断，必须用运行时值验证（本例一行 `in` 就能戳破）；**「两个配置项看起来独立」不等于派生关系不存在**。
+
 > 第 4 条是本轮最重要的收获：它差点让一个真实缺陷被写成「已修复」。**发现它靠的是复核者不迷信 Lead 的结论、坚持用三种独立方法实测** —— 这种对抗性验证应当成为惯例。
 
 后续所有线上体检一律**以盒子测量为准**，DOM 断言只作为辅助；**涉及跨边界的结论必须以子侧实测为准**。
@@ -357,10 +403,33 @@ body[data-embedded='true'] { overflow: hidden; height: 100%; }
 ## 复现方式
 
 ```bash
-node .tmp/audit.mjs
+# 全站体检（盒子测量版）
+node scripts/audit-online.mjs                       # 线上
+node scripts/audit-online.mjs --local-static        # 本地 out/ 产物
+node scripts/audit-online.mjs --inject-css          # 还原修复前 CSS 做 A/B
+
+# 构建后配置断言（防 next.config.ts 被留在 export 模式）
+node scripts/assert-config-restored.mjs             # 断言
+node scripts/assert-config-restored.mjs --repair    # 从 .deploybak 自动恢复
+
+# 生成器与生成物同源性（模板 === 磁盘产物，逐字节）
+node scripts/gen-site-assets.mjs --check
 ```
 
-（脚本已归档到 `scripts/audit-online.mjs`，见下。）
+Lead 本轮用过的独立复核脚本（在 `.tmp/`，未入库，可按需重建）：
+
+| 脚本 | 用途 |
+| :--- | :--- |
+| `.tmp/verify-live-18.mjs` | 线上 18 站逐站 HTTP / 控制台错误 / `.iu-sr-only` 压制 / 页面总高 |
+| `.tmp/verify-adr08-live.mjs` | 线上 hub 内 iframe 是否可滚（真实滚轮 + 程序化 + 计算样式） |
+| `.tmp/verify-adr08-final.mjs` | 本地产物双端口，验证嵌入不可滚 + standalone 回归 |
+| `.tmp/verify-hub-p4.mjs` | 本地 hub 盒子链（rack/grid/panel-body/iframe 高度） |
+| `.tmp/verify-unreachable.mjs` | ADR-08 副作用：各站内容超出面板的「不可达」量 |
+| `.tmp/verify-fanout.mjs` | 脚手架模板 vs 磁盘产物逐行比对 |
+
+> **两个 harness 陷阱（都实际踩过）**：
+> 1. **静态产物不能挂子路径**：Next 导出的资源是根绝对路径（`/_next/static/...`），挂在 `/site/` 前缀下会让 CSS 全 404，伪造出「页面被撑到 13216px」的假象。必须挂根路径（用双端口或多服务器）。
+> 2. **hub 的 iframe 受 CSP `frame-ancestors` 约束**：白名单只放行 `127.0.0.1:3000` / `localhost:3000`，用随机端口会看到破损文档图标 —— 那不是产品缺陷，是 CSP 拦了。
 
 ---
 
