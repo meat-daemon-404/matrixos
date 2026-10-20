@@ -48,3 +48,28 @@ desktop.ini
 *.swo
 .tmp/
 scratch/
+
+# ---- MatrixID 密钥（🔴 红线：私钥绝不提交）----
+# 规则：所有 pem 一律忽略，只放行 public 密钥
+services/matrix-core/keys/
+!services/matrix-core/keys/public.pem
+*.pem
+!**/public.pem
+!**/public_key.pem
+
+# ---- Python 服务 ----
+**/__pycache__/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.venv/
+**/venv/
+**/pyvenv.cfg
+*.egg-info/
+.pnpm-store/
+
+# ---- 微信小程序 ----
+apps/wechat-pocket/**/node_modules/
+apps/wechat-pocket/**/miniprogram_npm/
+
+# ---- turbo ----
+.turbo/

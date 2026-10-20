@@ -1,0 +1,4 @@
+packages:
+  - 'apps/*'
+  - 'apps/micro-sites/*'
+  - 'packages/*'

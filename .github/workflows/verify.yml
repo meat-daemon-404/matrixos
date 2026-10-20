@@ -1,0 +1,111 @@
+name: 校验
+
+# 状态：已就绪，等待 GitHub Actions 权益发放后自动生效。
+#
+# 历史：原 .github/workflows/validate.yml 因账户计费无法启动（6 次运行全部
+# 0 秒失败、零步骤执行），已于 2026-10-20 移除，改由本地 pre-commit 钩子承担。
+# 用户已于 2026-10-20 申请学生认证，权益发放后此工作流将自动开始运行。
+#
+# 在此之前请用本地钩子：
+#   node scripts/install-hooks.mjs   # 装一次
+#   pnpm check                       # 手动跑
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: 校验契约 / 文档 / 编码
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 契约与微站花名册校验
+        run: node scripts/validate-specs.mjs
+
+      - name: Markdown 内部链接检查
+        run: node scripts/check-doc-links.mjs
+
+      - name: 确认 bundle/ 归档未被改动
+        run: |
+          set -euo pipefail
+          # bundle/ 是只读设计输入，任何改动都应被拦下
+          if git log -1 --name-only --pretty=format: | grep -q '^bundle/'; then
+            echo "::error::bundle/ 是只读设计输入归档，不应被修改。若确需更新，请联系 Lead。"
+            exit 1
+          fi
+          echo "bundle/ 未改动 ✓"
+
+      - name: 检查是否误提交敏感文件或产物
+        run: |
+          set -euo pipefail
+          BAD=$(git ls-files | grep -E '(^|/)(\.env$|\.env\.|node_modules/|\.next/|dist/|build/)|(^|/)\.env\.[a-z]+$' || true)
+          if [ -n "$BAD" ]; then
+            echo "::error::发现不应入库的文件："
+            echo "$BAD"
+            exit 1
+          fi
+          echo "无敏感/产物文件 ✓"
+
+  # ── 以下 job 在 Stage 1 代码落地后启用 ──
+  # 取消注释前需先完成 pnpm workspace 依赖安装与构建配置。
+
+  # typecheck:
+  #   name: 类型检查
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: pnpm/action-setup@v4
+  #       with: { version: 9 }
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '22'
+  #         cache: 'pnpm'
+  #     - run: pnpm install --frozen-lockfile
+  #     - run: pnpm typecheck
+
+  # test:
+  #   name: 测试
+  #   runs-on: ubuntu-latest
+  #   services:
+  #     postgres:
+  #       image: pgvector/pgvector:pg16
+  #       env:
+  #         POSTGRES_PASSWORD: postgres
+  #       options: >-
+  #         --health-cmd pg_isready
+  #         --health-interval 10s
+  #         --health-timeout 5s
+  #         --health-retries 5
+  #       ports: ['5432:5432']
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: pnpm/action-setup@v4
+  #       with: { version: 9 }
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '22'
+  #         cache: 'pnpm'
+  #     - uses: actions/setup-python@v5
+  #       with: { python-version: '3.12' }
+  #     - run: pnpm install --frozen-lockfile
+  #     - run: pnpm test

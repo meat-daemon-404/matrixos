@@ -1,0 +1,64 @@
+# ─────────────────────────────────────────────────────────────
+# MatrixOS 本地开发基础设施
+#   docker compose up -d postgres
+#   docker compose down
+#   docker compose down -v   # 连同数据卷一起删除
+# ─────────────────────────────────────────────────────────────
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: matrixos-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: matrixos
+      POSTGRES_PASSWORD: matrixos_dev_only
+      POSTGRES_DB: matrixos
+      # 中文排序与全文检索
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - matrixos-pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U matrixos -d matrixos"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ── 以下服务在 Stage 1 代码就绪后启用 ──
+
+  # matrix-core:
+  #   build:
+  #     context: ./services/matrix-core
+  #   container_name: matrixos-core
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   environment:
+  #     DATABASE_URL: postgresql+asyncpg://matrixos:matrixos_dev_only@postgres:5432/matrixos
+  #   env_file: .env
+  #   ports: ["8000:8000"]
+
+  # copilot-router:
+  #   build:
+  #     context: ./services/copilot-router
+  #   container_name: matrixos-router
+  #   env_file: .env
+  #   ports: ["8001:8001"]
+
+  # openalex-pat-worker:
+  #   build:
+  #     context: ./services/openalex-pat-worker
+  #   container_name: matrixos-pat
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   env_file: .env
+  #   ports: ["8002:8002"]
+
+volumes:
+  matrixos-pgdata:
+    name: matrixos-pgdata

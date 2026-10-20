@@ -1,0 +1,44 @@
+name: 同步标签
+
+# 把 .github/labels.txt 同步到仓库标签。
+# 仅在标签文件变更时触发，或手动触发。
+# 需要 Actions 权益；权益到位前可本地跑 scripts/sync-labels.mjs
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/labels.txt']
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  sync:
+    name: 同步仓库标签
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 解析并同步标签
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          while IFS= read -r line; do
+            # 跳过空行与注释
+            [[ -z "${line// }" ]] && continue
+            [[ "$line" == \#* ]] && continue
+
+            name=$(echo "$line" | cut -d'|' -f1 | sed 's/^ *//;s/ *$//')
+            color=$(echo "$line" | cut -d'|' -f2 | sed 's/^ *//;s/ *$//')
+            desc=$(echo "$line" | cut -d'|' -f3- | sed 's/^ *//;s/ *$//')
+
+            [[ -z "$name" ]] && continue
+
+            gh label create "$name" --color "$color" --description "$desc" --force \
+              && echo "✓ $name" \
+              || echo "✗ $name (跳过)"
+          done < .github/labels.txt
