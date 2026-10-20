@@ -404,9 +404,74 @@ Lead 独立实测（01–05 站，产物含该规则）：嵌入态两者高度 
 
 ---
 
+## 🔴 重大发现：hub 内嵌态的 SSO（mx_idt 交换）当前是断的
+
+这是本轮调查 `layout.resize` 时**顺带挖出的真产品缺陷**，影响面超出布局问题，单独成节。
+
+### 现象（线上实测）
+
+在线上 hub 点开任一微站，读 iframe 内状态胶囊：
+
+```
+["MatrixID · offline", "iframe 内嵌", "面板 · local", "SDK · 未就位", "通道自检"]
+→ MatrixID ready? false   offline? true
+```
+
+即 **hub 内嵌态下微站从未进入 `ready`**。
+
+### 归因：`HostBridge` 的两个既有缺陷（代码级证据）
+
+**Bug A —— host 侧的 `post()` 把消息发给了自己，永远到不了 iframe**
+
+`packages/matrix-sdk/src/iframe/bridge.ts`（HEAD 版本 `:149-150`、`:324`）：
+```js
+const parent = role === 'tenant' ? win?.parent ?? null : null;
+const target = parent ?? win;      // host 角色 → parent === null → target = win
+```
+host（hub）角色下 `target` 恒为自身 `window` → `window.postMessage` 打到自己 →
+`bridge.hello.ack` 永远到不了子站 → 子站 `connected` 永远 `false`、学不到宿主能力。
+
+**Bug B —— tenant 侧永远解析不出 host origin，`hello` 永久卡在队列**
+
+- `packages/matrix-sdk/src/types.ts` 的 `DocumentLike` **只声明了 `cookie`**，没有 `referrer`；
+- `packages/matrix-sdk/src/runtime/env.ts` `:51-52`：
+  ```js
+  const doc = candidate as { cookie?: unknown };
+  return typeof doc.cookie === 'string' ? { cookie: doc.cookie } : null;  // 只拷贝 cookie
+  ```
+  → `referrer` 从未被保留；
+- 而 `bridge.ts:422` 的 `readReferrer()` 读的正是 `doc.referrer` → **恒返回 `null`** →
+  `resolveTargetOrigin()` 失败（SDK 刻意不退化到 `'*'`）→ `bridge.hello` 一直排在队列里不 flush。
+
+### 为什么这很重要
+
+`docs/01-plan/04-tech-decisions.md` 里 ADR-02/03 把 mx_idt 交换称为「**必做项不是优化项**」；
+`docs/01-plan/05-risks.md` 的 **R-T04** 甚至已经预言了这个场景：
+> 「hub 里能看到仪器面板，但一点就要求重新登录」
+
+**它已经发生了。**
+
+代码链印证：`packages/matrix-sdk/src/auth/sso.ts:361` `await bridge.request('sso.idt.request', …)`（tenant 请求）
+与 `:588` `bridge.on('sso.idt.request', …)`（host 回复）—— **全程走这套桥**。桥不通 → mx_idt 交换不通 → 内嵌态永远 offline。
+
+### 处置状态
+
+| 项 | 状态 |
+| :--- | :--- |
+| Bug A / Bug B 定位 | ✅ 已定位（代码级，见上） |
+| 修复 | 🔧 进行中（`HostBridgeOptions.tenantWindow` + `DocumentLike.referrer`） |
+| 线上验证 | ⏳ 待修复部署后复验 |
+| 微站侧 `SDK · 未就位` | ⚠️ **另有原因**：微站 `src/lib/sdk-facade.ts` 的 `resolveSdk()` 拿不到 SDK 实例（该文件正被另一会话重构，引入了新包 `@matrixos/microsite-data`）。**不要把它与 Bug A/B 混为一谈** |
+
+> ⚠️ 复验方法：**不要用线上微站判断桥是否修好** —— 线上还受「微站侧 SDK 未就位」干扰。
+> 应在**双端口 harness**（真实 `createHostBridge` + 真实握手）里验证「桥层握手已通」，
+> 并单独说明「线上微站 SSO 仍 offline 是微站侧 SDK 集成问题」。
+
+---
+
 ## 方法论教训（比结论更重要）
 
-这一轮体检暴露了**审计脚本自身**的三处方法论缺陷，以及**复核者（Lead）的一处机制推演错误**，都值得单独记下：
+这一轮体检暴露了**审计脚本自身**的三处方法论缺陷，以及**复核者（Lead）的多处判断错误**，都值得单独记下：
 
 1. **DOM 存在性 ≠ 视觉可见性**。旧脚本对 iframe 只读「正文长度 > 0」，于是把「面板高度 = 0、视觉全空」判成了「内容正常」（P4）。**跨源 iframe 即使外层高 0，内部 DOM 依然可读** —— 这类假阳性只有盒子测量（`getBoundingClientRect`）能戳破。
 2. **选择器必须适配被测对象的语汇**。拿微站的选择器（`.instrument`）去判 hub，得到的是「hub 坏了」这种反向结论（P3）。判 hub 要用 `.star-orbit` / canvas / 胶囊数。
