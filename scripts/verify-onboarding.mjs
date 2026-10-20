@@ -26,8 +26,26 @@ import { CDP_HTTP, CDP_PORT, probeCdpIdentity } from './lib/cdp-port.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SHOTS = join(ROOT, '.tmp', 'cf-shots');
-const START_URL = process.env.MATRIXOS_CDP_START_URL ?? 'http://localhost:3000';
 const WANT_SHOTS = process.argv.includes('--shots');
+
+/**
+ * 被测页面地址。
+ *
+ * 三个来源，优先级从高到低：
+ *   1. `--url=<地址>`：命令行显式指定，线上验收用这个
+ *   2. `MATRIXOS_CDP_START_URL`：与 cf-shell 启动浏览器时的默认页一致
+ *   3. `http://localhost:3000`：本地 dev 兜底
+ *
+ * 注意**不能只靠** `MATRIXOS_CDP_START_URL`：那个变量只在启动浏览器时
+ * 决定首个页面地址，而本脚本要主动 `Page.navigate` 到目标地址；
+ * 线上验收时若漏了 `--url`，脚本会静默去验 localhost —— 本地 dev 没跑
+ * 就报「页面没等到引导就绪」，看着像线上坏了，实则是验错了地址。
+ */
+const urlArg = process.argv.find((a) => a.startsWith('--url='))?.slice(6);
+const START_URL = urlArg ?? process.env.MATRIXOS_CDP_START_URL ?? 'http://localhost:3000';
+
+/** 目标页面的 origin，用于挑标签页与清理 localStorage（必须同源才生效）。 */
+const START_ORIGIN = new URL(START_URL).origin;
 
 const STORAGE_KEY = 'matrixos:hub:onboarded:v1';
 
@@ -89,9 +107,10 @@ async function pickPage() {
   const targets = await (await fetch(`${CDP_HTTP}/json/list`)).json();
   const pages = targets.filter((t) => t.type === 'page' && t.webSocketDebuggerUrl);
   if (!pages.length) throw new Error('没有可用的 page target');
-  return (
-    pages.find((p) => p.url.includes('localhost:3000') || p.url.includes('127.0.0.1:3000')) ?? pages[0]
-  );
+  // 优先挑已经停在被测 origin 上的标签页：这样下一行清 localStorage 才同源生效。
+  // 之前只看 localhost:3000，线上验收时挑不到匹配页就退回 pages[0]，
+  // 于是在别的站上清 key（清了个寂寞）再 navigate 过去 —— 引导当然不弹。
+  return pages.find((p) => p.url.startsWith(START_ORIGIN)) ?? pages[0];
 }
 
 /** 在页面里跑一段表达式并取回值（异常要显式抛出，不能静默当 undefined）。 */
@@ -221,7 +240,7 @@ const WAIT_READY = `(async () => {
 /**
  * 等「新的一步真的画完」。
  *
- * 坑（踩了两个）：
+ * 坑（踩了三个）：
  *   1. 不能只按时间等。React 提交后聚光框的 inline style 才会改。
  *   2. 🔴 更隐蔽的：`.onb-spotlight` 上有
  *      `transition: top/left/width/height var(--dur-base)`，而 `--dur-base: 300ms`。
@@ -229,38 +248,38 @@ const WAIT_READY = `(async () => {
  *      四步读到的几何全都「滞后一步」（第 2 步读到的是第 1 步的框）。原来的
  *      实现只等 250ms，正好卡在 300ms 过渡之内，于是量到的永远是上一个框，
  *      进而误判「重叠 63920 px²」。
+ *   3. 🔴 「几何连续两次读数完全相同」在线上站不成立：真实页面的盒子会抖动
+ *      一两个像素（字体亚像素度量、滚动条、缩放档位），于是这个判据永远等不到
+ *      稳定，线上验收卡在第 1 步超时 —— 而本地 dev 恰好不抖，所以没暴露。
  *
- * 所以判据改成：标题已变 **且** 几何连续两次读数完全相同，且两次之间
- * 间隔 > 过渡时长。用 Node 侧轮询而不是页面内长 async，好处是每轮都能
- * 重新建 evaluate，不会被主线程卡住。
+ * 最终判据改为**语义条件**而非数值相等：标题已翻到新的一步，**且**聚光框
+ * 此刻确实框住了当前步的目标（`framesTarget`，容差 2px）。这个条件在一次
+ * PROBE 里原子地取完，天然免疫抖动，而且它本身就是正确性的必要条件 ——
+ * 一旦成立，后面的断言必然通过，不必再等什么稳定。
  */
 async function waitForSettledStep(conn, prevTitle) {
-  const TRANSITION_MS = 300;
-  const STABLE_GAP = TRANSITION_MS + 120; // 留一帧余量
   const deadline = Date.now() + 15000;
-  let last = null;
+  let lastSeen = null;
 
   while (Date.now() < deadline) {
     const state = JSON.parse(await evaluate(conn, PROBE));
-    const geo = state.spot
-      ? `${state.spot.x},${state.spot.y},${state.spot.w},${state.spot.h}`
-      : null;
+    const sameStep = Boolean(state.title && state.title !== prevTitle);
+    const framed = framesTarget(state.spot, state.target);
 
-    if (state.title && state.title !== prevTitle && geo) {
-      if (last && last.geo === geo && last.title === state.title) {
-        return { settled: true, state };
+    if (sameStep && framed) {
+      // 再多取一帧确认不是闪一下：同一条件连续成立两次即可下结论
+      await sleep(150);
+      const again = JSON.parse(await evaluate(conn, PROBE));
+      if (again.title === state.title && framesTarget(again.spot, again.target)) {
+        return { settled: true, state: again };
       }
-      // 这一轮变了但还没稳定：记下来，隔一段再确认一次
-      last = { geo, title: state.title };
-      await sleep(STABLE_GAP);
     } else {
-      // 还没翻到新的一步
-      last = null;
-      await sleep(100);
+      lastSeen = state;
+      await sleep(120);
     }
   }
 
-  const finalState = JSON.parse(await evaluate(conn, PROBE));
+  const finalState = lastSeen ?? JSON.parse(await evaluate(conn, PROBE));
   return { settled: false, state: finalState };
 }
 
@@ -316,8 +335,30 @@ await conn.send('Emulation.setFocusEmulationEnabled', { enabled: true });
 const results = [];
 
 try {
-  // 干净起点：清掉「已看过」标记，再整页重载（不能用 SPA 内部跳转）
+  /*
+   * 干净起点：清掉「已看过」标记，再整页重载（不能用 SPA 内部跳转）。
+   *
+   * 顺序很关键 —— 必须先导航到被测 origin **再**清 localStorage：
+   * localStorage 按 origin 隔离。若当前标签页还停在别处（线上验收时
+   * 浏览器默认页可能是 localhost），在那一页清 key 清的是那个 origin
+   * 的存储，与目标站毫无关系，目标站的「已看过」标记原封不动，
+   * 于是加载后静默不弹引导 —— 报错「引导没有出现」，看着像线上坏了。
+   *
+   * 所以：先导航 → 等 load → 清 key → 再导航一次。多一次导航换来
+   * 「脚本不会验错 origin」，值。
+   */
+  await conn.send('Page.navigate', { url: START_URL });
+  await sleep(1200);
+  // 清 key 前必须确认页面已在目标 origin 上，否则清了也没用
+  const onTarget = await evaluate(conn, `location.origin === ${JSON.stringify(START_ORIGIN)}`);
+  if (!onTarget) {
+    const landed = await evaluate(conn, 'location.href');
+    console.error(`✗ 导航后不在目标 origin：期望 ${START_ORIGIN}，实际 ${landed}`);
+    process.exit(1);
+  }
   await evaluate(conn, `(localStorage.removeItem(${JSON.stringify(STORAGE_KEY)}), 'cleared')`);
+
+  // 清完再重载一次，这次才是真正的「首访」状态
   await conn.send('Page.navigate', { url: START_URL });
   await sleep(1200); // 让导航真正开始，再开始轮询
 
