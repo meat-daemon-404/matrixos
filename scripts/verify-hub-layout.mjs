@@ -19,6 +19,18 @@ const HUB = process.argv[2] ?? 'https://mx-orbital.pages.dev';
 const browser = await chromium.launch({ channel: 'chromium' });
 const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
 
+/*
+ * 预置「已看过引导」标记，让首访引导不要弹出。
+ *
+ * 引导层是 `position:fixed; inset:0; z-index:200`，虽然它用 box-shadow 挖洞
+ * 不挡视线，但会盖住交互层 —— 而本脚本靠 dispatchEvent 点胶囊，
+ * 叠了引导层时点击能否穿透取决于 pointer-events，是没必要的干扰变量。
+ * 本脚本验的是面板布局，不是引导（引导有 verify-onboarding.mjs 专测）。
+ */
+await page.addInitScript(() => {
+  localStorage.setItem('matrixos:hub:onboarded:v1', '1');
+});
+
 const fails = [];
 page.on('response', (r) => { if (r.status() >= 400) fails.push(`${r.status()} ${r.url().slice(0, 90)}`); });
 
@@ -37,17 +49,26 @@ async function measure(label) {
       w: Math.round(f.getBoundingClientRect().width),
       h: Math.round(f.getBoundingClientRect().height),
     }));
+    // 面板要连 mode 一起读：非 live 面板按设计不建 iframe（性能红线 R-T03），
+    // 只数 iframe 会把「快照降级生效」误判成「面板塌陷」。
+    const panels = Array.from(document.querySelectorAll('.panel')).map((el) => ({
+      mode: el.getAttribute('data-mode'),
+      w: Math.round(el.getBoundingClientRect().width),
+      h: Math.round(el.getBoundingClientRect().height),
+    }));
     return {
       rack: h('.instrument-rack'),
       grid: h('.rack-grid'),
       panel: h('.panel'),
       panelBody: h('.panel-body'),
       iframes,
+      panels,
     };
   });
   console.log(`\n【${label}】`);
   console.log(`  .instrument-rack=${m.rack}  .rack-grid=${m.grid}  .panel=${m.panel}  .panel-body=${m.panelBody}`);
   for (const f of m.iframes) console.log(`  iframe ${f.w}x${f.h}  ${f.src}`);
+  for (const p of m.panels) console.log(`  panel ${p.w}x${p.h}  mode=${p.mode}`);
   return m;
 }
 
@@ -89,8 +110,25 @@ check('rack 高度 > 400', one.rack > 400, `rack=${one.rack}`);
 check('panel-body 高度 > 200', one.panelBody > 200, `body=${one.panelBody}`);
 check('iframe 高度 > 200', one.iframes.length > 0 && one.iframes.every((f) => f.h > 200),
   JSON.stringify(one.iframes.map((f) => f.h)));
-check('2 台时两个 iframe 都有高度', two.iframes.length >= 2 && two.iframes.every((f) => f.h > 150),
-  JSON.stringify(two.iframes.map((f) => f.h)));
+
+/*
+ * 2 台时**只断言有面板撑开**，不断言「两个 iframe」。
+ *
+ * 原断言是 `two.iframes.length >= 2`，线上稳定红。查下来不是布局坏了，
+ * 是断言写错了：性能红线 R-T03 规定未激活面板**不创建 iframe**，
+ * liveBudget 会只留最新一台 `mode=live`，其余降级为 `mode=snapshot` 静态图。
+ * 实测 2 台时：panel[0] mode=snapshot hasIframe=false，panel[1] mode=live
+ * hasIframe=true iframeH=627 —— 两台面板都是 519x670 正常撑开。
+ *
+ * 所以正确的判据是「面板都占到了高度、且至少一台是 live」，
+ * 而不是「iframe 数量等于面板数量」。用 iframe 数量当健康指标，
+ * 会把「性能优化生效」误判成「布局塌陷」。
+ */
+check('2 台时两个面板都有高度', two.panels.length >= 2 && two.panels.every((p) => p.h > 150),
+  JSON.stringify(two.panels.map((p) => ({ h: p.h, mode: p.mode }))));
+check('2 台时至少一台 live（有 iframe）', two.iframes.length >= 1,
+  JSON.stringify(two.panels.map((p) => p.mode)));
+
 check('3 台时 rack 仍撑满', three.rack > 400, `rack=${three.rack}`);
 check('无失败请求', fails.length === 0, fails.slice(0, 3).join(' | '));
 
