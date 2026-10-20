@@ -1,0 +1,547 @@
+# =============================================================================
+# copilot-router 模型分级路由配置
+# -----------------------------------------------------------------------------
+# 本文件是「模型 / 单价 / 阈值 / 配额」的唯一事实源，代码里不写死任何价格或模型名。
+# 修改本文件即可换模型、调单价、收紧或放宽成本闸门，无需改 Python 代码。
+#
+# 依据：
+#   - docs/00-analysis/02-requirements.md §6 模型分级矩阵（四级 TIER + 单价）
+#   - docs/01-plan/04-tech-decisions.md ADR-06 模型分级路由
+#   - docs/01-plan/05-risks.md R-T05 单用户年均 API 成本 < ¥1.5 及其缓解措施
+# =============================================================================
+
+version: 1
+currency: CNY
+
+# -----------------------------------------------------------------------------
+# 计费与时间口径
+# -----------------------------------------------------------------------------
+billing:
+  # 熔断的「日」以本时区自然日为准（国内业务按北京时间结算，避免 UTC 跨日错账）
+  timezone: Asia/Shanghai
+  # 核心成本承诺：单用户年均 API 成本上限（ADR-06 / R-T05）。
+  # 注意：这不是硬闸，硬闸见 budget 段；它用于 /v1/usage 的达标投影与告警。
+  annual_cost_target_per_user: 1.5
+
+# -----------------------------------------------------------------------------
+# 四级模型（TIER 01–04）
+# -----------------------------------------------------------------------------
+# contract_tier：契约档位。specs/contracts/dispatch-contract.schema.json 的
+#   model_tier 枚举只有 3 档 ["flash","pro","local"]，而需求文档的 TIER 表有 4 档。
+#   这是需求文档已登记的规格缺口（R2 / TD-09），本服务在此显式定义 4→3 映射：
+#       TIER 01 → flash    （DeepSeek V4.1 Flash）
+#       TIER 02 → flash    （Qwen 3.8 Flash，同为 flash 档）
+#       TIER 03 → pro      （DeepSeek V4 Pro）
+#       TIER 04 → local    （Qwen 3.8-7B LoRA，校内/本地算力）
+#   对外的 x_matrix.tier 保留 4 档精度，x_matrix.tier_contract 输出 3 档契约值，
+#   两者同时给出，下游不需要自己做映射。
+tiers:
+  tier-01:
+    name: "TIER 01 · 意图与早报层"
+    contract_tier: flash
+    model: deepseek-v4.1-flash
+    providers: [deepseek]
+    # 职责：全局 Copilot 意图分词、虫洞数据类型识别、PAT-HOT 每日 08:00 早报摘要合成
+    duties:
+      - intent_parse
+      - wormhole_type_detect
+      - pat_hot_brief
+    price_input_per_million: 0.30
+    price_output_per_million: 0.30
+    context_limit: 32768
+    default_max_tokens: 512
+    local_only: false
+
+  tier-02:
+    name: "TIER 02 · 结构校验与自愈层"
+    contract_tier: flash
+    model: qwen3.8-flash
+    providers: [qwen]
+    # 职责：跨微站 JSON Schema 强校验、Python/LaTeX 语法自愈、综测表格字段对齐
+    duties:
+      - schema_validate
+      - code_syntax_repair
+      - table_field_align
+    price_input_per_million: 0.40
+    price_output_per_million: 0.40
+    # 刻意给到 128k：留出「长文档但浅任务」的能力出口，让它落到 ¥0.40/M
+    # 而不是被迫升到 ¥2.00/M 的 Pro（见 README「能力升级」一节）
+    context_limit: 131072
+    default_max_tokens: 1024
+    local_only: false
+
+  tier-03:
+    name: "TIER 03 · 深度科研攻坚层"
+    contract_tier: pro
+    model: deepseek-v4-pro
+    providers: [deepseek]
+    # 职责：Matrix-Cross 多篇顶刊长上下文对比、综述大纲推演、套磁信深度定制
+    duties:
+      - multi_paper_compare
+      - review_outline
+      - cold_email
+    price_input_per_million: 2.00
+    price_output_per_million: 2.00
+    context_limit: 131072
+    default_max_tokens: 2048
+    local_only: false
+
+  tier-04:
+    name: "TIER 04 · 端侧隐私算力层"
+    contract_tier: local
+    model: qwen3.8-7b-lora
+    providers: [local-lora]
+    # 职责：课题组未发表实验原始数据、物理光电专业术语校准
+    duties:
+      - unpublished_data_analysis
+      - terminology_calibration
+    # ¥0：校内/本地算力，不产生 API 费用（GPU 折旧在基础设施预算，不在 token 计费）
+    price_input_per_million: 0.0
+    price_output_per_million: 0.0
+    context_limit: 8192
+    default_max_tokens: 1024
+    # local_only=true 的档位永不出发往公网，Provider 层有独立兜底校验
+    local_only: true
+
+# -----------------------------------------------------------------------------
+# 任务类型识别（路由第一维）
+# -----------------------------------------------------------------------------
+# 纯规则/关键词/正则优先初筛，只有模糊输入才依赖模型分类（ADR-06 明确要求：
+# 路由判断本身也要花 token，所以不允许每次请求都先跑一次 LLM 分类）。
+# 打分：命中 1 个 keyword +1.0；命中 1 个 regex +1.5；命中任一 structural +2.0。
+# 取分数最高且 ≥ min_score 者，否则回落 default_task_type。
+routing:
+  default_task_type: intent_parse
+  min_score: 1.0
+  # 客户端可通过请求体 matrix.task_type 或请求头 X-Matrix-Task 显式指定；
+  # 显式指定优先于启发式，但永远不能覆盖敏感数据强制本地（合规红线优先级最高）。
+  allow_client_task_hint: true
+  # 客户端可显式指定档位（model 字段："tier-03" / "pro" / "auto"）
+  allow_client_tier_hint: true
+
+  long_context:
+    # token 估算分档（中英文混排保守估计，见 cost/tokens.py 的口径说明）
+    short_max_tokens: 2000
+    medium_max_tokens: 16000
+    long_max_tokens: 64000
+    # 只有「长度敏感」的任务，长输入才允许触发升档到 Pro。
+    # 否则长输入一律留在 flash 档 —— 这是控制 R-T05 成本的第一道阀门。
+    pro_min_tokens: 16000
+    length_sensitive_task_types:
+      - multi_paper_compare
+      - review_outline
+      - cold_email
+    # 能力升级：当任务归属档位的 context_limit 装不下输入时，按此顺序找
+    # 「能装下且最便宜」的档位，而不是无脑跳 Pro。
+    capability_escalation: true
+    capability_escalation_order:
+      - tier-02
+      - tier-03
+
+  task_types:
+    intent_parse:
+      tier: tier-01
+      description: "全局 Copilot 意图分词 / 任务拆解"
+      keywords:
+        - "意图"
+        - "拆解"
+        - "分词"
+        - "解析下一步"
+        - "应该调用哪个工具"
+        - "intent"
+        - "classify intent"
+      regex:
+        - "(?:帮我)?(?:拆|分析)(?:一下)?(?:这个)?(?:需求|意图)"
+    wormhole_type_detect:
+      tier: tier-01
+      description: "虫洞数据类型识别（5 类 payload_type 判定）"
+      keywords:
+        - "虫洞"
+        - "payload_type"
+        - "投送到"
+        - "跨站拖拽"
+        - "wormhole"
+        - "拖过去"
+      regex:
+        - "payload_type\\s*[=:：]"
+        - "(?:投送|投给|拖到)\\s*[a-z-]+\\.matrixos\\.edu"
+    pat_hot_brief:
+      tier: tier-01
+      description: "PAT-HOT 每日 08:00 晨间早报三卡摘要合成"
+      keywords:
+        - "早报"
+        - "晨间三卡"
+        - "今日前沿"
+        - "24h 动态"
+        - "今日导读"
+        - "pat-hot"
+        - "daily brief"
+      regex:
+        - "(?:今日|每日)\\s*(?:早报|前沿|速递)"
+    schema_validate:
+      tier: tier-02
+      description: "跨微站 JSON Schema 强校验"
+      keywords:
+        - "json schema"
+        - "schema 校验"
+        - "校验这个 json"
+        - "字段不合规"
+        - "additionalproperties"
+        - "结构校验"
+        - "必填字段"
+      regex:
+        - "\"\\$schema\""
+        - "additionalProperties"
+        - "(?:校验|验证)\\s*(?:这个|以下)?\\s*(?:JSON|结构|schema)"
+    code_syntax_repair:
+      tier: tier-02
+      description: "Python / LaTeX 绘图脚本语法自愈"
+      keywords:
+        - "语法错误"
+        - "报错"
+        - "自愈"
+        - "修复脚本"
+        - "编译失败"
+        - "syntaxerror"
+        - "traceback"
+        - "indentationerror"
+        - "latex 报错"
+        - "tikz 报错"
+      regex:
+        - "(?:SyntaxError|IndentationError|NameError|TypeError|ValueError|! LaTeX Error|Undefined control sequence)"
+        - "Traceback \\(most recent call last\\)"
+    table_field_align:
+      tier: tier-02
+      description: "综测表格字段对齐 / 跨表字段映射"
+      keywords:
+        - "字段对齐"
+        - "表格对齐"
+        - "列名映射"
+        - "字段映射"
+        - "综测表格"
+        - "对齐字段"
+      regex:
+        - "(?:字段|列名|表头)\\s*(?:对齐|映射|统一)"
+    multi_paper_compare:
+      tier: tier-03
+      description: "Matrix-Cross 多篇顶刊长上下文横向对比"
+      keywords:
+        - "多篇"
+        - "横向对比"
+        - "对比矩阵"
+        - "对比这几篇"
+        - "顶刊对比"
+        - "文献对比"
+        - "matrix-cross"
+        - "compare papers"
+      regex:
+        - "(?:对比|比较).{0,12}(?:这篇|这几篇|多篇|若干篇)"
+        - "10\\.\\d{4,9}/[-._;()/:a-z0-9]+.*10\\.\\d{4,9}/"
+    review_outline:
+      tier: tier-03
+      description: "综述拓扑推演与大纲生成"
+      keywords:
+        - "综述"
+        - "文献综述"
+        - "大纲"
+        - "技术流派"
+        - "review outline"
+        - "survey"
+      regex:
+        - "(?:写|推演|生成|起草).{0,8}(?:综述|大纲)"
+    cold_email:
+      tier: tier-03
+      description: "星门学术套磁信深度定制"
+      keywords:
+        - "套磁信"
+        - "套磁"
+        - "联系导师"
+        - "自荐信"
+        - "邮件正文"
+        - "cold email"
+      regex:
+        - "(?:写|定制|润色|推演).{0,8}(?:套磁|自荐信|联系导师)"
+    unpublished_data_analysis:
+      tier: tier-04
+      description: "未发表实验原始数据分析（强制本地）"
+      keywords:
+        - "未发表"
+        - "原始数据"
+        - "raw data"
+        - "未公开数据"
+        - "课题组内部数据"
+        - "trpl 原始"
+        - "原始散点"
+      regex:
+        - "(?:未发表|未公开|尚未发表).{0,10}(?:数据|实验|结果)"
+    terminology_calibration:
+      tier: tier-04
+      description: "物理/光电专业术语校准（本地术语库）"
+      keywords:
+        - "术语校准"
+        - "术语表"
+        - "译名统一"
+        - "专有名词"
+        - "单位换算校验"
+        - "术语一致性"
+      regex:
+        - "(?:校准|统一|核对).{0,6}(?:术语|译名|专有名词)"
+
+# -----------------------------------------------------------------------------
+# 敏感数据识别（合规红线）
+# -----------------------------------------------------------------------------
+# 三档 verdict：
+#   clean      正常路由
+#   restricted 优先本地（TIER 04），本地不可用时允许上云但在响应中显式告警；
+#              永不跨用户共享缓存
+#   blocked    强制 TIER 04 且拒绝上云；本地不可用则直接报错，绝不降级到云端
+# 判定为「命中任一 severity=block 的检测器」→ blocked。
+# 只有 severity=warn 的检测器命中 → restricted。
+sensitivity:
+  enabled: true
+  # 客户端可通过请求体 matrix.sensitivity 自行声明（取更严格者）
+  honor_client_declaration: true
+  # 命中后是否在响应里回传命中的规则 ID（便于审计；不泄露命中文本）
+  expose_matched_rules: true
+  detectors:
+    - id: S-UNPUB-EXPERIMENT
+      name: 未发表实验原始数据
+      category: unpublished_experiment
+      severity: block
+      weight: 3.0
+      reason: "命中未发表实验原始数据特征：按 ADR-05/架构 §6.4 零外泄承诺，禁止发往云端"
+      keywords:
+        - "未发表数据"
+        - "未发表的实验"
+        - "未发表实验数据"
+        - "未公开数据"
+        - "课题组内部数据"
+        - "原始实验数据"
+        - "原始散点"
+        - "原始光谱"
+        - "原始计数"
+        - "raw experimental data"
+        - "unpublished data"
+        - "unpublished result"
+        - "proprietary measurement"
+      regex:
+        - "(?:未发表|未公开|尚未发表|内部).{0,12}(?:原始数据|原始散点|实验数据|测量数据)"
+        - "(?:raw|未处理|未经处理).{0,8}(?:数据|data|counts|spectra|trace)"
+        - "(?:不要|不得|别).{0,6}(?:外传|上传|发到云端)"
+    - id: S-EMBARGO-MANUSCRIPT
+      name: 审稿中/未公开稿件
+      category: unpublished_experiment
+      severity: block
+      weight: 2.5
+      reason: "命中审稿中稿件特征：稿件受匿名评审约束，禁止发往第三方模型"
+      keywords:
+        - "审稿中"
+        - "在投"
+        - "投稿中"
+        - "未公开的稿件"
+        - "匿名评审"
+        - "under review manuscript"
+        - "submitted manuscript"
+      regex:
+        - "(?:审稿中|审稿阶段|在投|投稿中|待接收).{0,12}(?:稿件|论文|manuscript)"
+    - id: S-PII-STUDENT
+      name: 学生个人敏感信息
+      category: pii
+      severity: warn
+      weight: 1.5
+      reason: "命中学生个人信息：按 R-C01 数据最小化，优先本地处理且不跨用户缓存"
+      keywords:
+        - "身份证"
+        - "学号"
+        - "手机号"
+        - "银行卡"
+        - "家庭住址"
+        - "student id"
+      regex:
+        - "\\b\\d{17}[\\dXx]\\b"
+        - "\\b1[3-9]\\d{9}\\b"
+        - "(?:学号|工号)\\s*[:：]?\\s*[A-Za-z0-9]{6,}"
+    - id: S-SECRET-CREDENTIAL
+      name: 凭据/密钥泄漏
+      category: credentials
+      severity: block
+      weight: 3.0
+      reason: "命中疑似凭据：禁止把密钥发往任何上游模型（含本地），需用户先移除"
+      keywords:
+        - "api key"
+        - "api_key"
+        - "secret key"
+        - "access token"
+        - "私钥"
+      regex:
+        - "sk-[A-Za-z0-9]{16,}"
+        - "(?i)bearer\\s+[A-Za-z0-9._-]{20,}"
+        - "-----BEGIN [A-Z ]*PRIVATE KEY-----"
+    - id: S-INTERNAL-ONLY
+      name: 仅限组内流转材料
+      category: internal_only
+      severity: warn
+      weight: 1.0
+      reason: "命中内部材料标记：优先本地处理"
+      keywords:
+        - "内部资料"
+        - "仅限组内"
+        - "不得外传"
+        - "内部讨论稿"
+        - "confidential"
+        - "internal only"
+      regex:
+        - "(?:仅限|只限).{0,4}(?:组内|内部|实验室)"
+    - id: S-DRAFT-PRIVATE
+      name: 个人隐私草稿（套磁信/简历草稿）
+      category: private_draft
+      severity: warn
+      weight: 1.0
+      reason: "命中个人隐私草稿：优先本地处理且不跨用户缓存"
+      keywords:
+        - "我的套磁信"
+        - "我的简历草稿"
+        - "个人陈述草稿"
+        - "personal statement draft"
+      regex:
+        - "(?:我的|本人).{0,6}(?:草稿|个人陈述|简历)"
+
+# -----------------------------------------------------------------------------
+# 成本熔断（硬闸：超限返回明确错误，绝不静默降级）
+# -----------------------------------------------------------------------------
+# 三档数字的关系（诚实说明）：
+#   annual_cost_target_per_user = ¥1.5/年 ≈ ¥0.0041/天 是「平均值目标」，
+#   靠路由准确率 + 缓存 + Pro 配额达成；它不是单请求闸门。
+#   user_daily_cost_limit / user_monthly_cost_limit 是「防滥用硬闸」，
+#   取值高于年均目标对应的日均，以便正常的 Pro 深度任务能跑，但异常用量会被拦。
+budget:
+  user_daily_cost_limit: 0.05          # ¥/用户/自然日
+  user_monthly_cost_limit: 0.30        # ¥/用户/自然月
+  global_daily_cost_limit: 60.0        # ¥/全局/自然日（500 用户 × 0.05 = 25，留 2.4x 余量）
+  global_monthly_cost_limit: 1200.0    # ¥/全局/自然月
+  # 预检口径：worst_case = 按 max_tokens 全额估算（最保守，保证不会超支）
+  #            expected  = 按 expected_output_tokens 估算（更宽松，但可能事后超支）
+  precheck_mode: worst_case
+  expected_output_tokens: 512
+  # 预检留白比例：预检成本打 1.0 = 不打折
+  precheck_safety_factor: 1.0
+
+# -----------------------------------------------------------------------------
+# 结果缓存（R-T05 缓解措施①：提高缓存命中）
+# -----------------------------------------------------------------------------
+# 相似请求合并是本服务控制成本的主要手段：试点校同专业学生查询高度重叠，
+# 热门论文/热门导师查询的跨用户命中率应显著。
+cache:
+  enabled: true
+  max_entries: 2048
+  # 只有低成本采样（temperature ≤ 此值）的请求才进缓存：高温采样结果不可复用
+  max_temperature_for_cache: 0.3
+  # 精确键命中：按 (uid? scope) + tier + model + 归一化消息 全等
+  exact_ttl_seconds: 3600
+  # 相似命中：trigram/token 混合相似度 ≥ 阈值即复用（仅在 shareable 域内）
+  similarity_threshold: 0.92
+  similarity_min_prompt_tokens: 8
+  # 公共标识（DOI / arXiv ID）相同 → 视为同一问题，直接给到 high 相似度
+  public_identifier_similarity: 0.97
+  # 相似比对的最大候选数（避免 O(n) 全表扫描退化）
+  similarity_candidate_limit: 64
+  # 跨用户共享白名单：只有这些任务类型、且判定为「公共问题」的请求才允许跨用户复用。
+  # 其余一律按 matrix_uid 隔离，防止 A 用户的私有上下文被 B 用户命中。
+  cross_user_shareable_task_types:
+    - pat_hot_brief
+    - multi_paper_compare
+    - review_outline
+  # 冷却：同一条缓存至少间隔这么久才会被淘汰（防抖）
+  min_entry_age_seconds: 0
+
+# -----------------------------------------------------------------------------
+# 降级策略（严格按 05-risks.md R-T05 的优先级①②③依次启用）
+# -----------------------------------------------------------------------------
+# 与「熔断」的区别（重要）：
+#   熔断 = 成本硬闸，超限返回 402 明确错误，绝不静默降级（本服务承诺）。
+#   降级 = 成本软闸，按 R-T05 的次序牺牲非核心体验，但必须在响应中显式可见
+#          （x_matrix.degraded / degrade_level / notice），不允许静默发生。
+degradation:
+  enabled: true
+  # 触发：用户当日额度使用率 / 全局当日额度使用率，取两者的最大值决定档位
+  trigger_ratios:
+    level_1: 0.60      # ① 提高缓存命中
+    level_2: 0.85      # ② Pro 设每日配额
+    level_3: 0.95      # ③ 长文本改为用户主动触发
+  # ① 提高缓存命中：延长 TTL、放宽相似阈值、扩大跨用户共享白名单
+  level_1:
+    cache_ttl_multiplier: 3.0
+    similarity_threshold_relax: 0.06
+    extra_shareable_task_types:
+      - schema_validate
+      - table_field_align
+      - cold_email
+  # ② Pro 每日配额：超配额时降级到 downgrade_to（并在响应显式标注经济模式）
+  level_2:
+    pro_daily_calls: 2
+    pro_global_cost_ratio: 0.35
+    downgrade_to: tier-01
+  # ③ 长文本改为用户主动触发：长输入的非显式触发请求直接拒绝并说明如何触发
+  level_3:
+    long_text_auto_disabled: true
+    manual_trigger_min_tokens: 16000
+    manual_trigger_task_types:
+      - multi_paper_compare
+      - review_outline
+      - cold_email
+
+# -----------------------------------------------------------------------------
+# Provider 适配层
+# -----------------------------------------------------------------------------
+# 三家上游全部是 OpenAI 兼容协议，因此共用 openai_compat 适配器，
+# 差异只体现在 base_url / api_key / 能力标记上。Key 一律走环境变量，禁止写死在配置里。
+providers:
+  deepseek:
+    kind: openai_compat
+    display_name: DeepSeek
+    base_url_env: DEEPSEEK_BASE_URL
+    base_url_default: https://api.deepseek.com/v1
+    api_key_env: DEEPSEEK_API_KEY
+    egress: cloud
+    timeout_seconds: 60
+    max_retries: 1
+  qwen:
+    kind: openai_compat
+    display_name: Qwen (DashScope 兼容模式)
+    base_url_env: QWEN_BASE_URL
+    base_url_default: https://dashscope.aliyuncs.com/compatible-mode/v1
+    api_key_env: QWEN_API_KEY
+    egress: cloud
+    timeout_seconds: 60
+    max_retries: 1
+  local-lora:
+    kind: openai_compat
+    display_name: 本地 Qwen 3.8-7B LoRA（校内算力）
+    base_url_env: QWEN_LOCAL_ENDPOINT
+    base_url_default: http://127.0.0.1:11434/v1
+    api_key_env: QWEN_LOCAL_API_KEY
+    # 本地端点默认不需要 key；为空时用占位符，不视为缺失
+    api_key_optional: true
+    egress: local
+    timeout_seconds: 120
+    max_retries: 0
+  # 仅用于本地开发/联调：无任何 API Key 时返回确定性 mock 文本。
+  # 生产环境必须通过 COPILOT_ENABLE_MOCK_PROVIDER=0 关闭（默认关闭）。
+  mock:
+    kind: mock
+    display_name: Mock（仅开发）
+    egress: local
+    timeout_seconds: 5
+    max_retries: 0
+
+failover:
+  # 同档位内按 tiers[*].providers 顺序 failover
+  enabled: true
+  # 跨档位 failover：默认关闭。开启会让「Pro 任务跑在 Flash 上」而用户不知情，
+  # 属于静默降级，与本服务「绝不静默降级」的承诺冲突。
+  allow_cross_tier: false
+  # 连续失败多少次后把该 provider 短路（熔断器）
+  breaker_failure_threshold: 3
+  breaker_reset_seconds: 30
+  # 失败率统计窗口
+  breaker_window_seconds: 60
