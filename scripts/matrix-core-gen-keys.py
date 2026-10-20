@@ -44,6 +44,15 @@ sys.path.insert(0, str(SERVICE_ROOT))
 
 DEFAULT_KEYS_DIR = SERVICE_ROOT / "keys"
 
+# Windows 控制台默认 GBK（cp936），CI 里常见 LC_ALL=C（ASCII）——这两种情况下打印
+# "✓" 会抛 UnicodeEncodeError。危险之处在于：**密钥其实已经写盘成功**，却因为最后
+# 一行日志崩掉、退出码非 0，会被误判成「生成失败」；更糟的是本脚本的幂等保护会让
+# 重跑直接拒绝覆盖，运维只能被迫用 --force（那会让所有已签发 token 立即失效）。
+# 所以统一把输出切到 UTF-8，编码不了就降级成替代字符，绝不因日志中断主流程。
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()

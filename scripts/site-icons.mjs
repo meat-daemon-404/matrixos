@@ -459,14 +459,39 @@ function absorbLegacyRemnantAbove(source, startIdx) {
 }
 
 /**
+ * 从 `export const metadata: Metadata = {` 的 `{` 起做括号配对，返回对象真正
+ * 结束的 `}` 的下标；找不到时返回 -1。
+ *
+ * 为什么不能再用 `source.indexOf('\n};', metaIdx)`：那是**文本前缀**匹配，
+ * 任何嵌套对象只要其闭合花括号落在第 0 列，就会出现一个更早的 `\n};`，
+ * 于是 metadata 被从中间截断——后半段（title 等）被留在文件里变成悬空代码。
+ * 括号配对不受缩进/排版影响，是这里唯一可靠的边界判定。
+ */
+function findMetadataObjectEnd(source, metaIdx) {
+  const braceStart = source.indexOf('{', metaIdx);
+  if (braceStart === -1) return -1;
+  let depth = 0;
+  for (let i = braceStart; i < source.length; i += 1) {
+    const ch = source[i];
+    if (ch === '{') depth += 1;
+    else if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) return i + 1; // `}` 之后一位（不含分号）
+    }
+  }
+  return -1;
+}
+
+/**
  * 把 layout.tsx 源码里的 metadata 段整体替换为最新版本。
  * 只动这一段，文件头注释 / import / viewport / 组件体一律不碰。
  *
- * 两处必须成立，否则 `gen-site-assets.mjs --check` 会假绿：
+ * 三处必须成立，否则 `gen-site-assets.mjs --check` 会假绿：
  *   1. 起点要**上溯**吃掉遗留残留（`PUBLIC_URL` 行 + `MATRIXOS_METADATA_V2` 注释）；
- *   2. 结束标记要兼容 `};` 与 `};;`——`'\n};'` 是 `'\n};;'` 的前缀，
+ *   2. 结束边界要用**括号配对**而非文本前缀——`'\n};'` 是 `'\n};;'` 的前缀，
  *      只吃掉前三字符时替换后仍剩一个孤立 `;`，文本与原文逐字节相同，
- *      于是 `changed` 为 false，补丁对瑕疵完全无感。
+ *      于是 `changed` 为 false，补丁对瑕疵完全无感；
+ *   3. `}` 后若还挂着多余分号（`};;`）一并吃掉，输出恒为规范的 `};`。
  * @returns {{ source: string, changed: boolean, error?: string }}
  */
 export function patchLayoutMetadata(source) {
@@ -475,13 +500,13 @@ export function patchLayoutMetadata(source) {
   if (metaIdx === -1) {
     return { source, changed: false, error: '找不到 `' + METADATA_ANCHOR + '`' };
   }
-  const endMarker = '\n};';
-  const endIdx = source.indexOf(endMarker, metaIdx);
-  if (endIdx === -1) {
-    return { source, changed: false, error: '找不到 metadata 对象的结束 `};`' };
+  const objEnd = findMetadataObjectEnd(source, metaIdx);
+  if (objEnd === -1) {
+    return { source, changed: false, error: 'metadata 对象的括号未闭合' };
   }
-  // `};` 之后若还挂着多余分号（`};;`）一并吃掉，输出恒为规范的 `};`
-  let end = endIdx + endMarker.length;
+  // `}` 之后若还挂着多余分号（`};` 一个 / `};;` 两个）全部吃掉，
+  // 后接的换行原样保留——输出恒为规范 `};`，且不扰动文件其余排版
+  let end = objEnd;
   while (source[end] === ';') end += 1;
 
   const originIdx = source.indexOf(ORIGIN_ANCHOR);
