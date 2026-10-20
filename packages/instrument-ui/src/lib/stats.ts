@@ -122,8 +122,16 @@ export function tQuantile(level: number, df: number): number {
   return z + (z3 + z) / (4 * df) + (5 * z5 + 16 * z3 + 3 * z) / (96 * df * df);
 }
 
+/** Horner 法求多项式值：coeffs[0]*x^(n-1) + ... + coeffs[n-1]。 */
+function horner(coeffs: readonly number[], x: number): number {
+  let acc = 0;
+  for (const k of coeffs) acc = acc * x + k;
+  return acc;
+}
+
 /** Acklam 有理近似，误差 < 1.15e-9。 */
 export function inverseNormalCdf(p: number): number {
+  // Acklam 原始系数（勿改数值，改动会破坏精度保证）
   const a = [
     -3.969683028665376e1, 2.209460984245205e2, -2.759285104469687e2, 1.38357751867269e2,
     -3.066479806614716e1, 2.506628277459239,
@@ -137,39 +145,27 @@ export function inverseNormalCdf(p: number): number {
     4.374664141464968, 2.938163982698783,
   ];
   const d = [7.784695709041462e-3, 3.224671290700398e-1, 2.445134137142996, 3.754408661907416];
+
   const pLow = 0.02425;
   const pHigh = 1 - pLow;
   const q = clamp01(p);
 
+  // 下尾：x = 分子 / 分母
   if (q < pLow) {
     const t = Math.sqrt(-2 * Math.log(q));
-    return (
-      (((((c[0] ?? 0) * t + (c[1] ?? 0)) * t + (c[2] ?? 0)) * t + (c[3] ?? 0)) * t + (c[4] ?? 0)) *
-        t +
-        (c[5] ?? 0)) /
-      (((((d[0] ?? 0) * t + (d[1] ?? 0)) * t + (d[2] ?? 0)) * t + (d[3] ?? 0)) * t + 1)
-    );
+    return horner(c, t) / (horner(d, t) * t + 1);
   }
+
+  // 上尾：x 取负
   if (q > pHigh) {
     const t = Math.sqrt(-2 * Math.log(1 - q));
-    return (
-      -(((((c[0] ?? 0) * t + (c[1] ?? 0)) * t + (c[2] ?? 0)) * t + (c[3] ?? 0)) * t + (c[4] ?? 0)) *
-        t +
-        (c[5] ?? 0)) /
-      (((((d[0] ?? 0) * t + (d[1] ?? 0)) * t + (d[2] ?? 0)) * t + (d[3] ?? 0)) * t + 1)
-    );
+    return -horner(c, t) / (horner(d, t) * t + 1);
   }
+
+  // 中段
   const r = q - 0.5;
   const s = r * r;
-  return (
-    ((((((a[0] ?? 0) * s + (a[1] ?? 0)) * s + (a[2] ?? 0)) * s + (a[3] ?? 0)) * s + (a[4] ?? 0)) *
-      s +
-      (a[5] ?? 0)) *
-      r) /
-    ((((((b[0] ?? 0) * s + (b[1] ?? 0)) * s + (b[2] ?? 0)) * s + (b[3] ?? 0)) * s + (b[4] ?? 0)) *
-      s +
-      1)
-  );
+  return (horner(a, s) * r) / (horner(b, s) * s + 1);
 }
 
 /** x 的均值与离差平方和（置信带计算的中间量）。 */

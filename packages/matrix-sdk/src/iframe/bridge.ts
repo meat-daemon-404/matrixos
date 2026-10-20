@@ -236,7 +236,9 @@ export function createHostBridge(options: HostBridgeOptions): HostBridge {
     emitLocal(data.type, data.payload, meta);
   };
 
-  function handleHello(message: BridgeMessage<{ capabilities?: unknown; role?: unknown }>, _meta: BridgeMeta): void {
+  // payload 形状由 readCapabilities 在运行时校验，此处不做编译期收窄：
+  // 调用方拿到的是 BridgeMessage<unknown>，收窄会导致不安全的泛型断言。
+  function handleHello(message: BridgeMessage, _meta: BridgeMeta): void {
     const caps = readCapabilities(message.payload);
     for (const cap of caps) peerCapabilities.add(cap);
 
@@ -251,7 +253,7 @@ export function createHostBridge(options: HostBridgeOptions): HostBridge {
     emitLocal(BRIDGE_MSG.HELLO, message.payload, _meta);
   }
 
-  function handleHelloAck(message: BridgeMessage<{ capabilities?: unknown }>): void {
+  function handleHelloAck(message: BridgeMessage): void {
     const caps = readCapabilities(message.payload);
     for (const cap of caps) peerCapabilities.add(cap);
     markConnected();

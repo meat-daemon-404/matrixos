@@ -1,0 +1,74 @@
+/* =============================================================================
+ * tokens.compat.css · 兼容别名层
+ * -----------------------------------------------------------------------------
+ * 目的：让直接从 `bundle/` 平移过来的 markup、以及已经用了视觉体系文档 §9
+ * 里 `--color-*` 命名的微站，无需改一行 CSS 就能吃到组件库的令牌。
+ *
+ * 用法：`import '@matrixos/instrument-ui/tokens.compat.css'`（在 tokens.css 之后）
+ *
+ * 注意：这是**单向映射**（--iu-* → --color-*）。不要反向映射，否则会形成
+ * 循环依赖，且会让宿主无法通过覆写 --iu-* 来定制主题。
+ * ========================================================================== */
+
+:root {
+  /* Surface */
+  --color-bg: var(--iu-bg);
+  --color-bg-panel: var(--iu-bg-panel);
+  --color-bg-panel-end: var(--iu-bg-panel-end);
+  --color-bg-sunken: var(--iu-bg-sunken);
+  --color-bg-raised: var(--iu-bg-raised);
+  --color-glass: var(--iu-glass);
+
+  /* Border */
+  --color-border: var(--iu-border);
+  --color-border-strong: var(--iu-border-strong);
+  --color-border-accent: var(--iu-border-accent);
+
+  /* Text */
+  --color-text: var(--iu-text);
+  --color-text-strong: var(--iu-text-strong);
+  --color-text-secondary: var(--iu-text-secondary);
+  --color-text-muted: var(--iu-text-muted);
+  --color-text-faint: var(--iu-text-faint);
+
+  /* Accent（视觉体系 §9 的原始命名）*/
+  --color-action: var(--iu-action);
+  --color-action-hover: var(--iu-action-hover);
+  --color-instrument: var(--iu-instrument);
+  --color-instrument-bright: var(--iu-instrument-bright);
+  --color-positive: var(--iu-positive);
+  --color-positive-bright: var(--iu-positive-bright);
+  --color-warning: var(--iu-warning);
+  --color-danger: var(--iu-danger);
+  --color-ecosystem: var(--iu-ecosystem);
+
+  /* Glow */
+  --glow-spread: var(--iu-glow-spread);
+  --glow-alpha: var(--iu-glow-alpha);
+
+  /* Radius */
+  --radius-xs: var(--iu-radius-xs);
+  --radius-sm: var(--iu-radius-sm);
+  --radius-md: var(--iu-radius-md);
+  --radius-lg: var(--iu-radius-lg);
+  --radius-xl: var(--iu-radius-xl);
+  --radius-pill: var(--iu-radius-pill);
+
+  /* Typography */
+  --font-sans: var(--iu-font-sans);
+  --font-mono: var(--iu-font-mono);
+  --text-2xs: var(--iu-text-2xs);
+  --text-xs: var(--iu-text-xs);
+  --text-sm: var(--iu-text-sm);
+  --text-base: var(--iu-text-base);
+  --text-lg: var(--iu-text-lg);
+  --text-xl: var(--iu-text-xl);
+  --text-2xl: var(--iu-text-2xl);
+
+  /* Motion */
+  --dur-fast: var(--iu-dur-fast);
+  --dur-base: var(--iu-dur-base);
+  --dur-slow: var(--iu-dur-slow);
+  --ease-base: var(--iu-ease-base);
+  --pulse-duration: var(--iu-pulse-duration);
+}

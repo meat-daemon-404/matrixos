@@ -1,0 +1,7 @@
+/* Tailwind 4 主题入口的别名文件。
+ *
+ * `tailwind.preset.js` 的注释里让下游写 `@import '@matrixos/instrument-ui/tailwind.css'`，
+ * 但真实文件叫 `theme.tailwind4.css`（名字更明确）。这里提供别名，
+ * 两种写法都能工作，避免文档与实现漂移。
+ */
+@import './theme.tailwind4.css';

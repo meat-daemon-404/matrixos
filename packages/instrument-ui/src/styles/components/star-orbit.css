@@ -1,0 +1,641 @@
+/* StarOrbit · 2.5D 星轨引力场 */
+
+.iu-orbit {
+  --iu-zoom: 1;
+  --iu-zoom-t: 0;          /* 0..1 的归一化缩放 */
+  --iu-ring-scale: 1;
+  position: relative;
+  width: 100%;
+  min-height: 320px;
+  color: var(--iu-text);
+  border-radius: var(--iu-radius-lg);
+  background:
+    radial-gradient(
+      ellipse 62% 58% at 50% 50%,
+      rgb(var(--iu-instrument-rgb) / 0.09) 0%,
+      transparent 68%
+    ),
+    radial-gradient(ellipse 100% 100% at 50% 42%, #070d1c 0%, #03060f 62%, #01030a 100%);
+  border: 1px solid var(--iu-border);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* ---- 舞台（捕获滚轮/捏合/键盘） ---------------------------------------- */
+.iu-orbit__stage {
+  position: absolute;
+  inset: 0;
+  outline: none;
+}
+
+.iu-orbit__stage:focus-visible {
+  outline: 2px solid var(--iu-instrument-bright);
+  outline-offset: -3px;
+  border-radius: var(--iu-radius-lg);
+}
+
+/* 星空底噪：纯 CSS 径向渐变点阵，无 canvas、无动画 */
+.iu-orbit__starfield {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1px 1px at 12% 22%, rgb(226 232 240 / 0.55), transparent 100%),
+    radial-gradient(1px 1px at 28% 68%, rgb(226 232 240 / 0.4), transparent 100%),
+    radial-gradient(1.5px 1.5px at 44% 14%, rgb(6 182 212 / 0.6), transparent 100%),
+    radial-gradient(1px 1px at 62% 79%, rgb(226 232 240 / 0.45), transparent 100%),
+    radial-gradient(1.5px 1.5px at 79% 31%, rgb(99 102 241 / 0.55), transparent 100%),
+    radial-gradient(1px 1px at 88% 62%, rgb(226 232 240 / 0.35), transparent 100%),
+    radial-gradient(1px 1px at 8% 84%, rgb(226 232 240 / 0.3), transparent 100%),
+    radial-gradient(1px 1px at 52% 46%, rgb(226 232 240 / 0.25), transparent 100%);
+  opacity: 0.8;
+}
+
+/* ---- 轨道环 SVG -------------------------------------------------------- */
+.iu-orbit__rings {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transform: scale(var(--iu-ring-scale));
+  transition: transform 260ms var(--iu-ease-out);
+  will-change: transform;
+  overflow: visible;
+}
+
+.iu-orbit__ring.is-spinning {
+  animation-name: iu-orbit-spin;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+@keyframes iu-orbit-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.iu-orbit__ring-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 8px;
+  color: rgb(var(--iu-instrument-rgb) / 0.42);
+  pointer-events: none;
+  letter-spacing: 0.12em;
+  transition: opacity var(--iu-dur-base) var(--iu-ease-base);
+}
+
+/* 高倍缩放时轨道编号淡出（信息让位给胶囊） */
+.iu-orbit[data-zoom-tier='live'] .iu-orbit__ring-label,
+.iu-orbit[data-zoom-tier='detail'] .iu-orbit__ring-label {
+  opacity: 0;
+}
+
+/* ---- 中央引力核 -------------------------------------------------------- */
+.iu-orbit__core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.iu-orbit__core-halo {
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgb(var(--iu-instrument-rgb) / 0.22) 0%,
+    rgb(var(--iu-instrument-rgb) / 0.06) 42%,
+    transparent 68%
+  );
+  filter: blur(2px);
+}
+
+.iu-orbit__core-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgb(var(--iu-instrument-rgb) / 0.28);
+}
+
+.iu-orbit__core-ring.is-outer {
+  width: 132px;
+  height: 132px;
+  border-style: dashed;
+  animation: iu-core-spin 42s linear infinite;
+  will-change: transform;
+}
+
+.iu-orbit__core-ring.is-inner {
+  width: 96px;
+  height: 96px;
+  border-color: rgb(var(--iu-instrument-rgb) / 0.4);
+  animation: iu-core-spin 26s linear infinite reverse;
+  will-change: transform;
+}
+
+@keyframes iu-core-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.iu-orbit__core-orb {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 36% 30%, #7dd3fc 0%, #06b6d4 34%, #0e7490 62%, #082f49 100%);
+  box-shadow:
+    0 0 44px -6px rgb(var(--iu-instrument-rgb) / 0.95),
+    inset 0 -6px 14px -4px rgb(0 0 0 / 0.6),
+    inset 0 4px 10px -2px rgb(255 255 255 / 0.35);
+  animation: iu-core-pulse var(--iu-pulse-duration) var(--iu-ease-base) infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes iu-core-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.94; }
+  50% { transform: scale(1.045); opacity: 1; }
+}
+
+.iu-orbit__core-content {
+  position: relative;
+  z-index: 3;
+  pointer-events: auto;
+}
+
+.iu-orbit__core-label {
+  position: absolute;
+  bottom: -30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  white-space: nowrap;
+}
+
+.iu-orbit__core-title {
+  font-family: var(--iu-font-mono);
+  font-size: var(--iu-text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--iu-text-secondary);
+}
+
+.iu-orbit__core-sub {
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  color: var(--iu-instrument-text);
+}
+
+/* 高倍缩放时中央核略微让位（避免遮住内圈胶囊） */
+.iu-orbit[data-zoom-tier='live'] .iu-orbit__core-orb,
+.iu-orbit[data-zoom-tier='detail'] .iu-orbit__core-orb {
+  transform: scale(0.86);
+  opacity: 0.75;
+}
+
+/* ---- 微站胶囊 ---------------------------------------------------------- */
+.iu-orbit__capsule {
+  --iu-capsule-scale: calc(0.9 + var(--iu-zoom-t) * 0.26);
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 4px;
+  border-radius: var(--iu-radius-sm);
+  background: rgb(9 14 28 / 0.88);
+  border: 1px solid rgb(var(--iu-accent-rgb) / 0.3);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.06),
+    0 6px 18px -8px rgb(var(--iu-accent-rgb) / 0.6);
+  transform: translate(-50%, -50%) scale(var(--iu-capsule-scale));
+  transform-origin: center;
+  transition:
+    transform 200ms var(--iu-ease-out),
+    border-color var(--iu-dur-fast) var(--iu-ease-base),
+    background-color var(--iu-dur-fast) var(--iu-ease-base),
+    box-shadow var(--iu-dur-fast) var(--iu-ease-base);
+  will-change: transform;
+  z-index: 3;
+  max-width: 220px;
+  cursor: default;
+  white-space: nowrap;
+}
+
+/* 1x 时胶囊退化为「只有光点」的极小尺寸 */
+.iu-orbit[data-zoom-tier='spark'] .iu-orbit__capsule {
+  padding: 0;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  gap: 0;
+}
+
+.iu-orbit__capsule.is-interactive { cursor: pointer; }
+
+.iu-orbit__capsule.is-interactive:focus-visible {
+  outline: 2px solid var(--iu-accent-bright);
+  outline-offset: 3px;
+}
+
+.iu-orbit__capsule.is-hovered,
+.iu-orbit__capsule:hover {
+  border-color: rgb(var(--iu-accent-rgb) / 0.8);
+  background: rgb(12 20 38 / 0.97);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.1),
+    0 0 24px -4px rgb(var(--iu-accent-rgb) / 0.9);
+  transform: translate(-50%, -50%) scale(calc(var(--iu-capsule-scale) * 1.07));
+  z-index: 6;
+}
+
+.iu-orbit__capsule.is-selected {
+  border-color: var(--iu-accent-bright);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.14),
+    0 0 30px -4px rgb(var(--iu-accent-rgb) / 1);
+  z-index: 5;
+}
+
+.iu-orbit__capsule.is-offline {
+  opacity: 0.5;
+  filter: saturate(0.4);
+}
+
+/* 光点 */
+.iu-orbit__dot {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.iu-orbit__dot-core {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--iu-accent-bright);
+  box-shadow: 0 0 12px 1px rgb(var(--iu-accent-rgb) / 0.95);
+}
+
+.iu-orbit__dot-ping {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgb(var(--iu-accent-rgb) / 0.75);
+  animation: iu-capsule-ping 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes iu-capsule-ping {
+  0% { transform: scale(0.6); opacity: 0.9; }
+  80% { transform: scale(2.2); opacity: 0; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+/* 1x 时把光点放大到可点击尺寸 */
+.iu-orbit[data-zoom-tier='spark'] .iu-orbit__dot {
+  width: 22px;
+  height: 22px;
+}
+
+.iu-orbit[data-zoom-tier='spark'] .iu-orbit__dot-core {
+  width: 6px;
+  height: 6px;
+}
+
+/* ---- 文字层（分层显隐 = 语义缩放的核心） -------------------------------- */
+.iu-orbit__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  overflow: hidden;
+  /* 默认隐藏：1x 只显光点 */
+  max-width: 0;
+  opacity: 0;
+  transition:
+    max-width 260ms var(--iu-ease-out),
+    opacity 200ms var(--iu-ease-base);
+}
+
+/* 档位 2 (name)：显站名 */
+.iu-orbit[data-zoom-tier='name'] .iu-orbit__body,
+.iu-orbit[data-zoom-tier='style'] .iu-orbit__body,
+.iu-orbit[data-zoom-tier='live'] .iu-orbit__body,
+.iu-orbit[data-zoom-tier='detail'] .iu-orbit__body,
+.iu-orbit__capsule.is-hovered .iu-orbit__body,
+.iu-orbit__capsule:focus-visible .iu-orbit__body {
+  max-width: 200px;
+  opacity: 1;
+}
+
+.iu-orbit__headline {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+}
+
+.iu-orbit__id {
+  font-size: 9px;
+  color: var(--iu-accent-text);
+  flex: none;
+  font-weight: 600;
+}
+
+.iu-orbit__name {
+  font-size: var(--iu-text-2xs);
+  font-weight: 500;
+  color: var(--iu-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 仪器形态（5x+） */
+.iu-orbit__style {
+  font-size: 9px;
+  color: var(--iu-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-height: 0;
+  opacity: 0;
+  transition:
+    max-height 220ms var(--iu-ease-out),
+    opacity 180ms var(--iu-ease-base);
+}
+
+.iu-orbit[data-zoom-tier='style'] .iu-orbit__style,
+.iu-orbit[data-zoom-tier='live'] .iu-orbit__style,
+.iu-orbit[data-zoom-tier='detail'] .iu-orbit__style {
+  max-height: 14px;
+  opacity: 1;
+}
+
+/* 实况微缩态（7x+） */
+.iu-orbit__preview {
+  display: block;
+  width: 56px;
+  height: 16px;
+  margin-top: 2px;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition:
+    max-height 240ms var(--iu-ease-out),
+    opacity 200ms var(--iu-ease-base);
+}
+
+.iu-orbit__preview svg {
+  display: block;
+  width: 56px;
+  height: 16px;
+}
+
+.iu-orbit[data-zoom-tier='live'] .iu-orbit__preview,
+.iu-orbit[data-zoom-tier='detail'] .iu-orbit__preview {
+  max-height: 20px;
+  opacity: 1;
+}
+
+/* 无 preview 时的状态条：3x+ 就显示，保持信息密度 */
+.iu-orbit__bars {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 56px;
+  margin-top: 3px;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition:
+    max-height 220ms var(--iu-ease-out),
+    opacity 180ms var(--iu-ease-base);
+}
+
+.iu-orbit__bar {
+  height: 2px;
+  border-radius: 1px;
+  background: rgb(var(--iu-accent-rgb) / 0.55);
+}
+
+.iu-orbit[data-zoom-tier='style'] .iu-orbit__bars,
+.iu-orbit[data-zoom-tier='live'] .iu-orbit__bars,
+.iu-orbit[data-zoom-tier='detail'] .iu-orbit__bars {
+  max-height: 18px;
+  opacity: 1;
+}
+
+/* 域名（9x+） */
+.iu-orbit__domain {
+  font-size: 8px;
+  color: var(--iu-text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-height: 0;
+  opacity: 0;
+  transition:
+    max-height 220ms var(--iu-ease-out),
+    opacity 180ms var(--iu-ease-base);
+}
+
+.iu-orbit[data-zoom-tier='detail'] .iu-orbit__domain {
+  max-height: 12px;
+  opacity: 1;
+}
+
+/* 状态灯 */
+.iu-orbit__state {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--iu-text-faint);
+  flex: none;
+}
+
+.iu-orbit[data-zoom-tier='spark'] .iu-orbit__state {
+  display: none;
+}
+
+.iu-orbit__state[data-state='active'] { background: var(--iu-positive); box-shadow: 0 0 6px var(--iu-positive); }
+.iu-orbit__state[data-state='live'] { background: var(--iu-instrument-bright); box-shadow: 0 0 6px var(--iu-instrument); }
+.iu-orbit__state[data-state='idle'] { background: var(--iu-warning); }
+.iu-orbit__state[data-state='offline'] { background: var(--iu-text-faint); }
+
+/* ---- 悬停详情卡 -------------------------------------------------------- */
+.iu-orbit__tip {
+  position: absolute;
+  right: var(--iu-space-3);
+  top: var(--iu-space-3);
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 200px;
+  max-width: 280px;
+  padding: var(--iu-space-3);
+  background: rgb(6 10 22 / 0.96);
+  border: 1px solid rgb(var(--iu-instrument-rgb) / 0.4);
+  border-radius: var(--iu-radius-sm);
+  box-shadow: 0 12px 34px -12px rgb(var(--iu-instrument-rgb) / 0.5);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  pointer-events: none;
+}
+
+.iu-orbit__tip-title {
+  font-size: var(--iu-text-xs);
+  font-weight: 600;
+  color: var(--iu-text-strong);
+  margin-bottom: 2px;
+}
+
+.iu-orbit__tip-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--iu-space-3);
+}
+
+.iu-orbit__tip-value {
+  font-size: var(--iu-text-2xs);
+  color: var(--iu-text-secondary);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- 缩放控件 ---------------------------------------------------------- */
+.iu-orbit__zoom {
+  position: absolute;
+  left: var(--iu-space-3);
+  bottom: var(--iu-space-3);
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  background: rgb(6 10 22 / 0.9);
+  border: 1px solid var(--iu-border);
+  border-radius: var(--iu-radius-pill);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.iu-orbit__zoom-btn {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid rgb(var(--iu-instrument-rgb) / 0.4);
+  background: rgb(var(--iu-instrument-rgb) / 0.12);
+  color: var(--iu-instrument-text);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  transition: background-color var(--iu-dur-fast) var(--iu-ease-base);
+}
+
+.iu-orbit__zoom-btn:hover:not(:disabled) {
+  background: rgb(var(--iu-instrument-rgb) / 0.3);
+}
+
+.iu-orbit__zoom-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.iu-orbit__zoom-value {
+  font-size: var(--iu-text-2xs);
+  color: var(--iu-text-secondary);
+  min-width: 30px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.iu-orbit__zoom-scale {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: 2px;
+}
+
+.iu-orbit__zoom-tick {
+  width: 3px;
+  height: 9px;
+  border-radius: 1px;
+  background: rgb(100 116 139 / 0.3);
+  transition: background-color var(--iu-dur-fast) var(--iu-ease-base);
+}
+
+.iu-orbit__zoom-tick.is-on {
+  background: var(--iu-instrument-bright);
+  box-shadow: 0 0 5px rgb(var(--iu-instrument-rgb) / 0.9);
+}
+
+/* ---- 提示 -------------------------------------------------------------- */
+.iu-orbit__hint {
+  position: absolute;
+  right: var(--iu-space-3);
+  bottom: var(--iu-space-3);
+  z-index: 6;
+  font-family: var(--iu-font-mono);
+  font-size: 9px;
+  color: var(--iu-text-faint);
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+/* ---- 减弱动效 ---------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .iu-orbit__ring.is-spinning,
+  .iu-orbit__core-ring,
+  .iu-orbit__core-orb,
+  .iu-orbit__dot-ping {
+    animation: none;
+  }
+
+  .iu-orbit__dot-ping { display: none; }
+
+  .iu-orbit__rings,
+  .iu-orbit__capsule,
+  .iu-orbit__body,
+  .iu-orbit__style,
+  .iu-orbit__preview,
+  .iu-orbit__bars,
+  .iu-orbit__domain {
+    transition: none;
+  }
+}
+
+/* ---- 窄屏：缩小胶囊文字，避免重叠 -------------------------------------- */
+@media (max-width: 640px) {
+  .iu-orbit__capsule {
+    max-width: 130px;
+    padding: 3px 6px 3px 3px;
+  }
+
+  .iu-orbit__name { font-size: 9px; }
+
+  .iu-orbit__hint { display: none; }
+}

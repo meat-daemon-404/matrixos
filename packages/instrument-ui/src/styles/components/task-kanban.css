@@ -1,0 +1,610 @@
+/* TaskKanban · 航天任务控制看板 */
+
+.iu-kanban {
+  --iu-kanban-height: 420px;
+  position: relative;
+  width: 100%;
+  color: var(--iu-text);
+}
+
+.iu-kanban__frame {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iu-space-3);
+  padding: var(--iu-space-3) var(--iu-space-4) var(--iu-space-2);
+  background:
+    linear-gradient(145deg, var(--iu-bezel-from) 0%, var(--iu-bezel-to) 100%);
+  border: 1px solid var(--iu-border-instrument);
+  border-radius: var(--iu-radius-lg);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+    0 10px 30px -10px rgb(var(--iu-accent-rgb) / 0.25);
+}
+
+/* 拖影：必须在视口内可渲染，但视觉上不可见 */
+.iu-kanban__drag-ghost {
+  position: fixed;
+  top: -1000px;
+  left: -1000px;
+  width: 120px;
+  height: 44px;
+  border-radius: var(--iu-radius-sm);
+  background: rgb(11 17 36 / 0.95);
+  border: 1px solid rgb(var(--iu-accent-rgb) / 0.7);
+  pointer-events: none;
+}
+
+.iu-kanban__drag-ghost-bar {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 16px;
+  height: 2px;
+  border-radius: 1px;
+  background: rgb(var(--iu-accent-rgb) / 0.8);
+}
+
+.iu-kanban__drag-ghost-dot {
+  position: absolute;
+  left: 10px;
+  top: 26px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--iu-accent-bright);
+}
+
+/* ---- 头部 -------------------------------------------------------------- */
+.iu-kanban__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--iu-space-4);
+  flex-wrap: wrap;
+  padding-bottom: var(--iu-space-2);
+  border-bottom: 1px solid var(--iu-border);
+}
+
+.iu-kanban__header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.iu-kanban__mission {
+  color: var(--iu-accent-text);
+  letter-spacing: 0.16em;
+  font-size: 9px;
+}
+
+.iu-kanban__title {
+  margin: 0;
+  font-size: var(--iu-text-sm);
+  font-weight: 600;
+  color: var(--iu-text-strong);
+  line-height: var(--iu-leading-tight);
+}
+
+.iu-kanban__telemetry {
+  display: flex;
+  align-items: center;
+  gap: var(--iu-space-3);
+}
+
+.iu-kanban__telemetry-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+}
+
+.iu-kanban__telemetry-value {
+  font-size: var(--iu-text-sm);
+  color: var(--iu-text-secondary);
+  line-height: 1.1;
+}
+
+.iu-kanban__telemetry-value.is-positive { color: var(--iu-positive-text); }
+.iu-kanban__telemetry-value.is-danger { color: var(--iu-danger-text); }
+
+/* 活动信号灯 */
+.iu-kanban__signal {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgb(var(--iu-accent-rgb) / 0.5);
+  transition: background-color var(--iu-dur-fast) var(--iu-ease-base);
+}
+
+.iu-kanban__signal[data-active='true'] {
+  background: var(--iu-accent-bright);
+  box-shadow: 0 0 10px 1px rgb(var(--iu-accent-rgb) / 0.95);
+  animation: iu-kanban-signal 1.1s var(--iu-ease-base) infinite;
+}
+
+@keyframes iu-kanban-signal {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ---- 列区 -------------------------------------------------------------- */
+.iu-kanban__columns {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(196px, 1fr);
+  gap: var(--iu-space-3);
+  align-items: stretch;
+  overflow-x: auto;
+  padding-bottom: var(--iu-space-1);
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--iu-accent-rgb) / 0.45) transparent;
+}
+
+.iu-kanban__columns::-webkit-scrollbar { height: 6px; }
+.iu-kanban__columns::-webkit-scrollbar-track { background: rgb(5 8 20 / 0.8); }
+.iu-kanban__columns::-webkit-scrollbar-thumb {
+  background: rgb(var(--iu-accent-rgb) / 0.45);
+  border-radius: 3px;
+}
+
+.iu-kanban__column {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-radius: var(--iu-radius-md);
+  border: 1px solid var(--iu-border);
+  background: linear-gradient(180deg, rgb(3 8 18 / 0.6), rgb(2 5 12 / 0.35));
+  padding: var(--iu-space-2);
+  transition:
+    border-color var(--iu-dur-fast) var(--iu-ease-base),
+    background-color var(--iu-dur-fast) var(--iu-ease-base),
+    box-shadow var(--iu-dur-fast) var(--iu-ease-base);
+}
+
+/* 投放目标高亮 */
+.iu-kanban__column.is-drop-target {
+  border-color: rgb(var(--iu-accent-rgb) / 0.85);
+  background: rgb(var(--iu-accent-rgb) / 0.08);
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--iu-accent-rgb) / 0.35),
+    0 0 24px -8px rgb(var(--iu-accent-rgb) / 0.9);
+}
+
+/* 被拒绝：短促红闪（1.2s 后由 JS 清除属性） */
+.iu-kanban__column.is-rejected {
+  border-color: rgb(var(--iu-danger-rgb) / 0.9);
+  animation: iu-kanban-reject 380ms var(--iu-ease-base) 2;
+}
+
+@keyframes iu-kanban-reject {
+  0%, 100% { translate: 0 0; }
+  25% { translate: -3px 0; }
+  75% { translate: 3px 0; }
+}
+
+.iu-kanban__column.is-locked {
+  border-style: dashed;
+  background: linear-gradient(180deg, rgb(16 185 129 / 0.05), transparent);
+}
+
+.iu-kanban__column.is-over-wip {
+  border-color: rgb(var(--iu-warning-rgb) / 0.7);
+}
+
+/* 列头 */
+.iu-kanban__column-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 2px var(--iu-space-2);
+  border-bottom: 1px solid var(--iu-border);
+  margin-bottom: var(--iu-space-2);
+  flex: none;
+}
+
+.iu-kanban__column-index {
+  font-size: 9px;
+  color: var(--iu-text-faint);
+  flex: none;
+}
+
+.iu-kanban__column-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.iu-kanban__column-title {
+  font-size: var(--iu-text-2xs);
+  font-weight: 600;
+  color: var(--iu-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.iu-kanban__column-subtitle {
+  font-size: 8px;
+  color: var(--iu-text-faint);
+  letter-spacing: 0.04em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.iu-kanban__column-count {
+  font-size: 9px;
+  color: var(--iu-text-muted);
+  flex: none;
+}
+
+.iu-kanban__column.is-over-wip .iu-kanban__column-count {
+  color: var(--iu-warning-text);
+  font-weight: 700;
+}
+
+.iu-kanban__add {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--iu-radius-xs);
+  border: 1px solid var(--iu-border);
+  background: transparent;
+  color: var(--iu-text-muted);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  transition:
+    color var(--iu-dur-fast) var(--iu-ease-base),
+    border-color var(--iu-dur-fast) var(--iu-ease-base);
+}
+
+.iu-kanban__add:hover {
+  color: var(--iu-accent-text);
+  border-color: rgb(var(--iu-accent-rgb) / 0.6);
+}
+
+/* 列间连接线（任务链条感） */
+.iu-kanban__connector {
+  position: absolute;
+  top: 22px;
+  right: calc(var(--iu-space-3) * -1);
+  width: calc(var(--iu-space-3));
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    rgb(var(--iu-instrument-rgb) / 0.5),
+    rgb(var(--iu-instrument-rgb) / 0.1)
+  );
+  pointer-events: none;
+}
+
+.iu-kanban__connector::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: -2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgb(var(--iu-instrument-rgb) / 0.7);
+}
+
+/* 卡片容器 */
+.iu-kanban__cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iu-space-2);
+  flex: 1 1 auto;
+  min-height: 90px;
+  max-height: var(--iu-kanban-height);
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.iu-kanban__empty {
+  margin: var(--iu-space-4) 0;
+  text-align: center;
+  font-size: 9px;
+  color: var(--iu-text-faint);
+  letter-spacing: 0.04em;
+}
+
+/* ---- 卡片 -------------------------------------------------------------- */
+.iu-kanban__card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: var(--iu-space-2) var(--iu-space-2) 6px;
+  border-radius: var(--iu-radius-sm);
+  background: linear-gradient(160deg, rgb(13 20 38 / 0.95), rgb(8 12 24 / 0.95));
+  border: 1px solid rgb(var(--iu-accent-rgb) / 0.22);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.06),
+    0 4px 12px -6px rgb(0 0 0 / 0.8);
+  cursor: grab;
+  outline: none;
+  transition:
+    border-color var(--iu-dur-fast) var(--iu-ease-base),
+    transform var(--iu-dur-fast) var(--iu-ease-base),
+    box-shadow var(--iu-dur-fast) var(--iu-ease-base);
+}
+
+.iu-kanban__card:hover {
+  border-color: rgb(var(--iu-accent-rgb) / 0.6);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.09),
+    0 8px 20px -8px rgb(var(--iu-accent-rgb) / 0.7);
+  transform: translateY(-1px);
+}
+
+.iu-kanban__card:focus-visible {
+  outline: 2px solid var(--iu-accent-bright);
+  outline-offset: 1px;
+}
+
+.iu-kanban__card.is-selected {
+  border-color: var(--iu-accent-bright);
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--iu-accent-rgb) / 0.4),
+    0 0 22px -6px rgb(var(--iu-accent-rgb) / 0.95);
+}
+
+.iu-kanban__card.is-being-dragged {
+  opacity: 0.38;
+  cursor: grabbing;
+}
+
+.iu-kanban__card.is-blocked {
+  border-color: rgb(var(--iu-danger-rgb) / 0.55);
+  background: linear-gradient(160deg, rgb(31 13 29 / 0.9), rgb(12 8 20 / 0.95));
+}
+
+.iu-kanban__card.is-rejected {
+  animation: iu-kanban-reject 380ms var(--iu-ease-base) 1;
+}
+
+/* 卡片顶部行 */
+.iu-kanban__card-top {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.iu-kanban__card-status {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--iu-accent-bright);
+  box-shadow: 0 0 6px rgb(var(--iu-accent-rgb) / 0.9);
+}
+
+.iu-kanban__card-status[data-blocked='true'] {
+  background: var(--iu-danger);
+  box-shadow: 0 0 6px var(--iu-danger);
+}
+
+.iu-kanban__card-priority {
+  font-size: 8px;
+  font-weight: 700;
+  padding: 0 4px;
+  border-radius: 2px;
+  flex: none;
+  letter-spacing: 0.04em;
+}
+
+.iu-kanban__card-priority[data-priority='P0'] {
+  background: rgb(var(--iu-danger-rgb) / 0.22);
+  color: var(--iu-danger-text);
+  border: 1px solid rgb(var(--iu-danger-rgb) / 0.5);
+}
+
+.iu-kanban__card-priority[data-priority='P1'] {
+  background: rgb(var(--iu-warning-rgb) / 0.18);
+  color: var(--iu-warning-text);
+  border: 1px solid rgb(var(--iu-warning-rgb) / 0.4);
+}
+
+.iu-kanban__card-priority[data-priority='P2'] {
+  background: rgb(100 116 139 / 0.18);
+  color: var(--iu-text-muted);
+  border: 1px solid rgb(100 116 139 / 0.35);
+}
+
+.iu-kanban__card-window {
+  font-size: 8px;
+  color: var(--iu-instrument-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.iu-kanban__card-assignee {
+  margin-left: auto;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(var(--iu-accent-rgb) / 0.2);
+  border: 1px solid rgb(var(--iu-accent-rgb) / 0.4);
+  font-family: var(--iu-font-mono);
+  font-size: 7px;
+  font-weight: 700;
+  color: var(--iu-accent-text);
+}
+
+.iu-kanban__card-title {
+  font-size: var(--iu-text-2xs);
+  font-weight: 600;
+  color: var(--iu-text-strong);
+  line-height: 1.3;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.iu-kanban__card-summary {
+  font-size: 9px;
+  color: var(--iu-text-muted);
+  line-height: 1.35;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* 进度条 */
+.iu-kanban__card-progress {
+  position: relative;
+  display: block;
+  height: 3px;
+  margin-top: 2px;
+  border-radius: 2px;
+  background: rgb(100 116 139 / 0.25);
+  overflow: visible;
+}
+
+.iu-kanban__card-progress-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    rgb(var(--iu-accent-rgb) / 0.6),
+    var(--iu-accent-bright)
+  );
+  box-shadow: 0 0 8px -1px rgb(var(--iu-accent-rgb) / 0.9);
+  transition: width 400ms var(--iu-ease-out);
+}
+
+.iu-kanban__card-progress-label {
+  position: absolute;
+  right: 0;
+  top: -11px;
+  font-size: 7px;
+  color: var(--iu-text-faint);
+}
+
+/* 标签 */
+.iu-kanban__card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 1px;
+}
+
+.iu-kanban__card-tag {
+  font-family: var(--iu-font-mono);
+  font-size: 7px;
+  padding: 0 4px;
+  border-radius: 2px;
+  background: rgb(var(--iu-instrument-rgb) / 0.12);
+  border: 1px solid rgb(var(--iu-instrument-rgb) / 0.3);
+  color: var(--iu-instrument-text);
+  letter-spacing: 0.02em;
+}
+
+/* 底行 */
+.iu-kanban__card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--iu-space-2);
+  margin-top: 2px;
+  min-width: 0;
+}
+
+.iu-kanban__card-due {
+  font-size: 8px;
+  color: var(--iu-text-faint);
+  flex: none;
+}
+
+.iu-kanban__card-blocked {
+  font-size: 8px;
+  color: var(--iu-danger-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* ---- 页脚 -------------------------------------------------------------- */
+.iu-kanban__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--iu-space-3);
+  flex-wrap: wrap;
+  padding-top: var(--iu-space-2);
+  border-top: 1px solid var(--iu-border);
+}
+
+.iu-kanban__footer-hint {
+  font-size: 9px;
+  color: var(--iu-text-faint);
+}
+
+.iu-kanban__footer-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+  color: var(--iu-text-muted);
+}
+
+.iu-kanban__legend-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  margin-left: 4px;
+}
+
+.iu-kanban__legend-dot.is-blocked { background: var(--iu-danger); }
+.iu-kanban__legend-dot.is-normal { background: var(--iu-instrument-bright); }
+
+/* ---- 减弱动效 ---------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .iu-kanban__signal[data-active='true'],
+  .iu-kanban__column.is-rejected,
+  .iu-kanban__card.is-rejected {
+    animation: none;
+  }
+
+  .iu-kanban__card,
+  .iu-kanban__column,
+  .iu-kanban__card-progress-fill {
+    transition: none;
+  }
+
+  .iu-kanban__card:hover {
+    transform: none;
+  }
+}
+
+/* ---- 高对比度 ---------------------------------------------------------- */
+@media (forced-colors: active) {
+  .iu-kanban__card,
+  .iu-kanban__column {
+    border: 1px solid CanvasText;
+    background: Canvas;
+    color: CanvasText;
+  }
+}

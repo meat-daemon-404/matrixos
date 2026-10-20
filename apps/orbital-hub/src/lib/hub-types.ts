@@ -43,7 +43,9 @@ export type RenderStrategy =
   /** 全部 iframe 都活着（性能达标时） */
   | 'all-live'
   /** 降级：只有 1 个真 iframe，其余 2 个是静态快照 */
-  | 'one-live-rest-snapshot';
+  | 'one-live-rest-snapshot'
+  /** 全屏入站态：星轨推进到 10x 打开单站全屏，仪器架全部让位为快照（避免 iframe 叠加） */
+  | 'all-snapshot';
 
 /** 性能探针采样快照（S2-01e 要求的帧率/内存采样） */
 export interface PerformanceSample {

@@ -597,8 +597,15 @@ export interface MatrixSDK {
   readonly http: {
     request<T = unknown>(options: MatrixRequestOptions): Promise<T>;
   };
-  /** 本站 manifest（插槽清单）。 */
+  /** 本站 manifest（插槽清单）。未就绪时返回结构化占位（`accepts`/`emits` 为空）。 */
   getManifest(): MatrixAppManifest;
+  /**
+   * 显式拉取本站 manifest（`/matrix-app.manifest.json`）。
+   *
+   * `createMatrixSDK()` 时已自动在后台拉取，这里用于「需要确保就绪」的场景
+   * （如在渲染星轨胶囊前先 `await`）。失败返回 `null`，不抛。
+   */
+  loadManifest(): Promise<MatrixAppManifest | null>;
   /** 跨源消息白名单，供 host bridge 与虫洞共用。 */
   readonly allowedOrigins: readonly string[];
 

@@ -70,6 +70,13 @@ services/matrix-core/keys/
 # ---- 微信小程序 ----
 apps/wechat-pocket/**/node_modules/
 apps/wechat-pocket/**/miniprogram_npm/
+# 二维码自测中间产物（可重新生成，不入库）
+apps/wechat-pocket/.qr-selftest/
+
+# ---- 构建产物（各包 dist 只保留 matrix-sdk 供消费方解析类型）----
+packages/instrument-ui/dist/
+packages/twin-schema/dist/
+apps/micro-sites/*/dist/
 
 # ---- turbo ----
 .turbo/

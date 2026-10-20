@@ -31,7 +31,9 @@
  */
 
 import { MatrixError, UnsupportedPayloadError } from '../errors.ts';
-import { validateAgainstSchema, formatIssues, validateManifestSchema } from '../contracts/index.ts';
+import { validateAgainstSchema, formatIssues } from '../contracts/validate.ts';
+import { WORMHOLE_ENVELOPE_SCHEMA } from '../contracts/schemas.ts';
+import { validateManifestSemantics } from '../manifest/validate.ts';
 import type { HostBridge, MatrixAppManifest, RuntimeEnv } from '../types.ts';
 import type {
   AppKey,
@@ -187,7 +189,7 @@ export class WormholeTransport {
 
     // ── 构造完整 envelope 后跑冻结契约校验 ────────────────────────────────
     const envelope = this.buildEnvelope(draft);
-    const issues = validateAgainstSchema(envelope, WORMHOLE_ENVELOPE_SCHEMA_FOR_VALIDATION);
+    const issues = validateAgainstSchema(envelope, WORMHOLE_ENVELOPE_SCHEMA);
     for (const issue of issues) {
       errors.push(issue.message);
       fieldErrors.push(issue.path === '' ? issue.message : `${issue.path}: ${issue.message}`);
@@ -420,7 +422,7 @@ export class WormholeTransport {
       const result = await this.#resolveManifest(targetApp);
       if (result === null) return null;
       // 注册表返回的 manifest 也要过一遍校验——服务端数据同样可能过期/损坏。
-      const validation = validateManifestSchema(result);
+      const validation = validateManifestSemantics(result);
       return validation.valid ? result : null;
     } catch {
       return null;
@@ -433,7 +435,7 @@ function normalizeManifestEntry(entry: unknown): MatrixAppManifest | null {
   if (entry === null || typeof entry !== 'object') return null;
   const record = entry as Record<string, unknown>;
   if (typeof record.app_id !== 'string') return null;
-  const validation = validateManifestSchema(entry);
+  const validation = validateManifestSemantics(entry);
   return validation.valid ? (entry as MatrixAppManifest) : null;
 }
 
@@ -518,7 +520,7 @@ export function registerWormholeReceiver(init: WormholeReceiverInit): () => void
     if (envelope === null || typeof envelope !== 'object') return;
 
     // ── 关 2：契约校验 ─────────────────────────────────────────────────────
-    const issues = validateAgainstSchema(envelope, WORMHOLE_ENVELOPE_SCHEMA_FOR_VALIDATION);
+    const issues = validateAgainstSchema(envelope, WORMHOLE_ENVELOPE_SCHEMA);
     if (issues.length > 0) {
       if (init.debug === true) console.debug(`[matrixos/sdk] 丢弃虫洞消息：契约校验失败 — ${formatIssues(issues).join('; ')}`);
       return;
@@ -637,7 +639,7 @@ export function createWormholeDropRing(transport: WormholeTransport): import('..
         fieldErrors.push('payload.evidence_anchors: 至少需要 1 条');
       }
       const envelope = transport.buildEnvelope(draft);
-      const issues = validateAgainstSchema(envelope, WORMHOLE_ENVELOPE_SCHEMA_FOR_VALIDATION);
+      const issues = validateAgainstSchema(envelope, WORMHOLE_ENVELOPE_SCHEMA);
       for (const issue of issues) {
         errors.push(issue.message);
         fieldErrors.push(`${issue.path}: ${issue.message}`);
@@ -661,6 +663,3 @@ export function createWormholeDropRing(transport: WormholeTransport): import('..
   };
 }
 
-// 延迟引用，避免 contracts/index.ts ↔ wormhole 的运行时循环。
-import { WORMHOLE_ENVELOPE_SCHEMA } from '../contracts/schemas.ts';
-const WORMHOLE_ENVELOPE_SCHEMA_FOR_VALIDATION = WORMHOLE_ENVELOPE_SCHEMA;

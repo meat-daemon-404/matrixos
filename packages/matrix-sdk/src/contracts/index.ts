@@ -33,22 +33,3 @@ export type {
   AssetNodeInput,
   AssetType,
 } from './types.ts';
-
-import { MATRIX_APP_MANIFEST_SCHEMA } from './schemas.ts';
-import { validateAgainstSchema } from './validate.ts';
-import type { ManifestValidationResult, MatrixAppManifest } from '../types.ts';
-
-/** 兼容 `wormhole/index.ts` 的调用点：只做 schema 结构校验（不做语义规则）。 */
-export function validateManifestSchema(json: unknown): ManifestValidationResult {
-  const issues = validateAgainstSchema(json, MATRIX_APP_MANIFEST_SCHEMA);
-  return {
-    valid: issues.length === 0,
-    manifest: issues.length === 0 ? (json as MatrixAppManifest) : null,
-    errors: issues.map((issue) => ({
-      path: issue.path,
-      message: issue.message,
-      keyword: issue.keyword,
-      severity: 'error' as const,
-    })),
-  };
-}

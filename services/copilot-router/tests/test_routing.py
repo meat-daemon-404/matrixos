@@ -119,15 +119,54 @@ def test_short_input_stays_cheap(base_config):
 
 
 def test_long_input_escalates_for_length_sensitive_task(base_config):
-    """长度敏感任务 + 长输入 → 升档到 Pro。"""
+    """长度敏感任务 + 长输入 → 升档到 Pro。
+
+    用 ``long_document_read``（默认 tier-02）验证：短输入留在便宜档，
+    长输入才升 Pro。这是长度维度真正省钱的路径。
+    """
     router = Router(base_config)
-    long_tokens = base_config.routing.long_context.pro_min_tokens + 1000
-    request = chat_request("横向对比这几篇顶刊论文的实验参量")
-    decision = router.decide(request, prompt_tokens=long_tokens)
+    lc = base_config.routing.long_context
+
+    # 短输入：留在 tier-02（¥0.40/M）
+    short_decision = router.decide(chat_request("精读这篇 PDF 的方法部分"), prompt_tokens=500)
+    assert short_decision.task_type == "long_document_read"
+    assert short_decision.tier_id == "tier-02"
+
+    # 长输入：升到 tier-03（¥2.00/M）
+    long_decision = router.decide(
+        chat_request("精读这篇 PDF 的方法部分"), prompt_tokens=lc.pro_min_tokens + 1000
+    )
+    assert long_decision.task_type == "long_document_read"
+    assert long_decision.tier_id == "tier-03"
+    assert long_decision.decided_by == "heuristic_length"
+    assert "升档" in long_decision.reason
+
+
+def test_pro_task_stays_pro_for_long_input(base_config):
+    """本身就是 Pro 档的任务，长输入不改变决策来源。
+
+    诚实标注语义：multi_paper_compare 的默认档位就是 tier-03，
+    长度规则对它不构成「升档」，因此 decided_by 不应写成 heuristic_length
+    （否则运维日志会误导「是长度把它升上去的」）。
+    """
+    router = Router(base_config)
+    lc = base_config.routing.long_context
+    decision = router.decide(
+        chat_request("横向对比这几篇顶刊论文的实验参量"),
+        prompt_tokens=lc.pro_min_tokens + 1000,
+    )
     assert decision.task_type == "multi_paper_compare"
     assert decision.tier_id == "tier-03"
-    assert decision.decided_by == "heuristic_length"
-    assert "升档" in decision.reason
+    assert decision.decided_by == "heuristic"
+    assert "符合 Pro 长上下文场景" in decision.reason
+
+
+def test_pro_level_task_short_input_still_pro(base_config):
+    """深度任务即便输入短也必须是 Pro —— 质量优先于省钱（但受降级②约束）。"""
+    router = Router(base_config)
+    decision = router.decide(chat_request("帮我推演文献综述的大纲"), prompt_tokens=100)
+    assert decision.task_type == "review_outline"
+    assert decision.tier_id == "tier-03"
 
 
 def test_long_input_does_not_escalate_non_length_sensitive_task(base_config):

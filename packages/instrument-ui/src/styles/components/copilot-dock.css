@@ -1,0 +1,448 @@
+/* CopilotWaveDock · 底部声波脉冲坞 */
+
+.iu-dock {
+  --iu-dock-wave-h: 26px;
+  --iu-dock-orb: 48px;
+  color: var(--iu-text);
+  transition:
+    opacity var(--iu-dur-base) var(--iu-ease-base),
+    transform var(--iu-dur-base) var(--iu-ease-out);
+}
+
+.iu-dock.is-fixed {
+  position: fixed;
+  left: 50%;
+  bottom: var(--iu-dock-offset, 18px);
+  transform: translateX(-50%);
+  z-index: var(--iu-z-dock);
+  width: min(880px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.iu-dock.is-static {
+  position: relative;
+  width: 100%;
+}
+
+/* 展开态时，容器本身不接收事件，只有 bar 接收 */
+.iu-dock.is-fixed .iu-dock__bar {
+  pointer-events: auto;
+}
+
+/* ---- 展开态：声波带 ---------------------------------------------------- */
+.iu-dock__bar {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: var(--iu-space-2) var(--iu-space-3) var(--iu-space-2);
+  border-radius: var(--iu-radius-lg);
+  background:
+    linear-gradient(145deg, rgb(11 17 36 / 0.94) 0%, rgb(7 11 24 / 0.96) 100%);
+  border: 1px solid rgb(var(--iu-action-rgb) / 0.35);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.08),
+    0 10px 34px -12px rgb(var(--iu-action-rgb) / 0.6),
+    0 0 0 1px rgb(0 0 0 / 0.35);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  overflow: hidden;
+  transform-origin: bottom center;
+  transition:
+    opacity var(--iu-dur-base) var(--iu-ease-base),
+    transform var(--iu-dur-base) var(--iu-ease-out);
+}
+
+.iu-dock.is-collapsed .iu-dock__bar {
+  opacity: 0;
+  transform: translateY(14px) scale(0.96);
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.iu-dock.is-expanded .iu-dock__bar {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  visibility: visible;
+}
+
+/* 顶部辉光弧 */
+.iu-dock__glow {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: -1px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(var(--iu-action-rgb) / 0.8) 30%,
+    rgb(var(--iu-instrument-rgb) / 0.9) 50%,
+    rgb(var(--iu-action-rgb) / 0.8) 70%,
+    transparent
+  );
+  pointer-events: none;
+}
+
+.iu-dock__row {
+  display: flex;
+  align-items: center;
+  gap: var(--iu-space-3);
+  min-height: 38px;
+}
+
+.iu-dock__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  flex: none;
+  color: var(--iu-accent-text);
+  background: rgb(var(--iu-action-rgb) / 0.16);
+  border: 1px solid rgb(var(--iu-action-rgb) / 0.4);
+  box-shadow: 0 0 16px -4px rgb(var(--iu-action-rgb) / 0.9);
+}
+
+.iu-dock__status {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+  flex: none;
+  max-width: 210px;
+}
+
+.iu-dock__status-text {
+  font-family: var(--iu-font-mono);
+  font-size: var(--iu-text-2xs);
+  font-weight: 600;
+  color: var(--iu-accent-text);
+  letter-spacing: 0.03em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.iu-dock__context {
+  font-size: 9px;
+  color: var(--iu-text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- 声波柱（48 根，纯 CSS 动画） --------------------------------------- */
+.iu-dock__wave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: var(--iu-dock-wave-h);
+  flex: 1 1 auto;
+  min-width: 60px;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+
+.iu-dock__wave-bar {
+  display: block;
+  width: 2px;
+  min-height: 2px;
+  border-radius: 1px;
+  background: linear-gradient(
+    180deg,
+    var(--iu-accent-bright) 0%,
+    rgb(var(--iu-action-rgb) / 0.45) 100%
+  );
+  transform-origin: center;
+  animation: iu-wave-breathe 2.6s var(--iu-ease-base) infinite;
+  animation-delay: calc(var(--iu-bar-i, 0) * -52ms);
+  will-change: transform, opacity;
+}
+
+@keyframes iu-wave-breathe {
+  0%, 100% {
+    transform: scaleY(0.55);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+/* 状态相关：不同状态下波形的节奏不同 */
+.iu-dock[data-state='listening'] .iu-dock__wave-bar {
+  animation-name: iu-wave-listen;
+  animation-duration: 1.15s;
+}
+
+@keyframes iu-wave-listen {
+  0%, 100% { transform: scaleY(0.7); opacity: 0.55; }
+  40% { transform: scaleY(1.15); opacity: 1; }
+  70% { transform: scaleY(0.85); opacity: 0.8; }
+}
+
+.iu-dock[data-state='thinking'] .iu-dock__wave-bar {
+  animation-name: iu-wave-think;
+  animation-duration: 1.9s;
+  animation-timing-function: linear;
+}
+
+@keyframes iu-wave-think {
+  0% { transform: scaleY(0.35); opacity: 0.35; }
+  25% { transform: scaleY(1); opacity: 0.95; }
+  50% { transform: scaleY(0.5); opacity: 0.5; }
+  75% { transform: scaleY(0.9); opacity: 0.85; }
+  100% { transform: scaleY(0.35); opacity: 0.35; }
+}
+
+.iu-dock[data-state='speaking'] .iu-dock__wave-bar {
+  animation-name: iu-wave-speak;
+  animation-duration: 0.72s;
+}
+
+@keyframes iu-wave-speak {
+  0%, 100% { transform: scaleY(0.5); opacity: 0.6; }
+  50% { transform: scaleY(1.2); opacity: 1; }
+}
+
+.iu-dock[data-state='idle'] .iu-dock__wave-bar {
+  animation-duration: 3.4s;
+  opacity: 0.7;
+}
+
+/* ---- 输入 -------------------------------------------------------------- */
+.iu-dock__form {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 120px;
+}
+
+.iu-dock__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 28px;
+  padding: 0 var(--iu-space-3);
+  border-radius: var(--iu-radius-pill);
+  border: 1px solid var(--iu-border);
+  background: rgb(2 6 23 / 0.85);
+  color: var(--iu-text);
+  font-family: var(--iu-font-sans);
+  font-size: var(--iu-text-xs);
+  outline: none;
+  transition:
+    border-color var(--iu-dur-fast) var(--iu-ease-base),
+    box-shadow var(--iu-dur-fast) var(--iu-ease-base);
+}
+
+.iu-dock__input::placeholder {
+  color: var(--iu-text-faint);
+}
+
+.iu-dock__input:focus {
+  border-color: rgb(var(--iu-action-rgb) / 0.75);
+  box-shadow: 0 0 0 3px rgb(var(--iu-action-rgb) / 0.16);
+}
+
+.iu-dock__send {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid rgb(var(--iu-action-rgb) / 0.5);
+  background: rgb(var(--iu-action-rgb) / 0.2);
+  color: var(--iu-accent-text);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  transition: background-color var(--iu-dur-fast) var(--iu-ease-base);
+}
+
+.iu-dock__send:hover:not(:disabled) {
+  background: rgb(var(--iu-action-rgb) / 0.4);
+}
+
+.iu-dock__send:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.iu-dock__collapse {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--iu-border);
+  background: transparent;
+  color: var(--iu-text-muted);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  transition:
+    color var(--iu-dur-fast) var(--iu-ease-base),
+    border-color var(--iu-dur-fast) var(--iu-ease-base);
+}
+
+.iu-dock__collapse:hover {
+  color: var(--iu-text);
+  border-color: var(--iu-text-muted);
+}
+
+/* 底部相位带：一条缓慢流动的光 */
+.iu-dock__phase {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgb(var(--iu-action-rgb) / 0.15) 20%,
+    rgb(var(--iu-instrument-rgb) / 0.75) 50%,
+    rgb(var(--iu-action-rgb) / 0.15) 80%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: iu-phase-flow 4.5s linear infinite;
+  will-change: background-position;
+  pointer-events: none;
+}
+
+@keyframes iu-phase-flow {
+  from { background-position: 0% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* ---- 坍缩态：能量球 ---------------------------------------------------- */
+.iu-dock__orb {
+  position: fixed;
+  bottom: var(--iu-dock-offset, 18px);
+  width: var(--iu-dock-orb);
+  height: var(--iu-dock-orb);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid rgb(var(--iu-action-rgb) / 0.6);
+  background:
+    radial-gradient(circle at 38% 32%, rgb(129 140 248 / 0.55) 0%, rgb(79 70 229 / 0.28) 46%, rgb(6 10 24 / 0.92) 100%);
+  box-shadow:
+    0 0 26px -4px rgb(var(--iu-action-rgb) / 0.95),
+    inset 0 1px 0 rgb(255 255 255 / 0.2);
+  cursor: pointer;
+  padding: 0;
+  z-index: var(--iu-z-dock);
+  opacity: 0;
+  transform: scale(0.5);
+  pointer-events: none;
+  transition:
+    opacity var(--iu-dur-base) var(--iu-ease-base),
+    transform var(--iu-dur-base) var(--iu-ease-out);
+}
+
+.iu-dock.is-orb-bottom-right .iu-dock__orb { right: var(--iu-dock-offset, 18px); }
+.iu-dock.is-orb-bottom-left .iu-dock__orb { left: var(--iu-dock-offset, 18px); }
+
+.iu-dock.is-collapsed .iu-dock__orb {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+.iu-dock__orb-ring {
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 1px solid rgb(var(--iu-action-rgb) / 0.4);
+  animation: iu-orb-ripple 3.1s var(--iu-ease-base) infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes iu-orb-ripple {
+  0% { transform: scale(0.92); opacity: 0.85; }
+  70% { transform: scale(1.22); opacity: 0; }
+  100% { transform: scale(1.22); opacity: 0; }
+}
+
+.iu-dock__orb-core {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 36% 30%, #c7d2fe 0%, #818cf8 42%, #4338ca 100%);
+  box-shadow: 0 0 18px 2px rgb(var(--iu-action-rgb) / 0.9);
+}
+
+.iu-dock__orb-badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--iu-instrument-bright);
+  box-shadow: 0 0 7px var(--iu-instrument);
+}
+
+.iu-dock__orb-badge[data-state='thinking'] { background: var(--iu-warning); box-shadow: 0 0 7px var(--iu-warning); }
+.iu-dock__orb-badge[data-state='speaking'] { background: var(--iu-positive); box-shadow: 0 0 7px var(--iu-positive); }
+.iu-dock__orb-badge[data-state='listening'] { background: var(--iu-danger); box-shadow: 0 0 7px var(--iu-danger); }
+
+/* ---- 减弱动效 ---------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .iu-dock__wave-bar {
+    animation: none;
+    transform: scaleY(0.7);
+    opacity: 0.7;
+  }
+
+  .iu-dock__phase,
+  .iu-dock__orb-ring,
+  .iu-dock__bar,
+  .iu-dock__orb {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* ---- 窄屏 -------------------------------------------------------------- */
+@media (max-width: 720px) {
+  .iu-dock__status {
+    max-width: 96px;
+  }
+
+  .iu-dock__wave {
+    display: none;
+  }
+
+  .iu-dock__context {
+    display: none;
+  }
+}
+
+/* ---- 高对比度 ---------------------------------------------------------- */
+@media (forced-colors: active) {
+  .iu-dock__bar,
+  .iu-dock__orb {
+    border: 1px solid ButtonBorder;
+    background: Canvas;
+  }
+
+  .iu-dock__wave-bar {
+    background: CanvasText;
+  }
+}

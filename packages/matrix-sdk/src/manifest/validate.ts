@@ -204,6 +204,26 @@ export function formatManifestIssues(result: ManifestValidationResult): string[]
   });
 }
 
+/**
+ * 只做**结构层**校验（冻结契约），不跑语义规则。
+ *
+ * 用于「从注册表拿回来的数据可信吗」这类场景：那里关心的是结构完整性，
+ * 而不是「entry_url 是否为 https」这类接入审查规则。
+ */
+export function validateManifestSemantics(json: unknown): ManifestValidationResult {
+  const issues = validateAgainstSchema(json, MATRIX_APP_MANIFEST_SCHEMA);
+  return {
+    valid: issues.length === 0,
+    manifest: issues.length === 0 ? (json as MatrixAppManifest) : null,
+    errors: issues.map((issue) => ({
+      path: issue.path,
+      message: issue.message,
+      keyword: issue.keyword,
+      severity: 'error' as const,
+    })),
+  };
+}
+
 export { formatIssues };
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -230,6 +230,45 @@ class CostLedger:
             self._user_daily_pro_calls.clear()
             self._by_user.clear()
 
+    # -- 测试辅助（公开接口，避免测试碰私有字段）--------------------------
+    def seed_cost(
+        self,
+        *,
+        matrix_uid: str,
+        cost: float,
+        moment: datetime | None = None,
+        global_only: bool = False,
+        daily: bool = True,
+        monthly: bool = True,
+    ) -> None:
+        """直接注入成本，用于构造额度临界场景。
+
+        为什么需要它：验证熔断必须在「额度已用掉一部分」的状态下测试，
+        而通过真实调用累积到 ¥0.05 需要几万次请求（不现实）。
+        因此提供一个显式的注入口，而不是让测试去改私有字典
+        （改私有字段的测试会在重构时静默失效）。
+
+        这不是「为了让测试通过而开后门」：它写的是与 ``record()`` 完全相同
+        的三张表（用户日/用户月/全局日/全局月），语义一致。
+
+        ``daily`` / ``monthly`` 开关用于精确构造「只有月额度耗尽」这类场景
+        （否则月额度测试会先被日额度闸拦住，测不到目标分支）。
+        """
+        moment = moment or utcnow()
+        day = day_key(moment, self._tz_name)
+        month = month_key(moment, self._tz_name)
+        with self._lock:
+            if not global_only and daily:
+                self._user_daily.setdefault(matrix_uid, {}).setdefault(day, 0.0)
+                self._user_daily[matrix_uid][day] += cost
+            if not global_only and monthly:
+                self._user_monthly.setdefault(matrix_uid, {}).setdefault(month, 0.0)
+                self._user_monthly[matrix_uid][month] += cost
+            if daily:
+                self._global_daily[day] = self._global_daily.get(day, 0.0) + cost
+            if monthly:
+                self._global_monthly[month] = self._global_monthly.get(month, 0.0) + cost
+
 
 # ---------------------------------------------------------------------------
 # 成本折算

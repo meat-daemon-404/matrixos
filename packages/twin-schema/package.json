@@ -1,0 +1,69 @@
+{
+  "name": "@matrixos/twin-schema",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MatrixOS 全息数字孪生数据契约：三份冻结 JSON Schema 的 TS 类型 + zod 运行时校验器，以及 DigitalTwinAssetGraph（AssetNode / AssetEdge / AssetChunk）契约",
+  "license": "UNLICENSED",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./contracts": {
+      "types": "./src/contracts/index.ts",
+      "import": "./src/contracts/index.ts",
+      "default": "./src/contracts/index.ts"
+    },
+    "./wormhole": {
+      "types": "./src/wormhole/index.ts",
+      "import": "./src/wormhole/index.ts",
+      "default": "./src/wormhole/index.ts"
+    },
+    "./asset-graph": {
+      "types": "./src/asset-graph/index.ts",
+      "import": "./src/asset-graph/index.ts",
+      "default": "./src/asset-graph/index.ts"
+    },
+    "./enums": {
+      "types": "./src/enums.ts",
+      "import": "./src/enums.ts",
+      "default": "./src/enums.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.3",
+    "vitest": "^3.2.7"
+  },
+  "keywords": [
+    "matrixos",
+    "twin-schema",
+    "contracts",
+    "zod",
+    "digital-twin",
+    "asset-graph"
+  ]
+}

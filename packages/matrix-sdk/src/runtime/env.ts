@@ -66,6 +66,21 @@ export function detectRuntimeContext(win?: WindowLike | null): RuntimeContext {
   return 'standalone';
 }
 
+/**
+ * 顶层/当前帧跳转。
+ *
+ * 为什么单独抽一个函数：`WindowLike.location` 是只读结构（测试里需要能伪造，
+ * 所以不声明 setter），但真实浏览器里 `location.href = url` 是可写的。
+ * 这里集中做一次窄化断言，避免每个调用点各写一遍 `as any`。
+ *
+ * 跨源时给 `win.top` 赋值会抛 `SecurityError`——调用方必须包 try/catch，
+ * 并准备「↗ 全屏独立打开」这类不依赖跳转的降级路径。
+ */
+export function navigateTo(win: WindowLike, url: string): void {
+  const writable = win as unknown as { location: { href: string } };
+  writable.location.href = url;
+}
+
 /** 构造运行时环境。`overrides` 供测试注入假窗口 / 假时钟。 */
 export function createRuntimeEnv(overrides: {
   readonly win?: WindowLike | null;

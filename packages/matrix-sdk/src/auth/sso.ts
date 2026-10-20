@@ -30,7 +30,7 @@ import type { MatrixHttpClient } from '../http/client.ts';
 import type { IdtExchanger } from './idt.ts';
 import type { HostBridge } from '../types.ts';
 import type { OriginAllowList } from '../security/origin.ts';
-import { readCookie, resolveSessionStorage } from '../runtime/env.ts';
+import { readCookie, resolveSessionStorage, navigateTo } from '../runtime/env.ts';
 import type {
   InitSSOOptions,
   MatrixUser,
@@ -554,7 +554,7 @@ export class SSOClientImpl implements SSOClient {
     const url = this.buildAuthorizeUrl();
     try {
       // 顶层跳转不受第三方 Cookie 限制——这是 iframe 降级最可靠的那一招。
-      (win.top ?? win).location.href = url;
+      navigateTo(win.top ?? win, url);
     } catch {
       // 跨源时改 top.location 会抛 SecurityError。此时只在本帧内跳转是不安全的
       // （会把登录页塞进 iframe 的 300px 面板里），故放弃并留给 UI 的「全屏打开」按钮。
@@ -585,13 +585,10 @@ export function issueIdtForTenant(
     readonly debug?: boolean;
   },
 ): () => void {
-  return bridge.on('sso.idt.request', (payload, meta) => {
+  return bridge.on('sso.idt.request', (payload) => {
     void (async () => {
       const appId = payload !== null && typeof payload === 'object' ? (payload as { appId?: unknown }).appId : undefined;
-      if (typeof appId !== 'string' || appId.length === 0) {
-        meta.source = meta.source;
-        return;
-      }
+      if (typeof appId !== 'string' || appId.length === 0) return;
 
       const allowed = await options.authorize(appId);
       if (!allowed) {

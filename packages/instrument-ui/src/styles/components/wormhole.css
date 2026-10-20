@@ -1,0 +1,459 @@
+/* WormholeRing · 跨站虫洞环 */
+
+.iu-wormhole {
+  --iu-wh-scale: 0.62;
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  color: var(--iu-text);
+  /* 未张开时整体缩小 + 透明，但保留在 DOM 里以便过渡 */
+  opacity: 0;
+  transform: scale(var(--iu-wh-scale));
+  transform-origin: center;
+  transition:
+    opacity 260ms var(--iu-ease-out),
+    transform 320ms cubic-bezier(0.34, 1.4, 0.64, 1);
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.iu-wormhole.is-open {
+  --iu-wh-scale: 1;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ---- 环体 -------------------------------------------------------------- */
+.iu-wormhole__aperture {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 外部辉光 */
+.iu-wormhole__halo {
+  position: absolute;
+  inset: -8%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgb(var(--iu-accent-rgb) / 0.24) 34%,
+    rgb(var(--iu-accent-rgb) / 0.08) 56%,
+    transparent 72%
+  );
+  filter: blur(6px);
+  animation: iu-wh-halo var(--iu-pulse-duration) var(--iu-ease-base) infinite;
+  will-change: opacity, transform;
+}
+
+@keyframes iu-wh-halo {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.035); }
+}
+
+/* 全息环：conic-gradient + 旋转 */
+.iu-wormhole__conic {
+  position: absolute;
+  inset: 6%;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgb(var(--iu-accent-rgb) / 0.55) 24deg,
+    rgb(var(--iu-instrument-rgb) / 0.75) 58deg,
+    transparent 88deg,
+    transparent 180deg,
+    rgb(var(--iu-accent-rgb) / 0.4) 210deg,
+    transparent 244deg,
+    transparent 360deg
+  );
+  -webkit-mask: radial-gradient(circle, transparent 58%, #000 62%, #000 74%, transparent 78%);
+  mask: radial-gradient(circle, transparent 58%, #000 62%, #000 74%, transparent 78%);
+  animation: iu-wh-spin 7.5s linear infinite;
+  will-change: transform;
+  opacity: 0.9;
+}
+
+@keyframes iu-wh-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 内外双实线环 */
+.iu-wormhole__ring-outer,
+.iu-wormhole__ring-inner {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgb(var(--iu-accent-rgb) / 0.5);
+}
+
+.iu-wormhole__ring-outer {
+  inset: 7%;
+  box-shadow:
+    0 0 32px -6px rgb(var(--iu-accent-rgb) / 0.8),
+    inset 0 0 40px -12px rgb(var(--iu-instrument-rgb) / 0.7);
+}
+
+.iu-wormhole__ring-inner {
+  inset: 13%;
+  border-color: rgb(var(--iu-instrument-rgb) / 0.35);
+  border-style: dashed;
+  animation: iu-wh-spin 32s linear infinite reverse;
+  will-change: transform;
+}
+
+/* 中心虹膜：向内收束的暗核 */
+.iu-wormhole__iris {
+  position: absolute;
+  inset: 18%;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 42% 36%, rgb(30 41 59 / 0.6) 0%, transparent 46%),
+    radial-gradient(
+      circle,
+      rgb(3 6 14 / 0.86) 0%,
+      rgb(6 10 24 / 0.94) 58%,
+      rgb(10 16 34 / 0.98) 100%
+    );
+  box-shadow:
+    inset 0 0 48px -10px rgb(var(--iu-accent-rgb) / 0.55),
+    inset 0 0 0 1px rgb(var(--iu-accent-rgb) / 0.18);
+}
+
+/* ---- SVG --------------------------------------------------------------- */
+.iu-wormhole__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+/* ---- 目标节点 ---------------------------------------------------------- */
+.iu-wormhole__node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 10px;
+  min-width: 74px;
+  max-width: 132px;
+  border-radius: var(--iu-radius-sm);
+  background: rgb(6 10 22 / 0.94);
+  border: 1px solid rgb(var(--iu-accent-rgb) / 0.4);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.07),
+    0 6px 18px -8px rgb(var(--iu-accent-rgb) / 0.75);
+  color: var(--iu-text-secondary);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    transform 180ms var(--iu-ease-out),
+    border-color var(--iu-dur-fast) var(--iu-ease-base),
+    box-shadow var(--iu-dur-fast) var(--iu-ease-base),
+    background-color var(--iu-dur-fast) var(--iu-ease-base);
+  will-change: transform;
+  z-index: 3;
+  white-space: nowrap;
+}
+
+.iu-wormhole__node:hover,
+.iu-wormhole__node.is-hovered {
+  border-color: rgb(var(--iu-accent-rgb) / 0.85);
+  background: rgb(10 16 32 / 0.98);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.1),
+    0 0 26px -4px rgb(var(--iu-accent-rgb) / 0.95);
+  transform: translate(-50%, -50%) scale(1.08);
+  z-index: 5;
+}
+
+.iu-wormhole__node.is-selected {
+  border-color: var(--iu-accent-bright);
+  background: rgb(var(--iu-accent-rgb) / 0.16);
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--iu-accent-rgb) / 0.5),
+    0 0 32px -4px rgb(var(--iu-accent-rgb) / 1);
+  z-index: 5;
+}
+
+.iu-wormhole__node.is-disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  filter: saturate(0.3);
+}
+
+.iu-wormhole__node-orb {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--iu-accent-bright);
+  box-shadow: 0 0 10px 1px rgb(var(--iu-accent-rgb) / 0.95);
+  flex: none;
+}
+
+.iu-wormhole__node-name {
+  font-size: var(--iu-text-2xs);
+  font-weight: 500;
+  color: var(--iu-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.iu-wormhole__node-accepts {
+  font-size: 8px;
+  color: var(--iu-text-faint);
+}
+
+/* ---- 中心面板 ---------------------------------------------------------- */
+.iu-wormhole__core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 46%;
+  text-align: center;
+  pointer-events: none;
+}
+
+.iu-wormhole__core-state {
+  font-family: var(--iu-font-mono);
+  font-size: var(--iu-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--iu-accent-text);
+}
+
+.iu-wormhole__core-state[data-state='invalid'] { color: var(--iu-danger-text); }
+.iu-wormhole__core-state[data-state='valid'] { color: var(--iu-positive-text); }
+.iu-wormhole__core-state[data-state='committing'] { color: var(--iu-warning-text); }
+
+.iu-wormhole__core-payload,
+.iu-wormhole__core-evidence {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  align-items: center;
+}
+
+.iu-wormhole__core-value {
+  font-size: 9px;
+  color: var(--iu-text-secondary);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.iu-wormhole__core-evidence.is-empty .iu-wormhole__core-value {
+  color: var(--iu-danger-text);
+  font-weight: 700;
+}
+
+.iu-wormhole__core-receipt {
+  font-size: 8px;
+  color: var(--iu-text-faint);
+  margin-top: 2px;
+}
+
+.iu-wormhole__core-error {
+  font-size: 9px;
+  color: var(--iu-danger-text);
+  line-height: 1.3;
+  max-width: 100%;
+}
+
+/* ---- 悬停详情 ---------------------------------------------------------- */
+.iu-wormhole__tip {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translate(-50%, calc(100% + 6px));
+  z-index: 9;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: var(--iu-space-2) var(--iu-space-3);
+  min-width: 180px;
+  max-width: 280px;
+  background: rgb(4 8 20 / 0.97);
+  border: 1px solid rgb(var(--iu-accent-rgb) / 0.5);
+  border-radius: var(--iu-radius-sm);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  pointer-events: none;
+}
+
+.iu-wormhole__tip-title {
+  font-size: var(--iu-text-xs);
+  font-weight: 600;
+  color: var(--iu-text-strong);
+}
+
+.iu-wormhole__tip-domain {
+  font-size: var(--iu-text-2xs);
+  color: var(--iu-text-muted);
+}
+
+.iu-wormhole__tip-accepts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 2px;
+}
+
+.iu-wormhole__tip-chip {
+  font-size: 8px;
+  padding: 1px 5px;
+  border-radius: var(--iu-radius-pill);
+  background: rgb(var(--iu-accent-rgb) / 0.16);
+  border: 1px solid rgb(var(--iu-accent-rgb) / 0.4);
+  color: var(--iu-accent-text);
+}
+
+/* ---- 状态条 ------------------------------------------------------------ */
+.iu-wormhole__status {
+  position: absolute;
+  left: 50%;
+  bottom: -22px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--iu-radius-pill);
+  background: rgb(4 8 20 / 0.9);
+  border: 1px solid var(--iu-border);
+  white-space: nowrap;
+}
+
+.iu-wormhole__status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--iu-text-faint);
+  flex: none;
+}
+
+.iu-wormhole__status-dot[data-state='armed'],
+.iu-wormhole__status-dot[data-state='dragging'] { background: var(--iu-accent-bright); box-shadow: 0 0 8px var(--iu-accent); }
+.iu-wormhole__status-dot[data-state='valid'] { background: var(--iu-positive); box-shadow: 0 0 8px var(--iu-positive); }
+.iu-wormhole__status-dot[data-state='invalid'] { background: var(--iu-danger); box-shadow: 0 0 8px var(--iu-danger); }
+.iu-wormhole__status-dot[data-state='committing'] { background: var(--iu-warning); box-shadow: 0 0 8px var(--iu-warning); }
+
+.iu-wormhole__status-text {
+  font-family: var(--iu-font-mono);
+  font-size: 9px;
+  color: var(--iu-text-secondary);
+}
+
+.iu-wormhole__status-count {
+  font-size: 9px;
+  color: var(--iu-text-faint);
+}
+
+/* ---- 取消按钮 ---------------------------------------------------------- */
+.iu-wormhole__cancel {
+  position: absolute;
+  right: 4%;
+  top: 4%;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid rgb(var(--iu-accent-rgb) / 0.45);
+  background: rgb(4 8 20 / 0.9);
+  color: var(--iu-text-muted);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  z-index: 9;
+  transition:
+    background-color var(--iu-dur-fast) var(--iu-ease-base),
+    color var(--iu-dur-fast) var(--iu-ease-base);
+}
+
+.iu-wormhole__cancel:hover {
+  background: rgb(var(--iu-danger-rgb) / 0.2);
+  color: var(--iu-danger-text);
+  border-color: rgb(var(--iu-danger-rgb) / 0.6);
+}
+
+/* ---- 校验失败态：整体转红 + 抖动 1 次 ---------------------------------- */
+.iu-wormhole.is-invalid {
+  --iu-accent-rgb: var(--iu-danger-rgb);
+  --iu-accent: var(--iu-danger);
+  --iu-accent-bright: var(--iu-danger-bright);
+  --iu-accent-text: var(--iu-danger-text);
+  animation: iu-wh-shake 420ms var(--iu-ease-base) 1;
+}
+
+@keyframes iu-wh-shake {
+  0%, 100% { translate: 0 0; }
+  18% { translate: -6px 0; }
+  36% { translate: 5px 0; }
+  54% { translate: -3px 0; }
+  72% { translate: 2px 0; }
+}
+
+/* ---- 投送中：环体加速 + 亮起 ------------------------------------------ */
+.iu-wormhole.is-committing .iu-wormhole__conic {
+  animation-duration: 1.6s;
+  opacity: 1;
+}
+
+.iu-wormhole.is-committing .iu-wormhole__ring-outer {
+  border-color: rgb(var(--iu-warning-rgb) / 0.7);
+  box-shadow: 0 0 44px -4px rgb(var(--iu-warning-rgb) / 0.9);
+}
+
+/* ---- 减弱动效 ---------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .iu-wormhole {
+    transition: opacity 1ms linear;
+    transform: none;
+  }
+
+  .iu-wormhole.is-open { transform: none; }
+
+  .iu-wormhole__halo,
+  .iu-wormhole__conic,
+  .iu-wormhole__ring-inner,
+  .iu-wormhole.is-invalid {
+    animation: none;
+  }
+
+  .iu-wormhole__node {
+    transition: none;
+  }
+
+  .iu-wormhole__node:hover,
+  .iu-wormhole__node.is-hovered {
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* ---- 高对比度 ---------------------------------------------------------- */
+@media (forced-colors: active) {
+  .iu-wormhole__aperture { display: none; }
+  .iu-wormhole__node {
+    border: 1px solid ButtonBorder;
+    background: Canvas;
+    color: CanvasText;
+  }
+}

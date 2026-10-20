@@ -1,0 +1,21 @@
+/**
+ * @matrixos/instrument-ui · 样式总入口
+ *
+ * 宿主（hub / 18 个微站）只需 import 一次：
+ *   import '@matrixos/instrument-ui/styles.css';
+ *
+ * 顺序有意义：tokens 必须先于 base（base 引用 tokens 定义的变量），
+ * 组件样式最后（它们引用 base 的原子类）。
+ */
+@import './tokens.css';
+@import './styles/base.css';
+@import './styles/components/damped-knob.css';
+@import './styles/components/oscilloscope.css';
+@import './styles/components/sonar.css';
+@import './styles/components/balance.css';
+@import './styles/components/fluid-gauge.css';
+@import './styles/components/star-orbit.css';
+@import './styles/components/copilot-dock.css';
+@import './styles/components/evidence-link.css';
+@import './styles/components/wormhole.css';
+@import './styles/components/task-kanban.css';

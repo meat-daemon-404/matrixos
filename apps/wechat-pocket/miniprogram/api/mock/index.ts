@@ -93,7 +93,7 @@ async function maybeDelay(ctx: MockContext, ms = 70): Promise<void> {
 /* 各端点实现                                                          */
 /* ------------------------------------------------------------------ */
 
-function getMorning(ctx: MockContext): MorningBriefing {
+function getMorning(_ctx: MockContext): MorningBriefing {
   const state = readState();
   const base = mockMorningBriefing();
   const dateKey = toDateStr(new Date());

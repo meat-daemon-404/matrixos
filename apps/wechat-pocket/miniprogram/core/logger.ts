@@ -84,9 +84,15 @@ export function reportFirstPaint(route: string): void {
       `冷启动首屏 ${delta.toFixed(0)}ms 超出 ${COLD_START_BUDGET_MS}ms 预算（route=${route}）`,
     );
     try {
-      if (wx.reportEvent) {
-        wx.reportEvent('pocket_cold_start_overrun', {
-          route,
+      // 类型声明把小程序的 reportEvent 收窄成 (eventId: number, ...)，
+      // 实际运行时接受字符串事件名。这里显式断言，避免类型与运行时行为冲突。
+      const reporter = wx.reportEvent as unknown as (
+        eventId: string,
+        data?: Record<string, number>,
+      ) => void;
+      if (typeof reporter === 'function') {
+        reporter('pocket_cold_start_overrun', {
+          route: route.length, // 事件面板只接受数值，用 route 名长度做维度占位
           ms: Math.round(delta),
         });
       }
