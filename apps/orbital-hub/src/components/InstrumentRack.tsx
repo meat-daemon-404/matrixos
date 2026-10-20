@@ -21,6 +21,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { STATION_BY_ID, type MicrositeStation } from '../lib/microsites.generated';
 import type { PanelMode, RenderStrategy } from '../lib/hub-types';
 import { InstrumentPanel } from './InstrumentPanel';
+import { RackEmptyState } from './RackEmptyState';
 
 /** 布局持久化 key（刷新后挂载组合恢复，S2-03 验收） */
 const STORAGE_KEY = 'matrixos.hub.mount.v1';
@@ -64,6 +65,7 @@ export function InstrumentRack({
   liveBudget,
   snapshotReason,
   resolveSrc,
+  onMount,
   onUnmount,
   onFocus,
   onPromote,
@@ -151,6 +153,24 @@ export function InstrumentRack({
     [onPromote],
   );
 
+  /**
+   * 应用推荐组合。
+   *
+   * 走 `onMount` 而不是直接改本地态：挂载会触发 hub 层的持久化与探针重算，
+   * 组件若自己改一份 mountedIds 副本，两边就会不同步。
+   *
+   * 顺序挂载（而不是批量回调）是刻意的 —— onMount 的签名是单站，
+   * hub 侧的 setState 是函数式更新，连续调用会正确累积。
+   */
+  const handleApplyPreset = useCallback(
+    (presetStations: readonly MicrositeStation[]) => {
+      for (const station of presetStations.slice(0, MAX_PANELS)) {
+        onMount(station);
+      }
+    },
+    [onMount],
+  );
+
   const count = stations.length;
   const liveCount = useMemo(
     () => Object.values(modes).filter((mode) => mode === 'live').length,
@@ -158,7 +178,7 @@ export function InstrumentRack({
   );
 
   return (
-    <section className="instrument-rack" aria-label="折射仪器架">
+    <section className="instrument-rack" aria-label="折射仪器架" data-onboard="rack">
       <div className="rack-toolbar">
         <span className="rack-title">
           折射仪器架 · <b>同屏 {count}</b> / {MAX_PANELS}
@@ -201,13 +221,7 @@ export function InstrumentRack({
 
       <div className="rack-grid" data-count={count}>
         {count === 0 ? (
-          <div className="rack-empty">
-            <div>仪器架为空</div>
-            <p className="rack-empty-hint">
-              点击左侧星轨上的微站胶囊挂载仪器。可同屏挂载 2~3 台；
-              未激活的面板不会创建 iframe（性能红线 R-T03）。
-            </p>
-          </div>
+          <RackEmptyState onApplyPreset={handleApplyPreset} />
         ) : (
           stations.map((station) => (
             <InstrumentPanel

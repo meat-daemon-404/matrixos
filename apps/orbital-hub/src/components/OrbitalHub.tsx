@@ -59,6 +59,7 @@ import { InstrumentRack, loadPersistedMount, savePersistedMount, MAX_PANELS } fr
 import { CopilotWaveDock, type WaveDockState } from './CopilotWaveDock';
 import { WormholeRing, DraggableCard, type WormholeTarget } from './WormholeRing';
 import { PerformanceProbePanel } from './PerformanceProbePanel';
+import { HubOnboarding, readOnboarded } from './HubOnboarding';
 
 /** 星轨推到这一档视为"全屏入站"（与语义缩放 tier 4 对齐） */
 const ZOOM_FULLSCREEN_AT = 8.5;
@@ -136,6 +137,16 @@ export function OrbitalHub() {
   const [dockExpanded, setDockExpanded] = useState(true);
   const [dockState] = useState<WaveDockState>('idle');
 
+  /**
+   * 首次引导。
+   *
+   * 初值恒为 false：`readOnboarded()` 读 localStorage，服务端没有它。
+   * 若直接在 useState 初值里读，SSR 拿到 false、客户端拿到 true（老用户），
+   * 水合就会不一致并报「Text content does not match」。真正是否展示要等挂载后
+   * 在 effect 里判定 —— 这一帧的延迟用户看不见（引导本就是淡入的）。
+   */
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+
   // ── 虫洞 ──────────────────────────────────────────────────────────────────
   const [wormholeOpen, setWormholeOpen] = useState(false);
   const [wormholePayload, setWormholePayload] = useState<{
@@ -182,6 +193,9 @@ export function OrbitalHub() {
     }
     setRestored(true);
     setDeviceTier(detectDeviceTier());
+
+    // 首访才弹引导；老用户（已标记 done）静默跳过
+    if (!readOnboarded()) setOnboardingOpen(true);
   }, []);
 
   useEffect(() => {
@@ -561,6 +575,17 @@ export function OrbitalHub() {
           源 <b>{config.usePlaceholder ? '占位页' : config.localMode ? '本地 dev' : '真实域名'}</b>
         </span>
         <span className="hub-topbar-spacer" />
+        {/* 「?」= 随时重看引导。引导本身可跳过，但没有这个入口的话，
+            用户跳过之后就再也找不回来了（localStorage 里是 done）。 */}
+        <button
+          type="button"
+          className="btn"
+          onClick={() => setOnboardingOpen(true)}
+          title="重看使用引导"
+          aria-label="重看使用引导"
+        >
+          ?
+        </button>
         {/* 全屏入站时给一个明确的退出入口，否则用户只能靠拖滑块摸索 */}
         {autoCollapsed ? (
           <button
@@ -604,6 +629,7 @@ export function OrbitalHub() {
 
           {/* 虫洞源卡片：演示"拖拽数据卡片 → 张开环 → 投送"的入口 */}
           <div
+            data-onboard="wormhole"
             style={{
               display: 'flex',
               gap: 8,
@@ -631,7 +657,7 @@ export function OrbitalHub() {
       </div>
 
       {/* ── 底部：声波脉冲坞 ───────────────────────────────────────────────── */}
-      <div className="wave-dock-slot" data-collapsed={dockExpanded ? 'false' : 'true'}>
+      <div className="wave-dock-slot" data-collapsed={dockExpanded ? 'false' : 'true'} data-onboard="dock">
         <CopilotWaveDock
           expanded={dockExpanded}
           onExpandedChange={setDockExpanded}
@@ -704,6 +730,9 @@ export function OrbitalHub() {
           </div>
         ))}
       </div>
+
+      {/* ── 首次引导（首访自动弹，可由「?」重看） ───────────────────────────── */}
+      <HubOnboarding open={onboardingOpen} onClose={() => setOnboardingOpen(false)} />
     </div>
   );
 }

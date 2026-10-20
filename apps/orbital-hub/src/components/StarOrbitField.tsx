@@ -125,6 +125,7 @@ export function StarOrbitField({
     <section
       className="star-orbit"
       data-tier={tier}
+      data-onboard="orbit"
       role="group"
       aria-label={'2.5D 星轨引力场：7 条轨道 · ' + capsules.length + ' 个微站胶囊'}
       onWheel={handleWheel}
@@ -194,7 +195,7 @@ export function StarOrbitField({
         </div>
 
         {/* ── 微站胶囊 ───────────────────────────────────────────────────── */}
-        {capsules.map((capsule) => {
+        {capsules.map((capsule, capsuleIndex) => {
           const station = capsule.station;
           const isMounted = mountedSet.has(station.id);
           const isSelected = selectedId === station.id;
@@ -211,7 +212,14 @@ export function StarOrbitField({
             <div
               key={station.id}
               className="capsule-anchor"
-              style={{ left: capsule.leftPct + '%', top: capsule.topPct + '%' }}
+              style={{
+                left: capsule.leftPct + '%',
+                top: capsule.topPct + '%',
+                // 负延迟错相：18 个点若同频齐闪会像故障灯，而非呼吸。
+                // 用「站序号 / 总数」归一化后乘以一个整周期，首尾相位连续。
+                ['--capsule-phase' as string]:
+                  '-' + ((capsuleIndex / Math.max(1, capsules.length)) * 4.2).toFixed(3) + 's',
+              }}
             >
               <button
                 type="button"

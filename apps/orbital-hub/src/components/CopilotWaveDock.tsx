@@ -38,6 +38,23 @@ const WAVE_HEIGHT_FACTOR: readonly number[] = Array.from({ length: WAVE_BAR_COUN
   return Math.round((1 - distance * 0.62) * 100) / 100;
 });
 
+/**
+ * 每根条的峰值系数（CSS 变量 --wave-peak）。
+ *
+ * 高度系数只决定「静止时的包络形状」，而峰值决定「振动幅度」。
+ * 两者分开是有意的：若只用高度系数做 scaleY 上限，中间的条会撑满容器、
+ * 两端的条几乎不动，波形看起来像被裁掉一半的沙漏。这里在高度系数之上
+ * 叠一个确定性的三频扰动，让相邻条峰值错开 —— 波形才有"活"的手感，
+ * 且因为是纯函数，每次渲染完全一致（不引入 Math.random 的不可测性）。
+ */
+const WAVE_PEAKS: readonly number[] = Array.from({ length: WAVE_BAR_COUNT }, (_, index) => {
+  const envelope = WAVE_HEIGHT_FACTOR[index] ?? 1;
+  const wobble =
+    Math.sin(index * 0.7) * 0.11 + Math.sin(index * 1.9 + 0.6) * 0.07 + Math.sin(index * 0.31) * 0.05;
+  // 夹到 [0.42, 1.0]：太低会让条看起来像消失，太高会顶破坞的高度
+  return Math.min(1, Math.max(0.42, envelope * 0.82 + wobble));
+});
+
 export interface CopilotWaveDockProps {
   /** 受控展开态；不传则内部态（与 instrument-ui 一致） */
   readonly expanded?: boolean;
@@ -146,6 +163,8 @@ export function CopilotWaveDock({
               {
                 ['--wave-delay' as string]: delay + 'ms',
                 ['--wave-duration' as string]: 1.2 + (WAVE_HEIGHT_FACTOR[index] ?? 1) * 0.9 + 's',
+                // 峰值与高度解耦：见 WAVE_PEAKS 的注释
+                ['--wave-peak' as string]: (WAVE_PEAKS[index] ?? 0.85).toFixed(3),
                 height: 100 * (WAVE_HEIGHT_FACTOR[index] ?? 1) + '%',
               } as React.CSSProperties
             }

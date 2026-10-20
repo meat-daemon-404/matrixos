@@ -13,15 +13,18 @@
  *   node scripts/cdp.mjs eval "<js>"               执行 JS
  *   node scripts/cdp.mjs click <selector>          点击元素
  *   node scripts/cdp.mjs text                      取页面可见文本
+ *
+ * ⚠️ 端口与身份校验见 scripts/lib/cdp-port.mjs —— 曾经因为硬编码 9222
+ *    接管了用户的 ZCode 窗口，现在必须确认端口上是「我自己起的浏览器」才动。
  */
 
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { CDP_HTTP, CDP_PORT, probeCdpIdentity } from './lib/cdp-port.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SHOTS = join(ROOT, '.tmp', 'cf-shots');
-const CDP_HTTP = 'http://127.0.0.1:9222';
 
 const argv = process.argv.slice(2);
 const cmd = argv[0] ?? 'list';
@@ -32,6 +35,20 @@ const getArg = (name) => argv.find((a) => a.startsWith(`--${name}=`))?.split('='
 async function listTargets() {
   const r = await fetch(`${CDP_HTTP}/json/list`);
   return r.json();
+}
+
+/**
+ * 列表命令也要先确认身份 —— 否则 `list` 会把别人应用里的页面地址打印出来，
+ * 而下一步很可能就顺手点了进去。
+ */
+async function assertMine() {
+  const identity = await probeCdpIdentity(CDP_PORT);
+  if (!identity.mine) {
+    throw new Error(
+      `端口 ${CDP_PORT} 上没有我的浏览器（${identity.reason}）。\n` +
+        `  先跑 node scripts/cf-shell.mjs 启动。`,
+    );
+  }
 }
 
 /** 建一个指向具体 page target 的 CDP 连接。 */
@@ -86,21 +103,38 @@ async function connectPage(wsUrl) {
   return { ws, send, events, close: () => ws.close() };
 }
 
-/** 挑一个合适的 page target（优先非 devtools 的、有 url 的）。 */
+/** 挑一个合适的 page target（优先我自己的 dev server，绝不碰别人应用的窗口）。 */
 function pickPage(targets) {
   const pages = targets.filter((t) => t.type === 'page' && t.webSocketDebuggerUrl);
   if (!pages.length) throw new Error('没有可用的 page target');
-  // 优先 dash.cloudflare.com
   return (
-    pages.find((p) => p.url.includes('cloudflare.com')) ??
-    pages.find((p) => !p.url.startsWith('devtools://')) ??
+    pages.find((p) => p.url.includes('localhost:3000') || p.url.includes('127.0.0.1:3000')) ??
+    pages.find((p) => p.url.startsWith('http://localhost') || p.url.startsWith('http://127.0.0.1')) ??
+    pages.find((p) => p.url.startsWith('http')) ??
     pages[0]
   );
+}
+
+/** 按可见文字点按钮 —— 引导卡片的按钮没有专属类名，用文字更稳。 */
+async function clickByText(conn, text) {
+  const expr = `(() => {
+    const want = ${JSON.stringify(text)};
+    const els = Array.from(document.querySelectorAll('button, a, [role="button"]'));
+    const el = els.find((e) => (e.textContent || '').trim() === want || (e.textContent || '').trim().includes(want));
+    if (!el) return JSON.stringify({ ok: false, reason: '找不到文字为 ' + want + ' 的按钮', candidates: els.map(e => (e.textContent||'').trim()).slice(0, 20) });
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) return JSON.stringify({ ok: false, reason: '元素不可见' });
+    el.click();
+    return JSON.stringify({ ok: true, text: (el.textContent || '').trim().slice(0, 40) });
+  })()`;
+  const { result } = await conn.send('Runtime.evaluate', { expression: expr, returnByValue: true });
+  return result.value;
 }
 
 /* ─────────────────────── 命令实现 ─────────────────────── */
 
 async function doList() {
+  await assertMine();
   const targets = await listTargets();
   for (const t of targets) {
     console.log(`[${t.type}] ${t.url}`);
@@ -109,6 +143,16 @@ async function doList() {
 }
 
 async function withPage(fn) {
+  // 动手前先确认端口上是我自己起的浏览器。
+  // 曾经跳过这步，直接连了 9222 上别人的窗口（ZCode 桌面客户端）。
+  const identity = await probeCdpIdentity(CDP_PORT);
+  if (!identity.mine) {
+    throw new Error(
+      `端口 ${CDP_PORT} 上没有我的浏览器（${identity.reason}）。\n` +
+        `  先跑 node scripts/cf-shell.mjs 启动。`,
+    );
+  }
+
   const targets = await listTargets();
   const target = pickPage(targets);
   const conn = await connectPage(target.webSocketDebuggerUrl);
