@@ -28,7 +28,9 @@ const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
  * 本脚本验的是面板布局，不是引导（引导有 verify-onboarding.mjs 专测）。
  */
 await page.addInitScript(() => {
-  localStorage.setItem('matrixos:hub:onboarded:v1', '1');
+  // 值必须是 'done'：readOnboarded() 严格比较 === 'done'。
+  // 写成 '1' 会被判为未看过，引导照弹（这个错值我自己踩过一次）。
+  localStorage.setItem('matrixos:hub:onboarded:v1', 'done');
 });
 
 const fails = [];
