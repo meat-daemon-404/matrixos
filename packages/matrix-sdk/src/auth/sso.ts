@@ -585,7 +585,19 @@ export function issueIdtForTenant(
     readonly debug?: boolean;
   },
 ): () => void {
-  return bridge.on('sso.idt.request', (payload) => {
+  return bridge.on('sso.idt.request', (payload, meta) => {
+    /**
+     * 请求的 `rid` —— **必须原样回传**，否则 tenant 的 `await bridge.request(…)`
+     * 永远配不上（见 Bug C 说明）。
+     *
+     * `bridge.request()` 发请求时会带 `rid`，对端只有把同一个 `rid` 放回
+     * `*.ack`，本地 `settlePending(rid)` 才能把 Promise 收敛。
+     * 2026-10-21 修复前：这里用 `bridge.post('sso.idt.ack', …)` 不带 rid，
+     * 于是 ack 明明送达、`bridge.on('sso.idt.ack')` 也能收到，
+     * 但 `#requestIdtFromHost` 的 Promise 永不 resolve → 5s 超时 →
+     * 内嵌态永远 `IFRAME_HANDSHAKE_TIMEOUT`。
+     */
+    const requestRid = meta?.message?.rid;
     void (async () => {
       const appId = payload !== null && typeof payload === 'object' ? (payload as { appId?: unknown }).appId : undefined;
       if (typeof appId !== 'string' || appId.length === 0) return;
@@ -600,14 +612,23 @@ export function issueIdtForTenant(
         const response = await options.http.request<{ mx_idt?: unknown }>({
           method: 'POST',
           path: '/v1/auth/idt',
-          body: { target_app: appId },
+          /**
+           * 字段名必须是 `target_station`。
+           *
+           * 2026-10-21 修复（Bug D）：此前写的是 `target_app`，而后端
+           * `IdtIssueRequest` 声明的是 `target_station` 且 `extra="forbid"`，
+           * 于是真实后端必然回 **422**（实测：
+           * `target_station: Field required; target_app: Extra inputs are not permitted`）。
+           * 这个错误在只用 mock 的联调里看不出来 —— mock 通常对字段名宽松。
+           */
+          body: { target_station: appId },
           noRetry: true,
         });
         const idt = response !== null && typeof response === 'object' ? (response as { mx_idt?: unknown }).mx_idt : undefined;
         if (typeof idt !== 'string' || idt.length === 0) return;
 
-        // 关键：只发给发起请求的那个 origin，绝不广播。
-        bridge.post('sso.idt.ack', { mx_idt: idt, appId });
+        // 关键：只发给发起请求的那个 origin，绝不广播；并回传 rid 完成配对。
+        bridge.post('sso.idt.ack', { mx_idt: idt, appId }, requestRid);
       } catch (error) {
         if (options.debug === true) console.debug(`[matrixos/sdk] 签发 mx_idt 失败：${String(error)}`);
       }

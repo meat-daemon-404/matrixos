@@ -77,6 +77,8 @@ export const BRIDGE_MSG = {
 interface QueueItem {
   readonly type: string;
   readonly payload: unknown;
+  /** 请求-响应配对键。入队时也要保留，否则 flush 后 ack 会丢 rid。 */
+  readonly rid?: string;
 }
 
 interface PendingRequest {
@@ -163,12 +165,28 @@ export function createHostBridge(options: HostBridgeOptions): HostBridge {
     return message;
   }
 
-  function post(type: string, payload?: unknown): void {
+  /**
+   * 发送一条协议消息。
+   *
+   * `rid` 是**请求-响应配对键**：对端用 `settlePending(rid)` 把这条消息
+   * 与一个挂起的 `request()` Promise 配对（见 `onMessage` 里的 `isReply` 分支）。
+   *
+   * ⚠️ 2026-10-21 修（Bug C）：此前 `post()` 只有 `(type, payload)` 两个参数，
+   * 于是 `issueIdtForTenant` 回复的 `sso.idt.ack` **永远不带 rid** →
+   * tenant 的 `await bridge.request('sso.idt.request', …)` 永远配不上 →
+   * Promise 不 resolve、5s 后 catch 成超时 → 内嵌态永远显示
+   * `IFRAME_HANDSHAKE_TIMEOUT` / offline。
+   *
+   * 这个 bug 极隐蔽：ack **确实送达了**、`bridge.on('sso.idt.ack')` 也能收到，
+   * 但 `request()` 那条 Promise 就是不收敛。只有把"发出去"与"配对成功"
+   * 分开看才能发现。
+   */
+  function post(type: string, payload?: unknown, rid?: string): void {
     if (closed) return;
     const targetOrigin = resolveTargetOrigin();
     if (targetOrigin === null) {
       if (debug) console.debug(`[matrixos/sdk] 桥未就绪，消息 ${type} 入队（共 ${queue.length + 1} 条）`);
-      queue.push({ type, payload });
+      queue.push({ type, payload, rid });
       return;
     }
     const parent = role === 'tenant' ? win?.parent ?? null : null;
@@ -178,7 +196,7 @@ export function createHostBridge(options: HostBridgeOptions): HostBridge {
       role === 'tenant' ? (parent ?? win) : (options.tenantWindow ?? win);
     if (target === null || target === undefined) return;
     try {
-      target.postMessage(envelope(type, payload), targetOrigin);
+      target.postMessage(envelope(type, payload, rid), targetOrigin);
     } catch (error) {
       if (debug) console.debug(`[matrixos/sdk] 桥发送失败：${String(error)}`);
     }
@@ -187,7 +205,7 @@ export function createHostBridge(options: HostBridgeOptions): HostBridge {
   function flushQueue(): void {
     if (queue.length === 0) return;
     const drained = queue.splice(0, queue.length);
-    for (const item of drained) post(item.type, item.payload);
+    for (const item of drained) post(item.type, item.payload, item.rid);
   }
 
   function emitLocal(type: string, payload: unknown, meta: BridgeMeta): void {

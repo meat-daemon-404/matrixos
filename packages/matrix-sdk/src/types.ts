@@ -221,8 +221,19 @@ export interface HostBridge {
   /** 让子站自适应紧凑布局（A4 要求官方微站必须支持 iframe 内降级模式）。 */
   readonly embedded: boolean;
   on(event: string, handler: (payload: unknown, meta: BridgeMeta) => void): () => void;
-  /** 向对端发消息。未握手时入队，握手后补发。 */
-  post(type: string, payload?: unknown): void;
+  /**
+   * 向对端发消息。未握手时入队，握手后补发。
+   *
+   * `rid`（可选）：**请求-响应配对键**。回复一条 `*.ack` / `*.reply` 时，
+   * 必须把原请求的 `rid` 原样传回，否则本地 `settlePending(rid)` 配不上，
+   * 发起方的 `await request(…)` 会一直挂到超时。
+   *
+   * 2026-10-21 新增：此前没有这个参数，导致 `issueIdtForTenant` 回复的
+   * `sso.idt.ack` 永远不带 rid，tenant 的 mx_idt 请求永远超时
+   * （内嵌态永远 `IFRAME_HANDSHAKE_TIMEOUT`）。典型表现是：ack 明明送达、
+   * `on()` 也能收到，但 `request()` 那侧就是不 resolve。
+   */
+  post(type: string, payload?: unknown, rid?: string): void;
   /** 请求-响应。 */
   request<T = unknown>(type: string, payload?: unknown, timeoutMs?: number): Promise<T>;
   /** 主动发起握手（宿主侧调用）。 */
