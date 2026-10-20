@@ -13,29 +13,98 @@
 | `docs/00-analysis/` | Bundle 解构、需求、差距、视觉体系 | 分析负责人 |
 | `docs/01-plan/` | 架构、路线图、WBS、ADR、风险 | 架构负责人 + 评审 |
 | `docs/02-engineering/` | 开发约定、环境搭建、调试手册 | 各模块负责人 |
-| `apps/` | 可运行应用（Stage 1 起逐步建立） | 按 CODEOWNERS |
-| `packages/` | 共享库（SDK、UI 组件、数据契约） | 按 CODEOWNERS |
+| `apps/` | 可运行应用（Stage 1 起逐步建立） | 认领该模块 Issue 的人 |
+| `packages/` | 共享库（SDK、UI 组件、数据契约） | 认领该模块 Issue 的人 |
+
+> 本目录归属**没有 CODEOWNERS 文件强制**（私有仓 + 单协作者，GitHub 也不会在服务端拦截）。真正的约束来自认领流程：改了别人正认领的模块，PR 评审会被退回。人多了再补 CODEOWNERS。
 
 > **红线**：`bundle/` 是设计输入，不是代码。任何人不得把它当作「已完成的产品」来引用。
 
 ---
 
-## 二、分支策略
+## 二、开工认领与分支策略
+
+### 2.1 铁律：不在台账上认领，就不开工
+
+> **为什么立这条**（2026-10-20 实测，不是假想风险）：Issue #1–#22 导入后一天内，`main` 上 27 个提交里有 **26 个没挂任何 Issue 号**（唯一挂号的只有 BLK-002 那条文档提交）。也就是说这一天里绝大部分工作，在台账上**完全看不见**；同时 27 个 Issue 全部仍为 open、0 assignee、0 PR。任何人（或任何代理）查台账都会得出「这些还没人做」的结论，于是同一件事被写第二遍。重复动工的根因不是不努力，是**看不到别人在做什么**。
+
+开工三步，一步都不能跳：
+
+```bash
+# ① 看台账：什么已认领、什么在评审、什么真空着，以及台账是否落后于代码
+node scripts/claim.mjs ls --deep
+
+# ② 认领（写 assignee + status:claimed，并在 Issue 下留痕）
+node scripts/claim.mjs claim 16 --note "先做 schema 生成"
+
+# ③ 从认领项开独立 worktree 分支（不动别人正在改的工作区）
+node scripts/claim.mjs branch 16 curvelab
+cd .worktrees/feat/16-curvelab
+```
+
+`claim ls` 会明确打印「近 N 天 main 有多少提交没挂 Issue 号」。**它报红的时候，台账不能当依据**——先对账（见 2.5），否则你正在准备的活很可能已经在 `main` 上了。
+
+规则：
+
+| 情况 | 处置 |
+| :--- | :--- |
+| 目标已被别人认领（`status:claimed` 或有开着的 PR） | **停**。到该 Issue 下评论沟通；确需接手用 `claim --force`，并在评论里说明 |
+| 台账里没有这件事 | 先开 Issue（哪怕只写三行），再认领，再动手。**先干活后补票 = 不可见工作，正是重复动工的源头** |
+| 做着做上不做了 | `node scripts/claim.mjs release <编号>` 释放。挂着 `claimed` 却不推进，等于占坑让别人不敢动 |
+| 顺手改的碎活（改错别字、补一行文档） | 不必开 Issue，但提交信息里注明是有意的小改动 |
+
+### 2.2 分支策略
 
 ```
-main                  ← 受保护，所有改动经 PR 合入
- └── dev              ← 集成分支（可选，按团队规模启用）
-      ├── feat/<scope>-<short-desc>      新功能
-      ├── fix/<scope>-<short-desc>       缺陷修复
-      ├── docs/<scope>-<short-desc>      文档
-      └── chore/<scope>-<short-desc>     杂务/依赖升级
+main                       ← 所有认领后的改动经 PR 合入
+  ├── feat/<issue>-<desc>        新功能（编号 = 认领的 Issue）
+  ├── fix/<issue>-<desc>         缺陷修复
+  ├── docs/<issue>-<desc>        文档
+  ├── spec/<issue>-<desc>        契约/Schema 变更（需架构评审）
+  └── chore/<issue>-<desc>       杂务/依赖升级
 ```
 
 **规则**
+- 分支名必须带 Issue 编号，用 `node scripts/claim.mjs branch <编号> <slug>` 生成——这样「远端有什么分支」和「台账上谁在做什么」永远对得上
 - `main` 禁止直接 push，必须走 PR
-- 分支名用小写短横线分隔，`scope` 优先用模块名或微站 id（如 `feat/11-curvelab-debounce-knob`）
 - 一个 PR 只做一件事，超过 400 行 diff 请拆分
 - 合并前必须 rebase 到最新 `main`，保持线性历史
+
+> ⚠️ **这条目前靠自觉**：本仓是私有仓，GitHub 的分支保护要求 Pro 或公开仓库（实测 API 返回 403），所以「禁止直接 push main」在服务端**没有强制**。在权益到位前，用两条本地约束兜住：提交前 `pre-commit` 钩子必跑（见第八节），以及认领流程让「谁在改什么」可见。**别因为仓库里有 workflow 文件就以为远端在保护你**（详见 `docs/02-engineering/00-known-issues.md` BLK-001）。
+
+### 2.3 多会话 / 多代理并行
+
+同一工作目录 `D:\MatrixOS` 可能被多个会话同时使用（已有先例，见 `docs/02-engineering/SECURITY.md` SEC-001）。约定：
+
+```bash
+node scripts/claim.mjs branch 16 curvelab   # 自动开 .worktrees/ 下的独立工作区
+```
+
+| 约束 | 做法 |
+| :--- | :--- |
+| **不在主工作区直接改** | 认领后的活都在 `.worktrees/<branch>/` 里做，主工作区只用于查状态 |
+| **构建串行** | 两边都要 build 时用 `node scripts/safe-build.mjs`（带文件锁），否则 `.next/` 竞态 |
+| **不要 `git add -A`** | 并发时它会收进别的进程留下的临时文件（曾误提交 `pytest-of-*/`、`tmp*`）。用 `git add -u -- <明确路径>` 或逐项确认 |
+| **发现陌生产物** | 默认假设是用户另一个会话的正常产物，**先隔离再询问**，不要定性、不要删除 |
+
+### 2.4 PR 与合并
+
+```bash
+node scripts/claim.mjs pr 16      # 用当前分支开 PR，正文自动写 Closes #16
+```
+
+合并后 Issue 由 GitHub 自动关闭。**合并之前**：本地 `pnpm check` 必须过（CI 未生效，本地是唯一强制门禁）。
+
+### 2.5 台账对账：让 open Issue 的条数有意义
+
+Issue 挂着 open 但活已经做完 = 在下一个人面前放了一个诱饵。所以：
+
+- **确认已完成的**：`node scripts/claim.mjs done <编号> --evidence "..."`。脚本强制要求证据（测试输出 / 提交号 / PR 链接 / 文档路径），没有证据不给关。
+- **只完成一半的**：在该 Issue 下评论写清「已有什么、还缺什么」，别关也别放着当没看见。
+- **纯决策类**（要项目负责人拍板、要外部账号资质）：`node scripts/claim.mjs block <编号> --note "等学生认证到账"`。`blocked` 不是待办，不要用写代码的方式去「关闭」它。
+
+每个 Stage 收口时跑一次全量对账：`claim ls --deep --days 30`，把报出来的不可见提交逐个归到 Issue 上。
+
 
 ---
 
@@ -95,6 +164,7 @@ Closes #42
 - 提交前校验通过（`pre-commit` 钩子会自动跑，见下方「提交前校验」）
 - 涉及 `specs/` 契约变更需架构负责人额外批准
 - 涉及视觉变更需附前后对比截图
+- **PR 必须关联认领的 Issue**（正文含 `Closes #<编号>`）；没有 Issue 的 PR 无法判断它算不算「重复动工」，会被直接退回
 
 **禁止**
 - ❌ 提交 `node_modules`、`.env`、构建产物
@@ -107,11 +177,16 @@ Closes #42
 
 **标题格式**：`[模块] 简述`，例如 `[11-curvelab] 置信带绘制偏差`
 
-**必须打标签**（见 `.github/labels.yml`）
+**开 Issue 之前先查台账**（`node scripts/claim.mjs ls`）——重复 Issue 和重复动工是同一个病的两种症状。已有相近的，去那条下面补充或认领，别再开一条。
+
+**必须打标签**（标签定义在 [`.github/labels.txt`](labels.txt)，由 `scripts/sync-labels.mjs` 同步到仓库）
 - 类型：`type:feature` / `type:bug` / `type:docs` / `type:spec` / `type:infra`
 - 阶段：`stage-1` ~ `stage-4`
 - 轨道（微站相关）：`orbit-1` ~ `orbit-7`
 - 优先级：`P0` / `P1` / `P2`
+- 认领状态：`status:claimed`（有人在写）/ `status:in-review`（PR 评审中）/ `blocked`（被外部依赖卡住）—— 这三个由 `scripts/claim.mjs` 自动维护，一般不用手动打
+
+**验收标准必须是可判定的句子**。写「优化性能」的 Issue 无法关闭，只会变成永远 open 的噪音。
 
 **缺陷报告**必须包含：环境、复现步骤、期望行为、实际行为、截图或日志。
 
@@ -150,12 +225,22 @@ Closes #42
 - Python ≥ 3.11（后端）
 - 提交前校验靠 `pre-commit` 钩子（见下节）
 
-### 提交前校验（替代 CI）
+### 提交前校验（当前唯一的强制门禁）
 
-本仓库**不使用 GitHub Actions**——原工作流因账户计费无法启动，已移除（见 [`docs/02-engineering/00-known-issues.md`](../docs/02-engineering/00-known-issues.md) BLK-001）。校验改由本地 `pre-commit` 钩子承担：
+仓库里有两个工作流——`.github/workflows/verify.yml`（契约/文档/编码校验）与 `sync-labels.yml`（标签同步）。它们**已被推上 GitHub 并且每次 push 都会触发，但因账户计费问题全部失败**（实测 8 次运行，3–5 秒即挂，日志 `BlobNotFound`，零步骤执行）。用户已提交学生认证，权益到位后它们会自动开始真正生效。
+
+所以现阶段**本地 `pre-commit` 钩子是唯一有效的强制门禁**。看到仓库里有 workflow 文件就以为 CI 在保护你，是最危险的一种误解（详见 [`docs/02-engineering/00-known-issues.md`](../docs/02-engineering/00-known-issues.md) BLK-001）。
+
+权益到位前，标签同步在本地做：
 
 ```bash
-# 新克隆仓库后执行一次
+node scripts/sync-labels.mjs --dry-run   # 看会改什么
+node scripts/sync-labels.mjs             # 把 labels.txt 同步到仓库
+```
+
+装钩子（新克隆仓库后执行一次）：
+
+```bash
 node scripts/install-hooks.mjs
 ```
 
@@ -196,6 +281,6 @@ node scripts/install-hooks.mjs
 
 ## 九、沟通
 
-- 设计/架构争议 → 开 Discussion 或 Issue，不要在聊天里定
+- 设计/架构争议 → 开 Issue 讨论（本仓 **Discussions 未启用**，`has_discussions: false`，别去找那个入口），不要在聊天里定
 - 决策一旦定下，必须写入 `docs/01-plan/04-tech-decisions.md`（ADR）
 - 口头结论不算数，落文档才算
