@@ -1,0 +1,26 @@
+{
+  "manifest_version": "1.0",
+  "app_id": "pat-hot",
+  "name": "PAT-HOT 学科脉冲雷达",
+  "entry_url": "https://pat-hot.matrixos.edu",
+  "orbit_station": "pat_hot",
+  "accent_color": "#f59e0b",
+  "accepts": [
+    "paper_doi_bundle"
+  ],
+  "emits": [
+    "paper_doi_bundle"
+  ],
+  "permissions": [
+    "matrix_id:read",
+    "profile:read",
+    "assets:read",
+    "assets:write",
+    "wormhole:send",
+    "wormhole:receive"
+  ],
+  "author": {
+    "lab_name": "MatrixOS",
+    "university": "MatrixOS"
+  }
+}

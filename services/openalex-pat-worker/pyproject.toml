@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openalex-pat-worker"
+version = "0.1.0"
+description = "MatrixOS 04 站 PAT-HOT 与 06 站星门的信源监听、热度评估、导师画像与早报合成服务"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "UNLICENSED" }
+authors = [{ name = "MatrixOS Team" }]
+
+# 依赖版本与仓库根 package.json 的 Node 侧无关；这里是 Python 侧唯一清单。
+# 装依赖由 Tech Lead 统一执行，开发者不要在本目录跑 pip install。
+dependencies = [
+  "fastapi>=0.115,<1.0",
+  "uvicorn[standard]>=0.30,<1.0",
+  "httpx>=0.27,<1.0",
+  "pydantic>=2.7,<3.0",
+  "pydantic-settings>=2.3,<3.0",
+  "apscheduler>=3.10,<4.0",
+  "python-dateutil>=2.9,<3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0,<9.0",
+  "pytest-asyncio>=0.23,<1.0",
+  "jsonschema>=4.20,<5.0",
+  "ruff>=0.5,<1.0",
+]
+# 端到端联调（真实网络 + 真实 08:00 调度）时手动安装，不进 CI：
+#   pip install -e ".[e2e]"
+e2e = [
+  "respx>=0.21,<1.0",
+]
+
+[project.scripts]
+pat-worker = "pat_worker.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["pat_worker*"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-ra -q"
+filterwarnings = ["error::DeprecationWarning:pat_worker.*"]
+asyncio_mode = "auto"
+markers = [
+  "live: 需要真实网络的用例，默认不跑（pytest -m live）",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]
+ignore = ["E501"]

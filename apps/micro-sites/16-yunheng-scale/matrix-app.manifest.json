@@ -1,0 +1,24 @@
+{
+  "manifest_version": "1.0",
+  "app_id": "yunheng",
+  "name": "云衡 · 数字天平综测核算器",
+  "entry_url": "https://yunheng.matrixos.edu",
+  "orbit_station": "cloud_balance",
+  "accent_color": "#22d3ee",
+  "accepts": [
+    "paper_doi_bundle",
+    "verified_cv_evidence"
+  ],
+  "emits": [],
+  "permissions": [
+    "matrix_id:read",
+    "profile:read",
+    "assets:read",
+    "assets:write",
+    "wormhole:receive"
+  ],
+  "author": {
+    "lab_name": "MatrixOS",
+    "university": "MatrixOS"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "manifest_version": "1.0",
+  "app_id": "matrix-cross",
+  "name": "Matrix-Cross 跨论文对比矩阵",
+  "entry_url": "https://matrix-cross.matrixos.edu",
+  "orbit_station": "workshop",
+  "accent_color": "#10b981",
+  "accepts": [
+    "paper_doi_bundle"
+  ],
+  "emits": [
+    "comparison_matrix_row"
+  ],
+  "permissions": [
+    "matrix_id:read",
+    "profile:read",
+    "assets:read",
+    "assets:write",
+    "wormhole:send",
+    "wormhole:receive"
+  ],
+  "author": {
+    "lab_name": "MatrixOS",
+    "university": "MatrixOS"
+  }
+}

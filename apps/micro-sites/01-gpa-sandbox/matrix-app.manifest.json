@@ -1,0 +1,20 @@
+{
+  "manifest_version": "1.0",
+  "app_id": "gpa",
+  "name": "学分绩点动态配重台",
+  "entry_url": "https://gpa.matrixos.edu",
+  "orbit_station": "study",
+  "accent_color": "#6366f1",
+  "accepts": [],
+  "emits": [],
+  "permissions": [
+    "matrix_id:read",
+    "profile:read",
+    "assets:read",
+    "assets:write"
+  ],
+  "author": {
+    "lab_name": "MatrixOS",
+    "university": "MatrixOS"
+  }
+}

@@ -1,0 +1,281 @@
+/* =============================================================================
+ * base.css · 组件库基础样式
+ * -----------------------------------------------------------------------------
+ * 包含三样东西：
+ *   1. `.iu-*` 基础原子类（面板、标签、读数、焦点环、滚动条）
+ *   2. 视觉体系文档 §5 的两个「可复用样式配方」原样实现（.glass-panel /
+ *      .instrument-bezel），并派生出 accent 可变版本 —— 文档 §5.2 明确要求
+ *      「派生出 --bezel-accent 让外发光跟随微站主色」。
+ *   3. 原设计的四个签名类（.glow-* / .pulse-orb）的组件库版本。
+ *
+ * 注意：组件**不**自己做样式注入，全部由宿主 `import '@matrixos/instrument-ui
+ * /styles.css'` 一次性引入。原因：18 个微站 + hub 可能同时加载多份组件副本，
+ * 运行时注入 CSS 会导致重复 <style> 与 SSR 水合不一致。
+ * ========================================================================== */
+
+/* ---------------------------------------------------------------------------
+ * 根作用域
+ * 组件一律带 `.iu-root`，在这里统一字体/颜色/盒模型，避免污染宿主页面。
+ * 不用 `*` 选择器是为了不波及宿主已有的规则。
+ * ------------------------------------------------------------------------ */
+.iu-root {
+  font-family: var(--iu-font-sans);
+  color: var(--iu-text);
+  font-size: var(--iu-text-sm);
+  line-height: var(--iu-leading-snug);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-variant-numeric: tabular-nums;
+}
+
+.iu-root *,
+.iu-root *::before,
+.iu-root *::after {
+  box-sizing: border-box;
+}
+
+/* ---------------------------------------------------------------------------
+ * 面板：.iu-panel = .instrument-bezel 的组件库版本
+ * 视觉体系 §5.2 的三段式配方，一个都不能少：
+ *   1. 145deg 对角渐变 → 金属受光面
+ *   2. inset 0 1px 0 rgba(255,255,255,.08) → 顶部 1px 高光（倒角）
+ *   3. 外发光用强调色而非中性黑 → 面板「在发光」而非「被照亮」
+ * ------------------------------------------------------------------------ */
+.iu-panel {
+  position: relative;
+  background:
+    linear-gradient(145deg, var(--iu-bezel-from) 0%, var(--iu-bezel-to) 100%);
+  border: 1px solid var(--iu-border-instrument);
+  border-radius: var(--iu-radius-md);
+  box-shadow: var(--iu-bezel-sheen), var(--iu-bezel-outer);
+  color: var(--iu-text);
+}
+
+/* 变体：玻璃拟态（文档 §5.1），用于 Tab 顶部的介绍/标题区 */
+.iu-panel--glass {
+  background: var(--iu-glass);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border-color: var(--iu-border-accent);
+  box-shadow: var(--iu-bezel-sheen);
+}
+
+/* 变体：凹槽（画布/读数屏的底），无外发光 */
+.iu-panel--sunken {
+  background: var(--iu-bg-sunken);
+  border-color: var(--iu-border);
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.55),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* 变体：危险态（撤稿/超限），把外发光换成 rose */
+.iu-panel--danger {
+  --iu-accent: var(--iu-danger);
+  --iu-accent-bright: var(--iu-danger-bright);
+  --iu-accent-rgb: var(--iu-danger-rgb);
+  border-color: rgb(var(--iu-danger-rgb) / 0.4);
+  background:
+    linear-gradient(145deg, #160a13 0%, var(--iu-bezel-to) 100%);
+}
+
+/* ---------------------------------------------------------------------------
+ * 兼容类名：与 bundle 里原设计 markup 保持一致
+ * 视觉体系文档 §5 的两个配方名是「全库最能定义观感的类」，直接保留原名，
+ * 让从 bundle 平移过来的 markup 不必改名即可工作。
+ * ------------------------------------------------------------------------ */
+.instrument-bezel {
+  background: linear-gradient(145deg, var(--iu-bezel-from) 0%, var(--iu-bezel-to) 100%);
+  border: 1px solid var(--iu-border-instrument);
+  border-radius: var(--iu-radius-md);
+  box-shadow: var(--iu-bezel-sheen), var(--iu-bezel-outer);
+}
+
+.glass-panel {
+  background: var(--iu-glass);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--iu-border-accent);
+}
+
+/* 辉光四色：配方固定 blur 28px / spread -5px / alpha .45，只有色相变 */
+.glow-indigo  { box-shadow: var(--iu-glow-spread) rgb(99 102 241 / var(--iu-glow-alpha)); }
+.glow-cyan    { box-shadow: var(--iu-glow-spread) rgb(6 182 212 / var(--iu-glow-alpha)); }
+.glow-emerald { box-shadow: var(--iu-glow-spread) rgb(16 185 129 / var(--iu-glow-alpha)); }
+.glow-amber   { box-shadow: var(--iu-glow-spread) rgb(245 158 11 / var(--iu-glow-alpha)); }
+.glow-rose    { box-shadow: var(--iu-glow-spread) rgb(244 63 94 / var(--iu-glow-alpha)); }
+.glow-violet  { box-shadow: var(--iu-glow-spread) rgb(139 92 246 / var(--iu-glow-alpha)); }
+
+/* ---------------------------------------------------------------------------
+ * 呼吸球：原设计唯一的自定义 keyframes（pulseSoft 2.8s）
+ * 原实现缺失 prefers-reduced-motion（文档 V4），这里补齐。
+ * ------------------------------------------------------------------------ */
+@keyframes iu-pulse-soft {
+  0%, 100% { opacity: 0.65; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.04); }
+}
+
+.pulse-orb,
+.iu-pulse-orb {
+  animation: iu-pulse-soft var(--iu-pulse-duration) var(--iu-ease-base) infinite;
+  will-change: opacity, transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-orb,
+  .iu-pulse-orb {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    will-change: auto;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * 排版原子
+ * ------------------------------------------------------------------------ */
+.iu-label {
+  font-family: var(--iu-font-mono);
+  font-size: var(--iu-text-2xs);
+  font-weight: 500;
+  letter-spacing: var(--iu-tracking-label);
+  text-transform: uppercase;
+  color: var(--iu-text-muted);
+  line-height: var(--iu-leading-tight);
+}
+
+.iu-readout {
+  font-family: var(--iu-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--iu-text-strong);
+  line-height: var(--iu-leading-tight);
+}
+
+.iu-num {
+  font-family: var(--iu-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.iu-hint {
+  color: var(--iu-text-muted);
+  font-size: var(--iu-text-xs);
+  line-height: var(--iu-leading-snug);
+}
+
+.iu-accent-text { color: var(--iu-accent-text); }
+
+/* ---------------------------------------------------------------------------
+ * 焦点环：视觉体系文档 V5 指出原设计 aria-*/role/tabindex 全为 0。
+ * 组件库所有可交互元素统一使用 :focus-visible，且对比度 ≥ 3:1（非文本）
+ * ------------------------------------------------------------------------ */
+.iu-focus {
+  outline: none;
+}
+
+.iu-focus:focus-visible {
+  outline: 2px solid var(--iu-accent-bright);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgb(var(--iu-accent-rgb) / 0.22);
+}
+
+@media (forced-colors: active) {
+  .iu-focus:focus-visible {
+    outline: 2px solid CanvasText;
+    box-shadow: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * 细滚动条（文档 §5.3）：原实现只有 -webkit-，Firefox 会退化成系统粗条，
+ * 在密集面板里会挤坏布局 —— 这里补上标准属性（V11）。
+ * ------------------------------------------------------------------------ */
+.iu-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--iu-action-rgb) / 0.45) rgb(5 8 20 / 0.8);
+}
+
+.iu-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.iu-scroll::-webkit-scrollbar-track {
+  background: rgb(5 8 20 / 0.8);
+}
+
+.iu-scroll::-webkit-scrollbar-thumb {
+  background: rgb(99 102 241 / 0.45);
+  border-radius: var(--iu-radius-xs);
+}
+
+.iu-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgb(6 182 212 / 0.8);
+}
+
+/* ---------------------------------------------------------------------------
+ * 工具类
+ * ------------------------------------------------------------------------ */
+.iu-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 键盘唯一可达但视觉隐藏的输入（旋钮的原生 number 输入等） */
+.iu-visually-hidden-input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+/* 装饰性网格底纹：仪器面板的「图纸感」 */
+.iu-grid-texture {
+  background-image:
+    linear-gradient(rgb(var(--iu-instrument-rgb) / 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--iu-instrument-rgb) / 0.06) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* 扫描线：只用于纯装饰的小面积元素，避免大面积重绘 */
+.iu-scanlines::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgb(0 0 0 / 0.22) 0px,
+    rgb(0 0 0 / 0.22) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  opacity: 0.5;
+  border-radius: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .iu-scanlines::after { display: none; }
+}
+
+/* 全局减弱动效兜底（文档 §9 的建议实现，组件库强制开启） */
+@media (prefers-reduced-motion: reduce) {
+  .iu-root *,
+  .iu-root *::before,
+  .iu-root *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

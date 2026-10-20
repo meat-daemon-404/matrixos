@@ -1,0 +1,88 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "matrix-core"
+version = "0.1.0"
+description = "MatrixOS v3.0 身份与资产平面：MatrixID 鉴权、DigitalTwinAssetGraph、Wormhole 收据、manifest 注册表"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "UNLICENSED" }
+authors = [{ name = "MatrixOS Team" }]
+
+# 依赖说明：
+# - fastapi/uvicorn：HTTP 层
+# - sqlalchemy[asyncio] + asyncpg：异步 ORM 与 PostgreSQL 驱动
+# - alembic：迁移
+# - pgvector：vector(1024) 类型与 HNSW 索引
+# - pyjwt[crypto] + cryptography：RS256 签发/校验，RSA 密钥本地生成
+# - structlog：结构化日志（配合 core/logging.py 的脱敏处理器）
+# - aiosqlite：仅测试用，让资产/鉴权用例可在无 PostgreSQL 的环境下跑通
+dependencies = [
+  "fastapi>=0.115,<1.0",
+  "uvicorn[standard]>=0.30",
+  "sqlalchemy[asyncio]>=2.0.36",
+  "asyncpg>=0.30",
+  "alembic>=1.14",
+  "pgvector>=0.3.6",
+  "pyjwt[crypto]>=2.9",
+  "cryptography>=43",
+  "pydantic>=2.9",
+  "pydantic-settings>=2.6",
+  "python-multipart>=0.0.9",
+  "structlog>=24.4",
+  "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+# 测试依赖：pytest + 覆盖率 + 异步插件 + SQLite 异步驱动
+test = [
+  "pytest>=8.3",
+  "pytest-asyncio>=0.24",
+  "pytest-cov>=6.0",
+  "aiosqlite>=0.20",
+]
+
+[project.scripts]
+matrix-core = "app.main:run"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-q --strict-markers"
+markers = [
+  "postgres: 需要真实 PostgreSQL + pgvector 的用例（无 DSN 时自动 skip）",
+]
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+omit = [
+  "app/main.py",
+  "app/__main__.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+exclude_lines = [
+  "pragma: no cover",
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+  "if __name__ == .__main__.:",
+  r"^\s*\.\.\.",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+ignore = ["B008"]  # FastAPI 的 Depends() 默认值写法

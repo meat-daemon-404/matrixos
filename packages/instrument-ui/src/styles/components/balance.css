@@ -1,0 +1,392 @@
+/* PrecisionBalance · 精密三盘电子天平 */
+
+.iu-balance {
+  --iu-balance-scale: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  color: var(--iu-text);
+}
+
+.iu-balance__frame {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    'beam beam'
+    'pans total'
+    'base base';
+  gap: var(--iu-space-3);
+  padding: var(--iu-space-4);
+  background:
+    linear-gradient(145deg, var(--iu-bezel-from) 0%, var(--iu-bezel-to) 100%);
+  border: 1px solid var(--iu-border-instrument);
+  border-radius: var(--iu-radius-lg);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+    0 10px 30px -10px rgb(var(--iu-accent-rgb) / 0.25);
+}
+
+@media (max-width: 640px) {
+  .iu-balance__frame {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'beam'
+      'pans'
+      'total'
+      'base';
+  }
+}
+
+/* ---- 横梁 -------------------------------------------------------------- */
+.iu-balance__beam {
+  grid-area: beam;
+  position: relative;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.iu-balance__beam-line {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(var(--iu-accent-rgb) / 0.5) 18%,
+    rgb(var(--iu-accent-rgb) / 0.75) 50%,
+    rgb(var(--iu-accent-rgb) / 0.5) 82%,
+    transparent
+  );
+}
+
+.iu-balance__beam-pivot {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #2a3550, #070b18);
+  border: 1px solid rgb(var(--iu-accent-rgb) / 0.55);
+  box-shadow: 0 0 12px -2px rgb(var(--iu-accent-rgb) / 0.5);
+  z-index: 1;
+}
+
+/* 横梁倾角：transform 由 JS 给值，但只有总分变化时才变，不是逐帧 */
+.iu-balance__beam-tilt {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  height: 2px;
+  border-radius: 1px;
+  background: rgb(var(--iu-accent-rgb) / 0.28);
+  transform-origin: center;
+  transition: transform 600ms var(--iu-ease-out);
+  will-change: transform;
+}
+
+/* ---- 三个盘 ------------------------------------------------------------ */
+.iu-balance__pans {
+  grid-area: pans;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--iu-space-3);
+  align-items: end;
+}
+
+.iu-balance__pan {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: var(--iu-space-2);
+  border-radius: var(--iu-radius-md);
+  border: 1px solid transparent;
+  transition:
+    border-color var(--iu-dur-fast) var(--iu-ease-base),
+    background-color var(--iu-dur-fast) var(--iu-ease-base);
+}
+
+.iu-balance__pan.is-interactive { cursor: pointer; }
+
+.iu-balance__pan.is-interactive:focus-visible {
+  outline: 2px solid var(--iu-pan-accent-bright);
+  outline-offset: 2px;
+}
+
+.iu-balance__pan[data-hovered='true'] {
+  border-color: rgb(var(--iu-pan-accent-rgb) / 0.35);
+  background: rgb(var(--iu-pan-accent-rgb) / 0.06);
+}
+
+.iu-balance__pan-label {
+  color: var(--iu-pan-accent-bright, var(--iu-text-muted));
+  letter-spacing: 0.1em;
+}
+
+/* 砝码堆叠：每个砝码是一个宽度按质量比例的横条，从下往上叠 */
+.iu-balance__weights {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  min-height: 34px;
+  justify-content: flex-start;
+}
+
+.iu-balance__weight {
+  width: var(--iu-weight-w, 60%);
+  height: 6px;
+  border-radius: 2px;
+  background: linear-gradient(
+    180deg,
+    rgb(var(--iu-pan-accent-rgb) / 0.85),
+    rgb(var(--iu-pan-accent-rgb) / 0.45)
+  );
+  border: 1px solid rgb(var(--iu-pan-accent-rgb) / 0.5);
+  box-shadow: 0 0 8px -3px rgb(var(--iu-pan-accent-rgb) / 0.7);
+  position: relative;
+  animation: iu-weight-drop 520ms var(--iu-ease-out) both;
+  animation-delay: calc(var(--iu-weight-i, 0) * 70ms);
+}
+
+.iu-balance__weight.is-segment {
+  background: rgb(100 116 139 / 0.16);
+  border-color: rgb(100 116 139 / 0.28);
+  box-shadow: none;
+}
+
+.iu-balance__weight.is-segment[data-filled='true'] {
+  background: linear-gradient(
+    180deg,
+    rgb(var(--iu-pan-accent-rgb) / 0.8),
+    rgb(var(--iu-pan-accent-rgb) / 0.4)
+  );
+  border-color: rgb(var(--iu-pan-accent-rgb) / 0.55);
+  box-shadow: 0 0 8px -3px rgb(var(--iu-pan-accent-rgb) / 0.7);
+}
+
+@keyframes iu-weight-drop {
+  from { transform: translateY(-8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.iu-balance__weight-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--iu-font-mono);
+  font-size: 8px;
+  color: #04121a;
+  font-weight: 700;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* 秤盘：俯视椭圆托盘 */
+.iu-balance__dish {
+  position: relative;
+  width: 100%;
+  max-width: 96px;
+  height: 26px;
+  margin-top: 2px;
+}
+
+.iu-balance__dish-inner,
+.iu-balance__dish-fill,
+.iu-balance__dish-rim {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+
+.iu-balance__dish-inner {
+  background: radial-gradient(
+    ellipse at 50% 32%,
+    #0d1425 0%,
+    #070b18 62%,
+    #03060e 100%
+  );
+  border: 1px solid rgb(var(--iu-pan-accent-rgb) / 0.28);
+  box-shadow: inset 0 5px 10px -5px rgb(0 0 0 / 0.9);
+}
+
+/* 盘内液面：高度即达成率（CSS 变量驱动，无逐帧 JS） */
+.iu-balance__dish-fill {
+  inset: auto 3px 3px 3px;
+  height: calc((100% - 8px) * var(--iu-pan-fill, 0%));
+  border-radius: 0 0 50% 50% / 0 0 60% 60%;
+  background: linear-gradient(
+    180deg,
+    rgb(var(--iu-pan-accent-rgb) / 0.5),
+    rgb(var(--iu-pan-accent-rgb) / 0.9)
+  );
+  box-shadow: 0 0 12px -2px rgb(var(--iu-pan-accent-rgb) / 0.8);
+  transition: height 600ms var(--iu-ease-out);
+  max-height: calc(26px - 8px);
+}
+
+.iu-balance__dish-rim {
+  border: 1px solid rgb(var(--iu-pan-accent-rgb) / 0.45);
+  background: transparent;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.1),
+    0 2px 8px -4px rgb(0 0 0 / 0.9);
+  pointer-events: none;
+}
+
+/* 读数 */
+.iu-balance__readout {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.iu-balance__value {
+  font-size: var(--iu-text-sm);
+  color: var(--iu-pan-accent-bright);
+}
+
+.iu-balance__cap {
+  font-size: var(--iu-text-2xs);
+  color: var(--iu-text-muted);
+}
+
+.iu-balance__bar {
+  width: 100%;
+  height: 2px;
+  border-radius: 1px;
+  background: rgb(100 116 139 / 0.24);
+  overflow: hidden;
+  position: relative;
+}
+
+.iu-balance__bar::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--iu-bar-fill, 0%);
+  background: rgb(var(--iu-pan-accent-rgb) / 0.9);
+  border-radius: 1px;
+  transition: width 600ms var(--iu-ease-out);
+}
+
+.iu-balance__hint {
+  font-size: 9px;
+  text-align: center;
+  line-height: 1.3;
+}
+
+/* ---- 总分区 ------------------------------------------------------------ */
+.iu-balance__total {
+  grid-area: total;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 148px;
+  padding: var(--iu-space-3) var(--iu-space-4);
+  border-radius: var(--iu-radius-md);
+  background: rgb(3 6 14 / 0.72);
+  border: 1px solid rgb(var(--iu-accent-rgb) / 0.28);
+  box-shadow: inset 0 0 22px -8px rgb(var(--iu-accent-rgb) / 0.5);
+}
+
+.iu-balance__total-label {
+  color: var(--iu-accent-text);
+  letter-spacing: 0.14em;
+}
+
+.iu-balance__total-value-wrap {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+/* 大号数字：等宽 + tabular-nums，跳动时宽度不抖 */
+.iu-balance__total-value {
+  font-size: var(--iu-text-3xl);
+  font-weight: 700;
+  color: var(--iu-text-strong);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 26px rgb(var(--iu-accent-rgb) / 0.55);
+  line-height: 1;
+}
+
+.iu-balance__total-cap {
+  font-size: var(--iu-text-xs);
+  color: var(--iu-text-muted);
+}
+
+.iu-balance__total-track {
+  position: relative;
+  width: 100%;
+  min-width: 112px;
+  height: 3px;
+  margin-top: var(--iu-space-2);
+  border-radius: 2px;
+  background: rgb(100 116 139 / 0.22);
+  overflow: hidden;
+}
+
+.iu-balance__total-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--iu-total-fill, 0%);
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    rgb(var(--iu-accent-rgb) / 0.6),
+    var(--iu-accent-bright)
+  );
+  box-shadow: 0 0 10px -1px rgb(var(--iu-accent-rgb) / 0.9);
+  transition: width 640ms var(--iu-ease-out);
+}
+
+.iu-balance__total-note {
+  margin-top: 3px;
+  font-family: var(--iu-font-mono);
+  font-size: 9px;
+  color: var(--iu-text-muted);
+}
+
+/* ---- 底座 -------------------------------------------------------------- */
+.iu-balance__base {
+  grid-area: base;
+  position: relative;
+  height: 8px;
+  border-radius: 0 0 var(--iu-radius-md) var(--iu-radius-md);
+}
+
+.iu-balance__foot {
+  position: absolute;
+  bottom: 0;
+  width: 42%;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, rgb(var(--iu-accent-rgb) / 0.35), transparent);
+}
+
+.iu-balance__foot.is-left { left: 8%; }
+.iu-balance__foot.is-right { right: 8%; }
+
+/* ---- 减弱动效 ---------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .iu-balance__weight,
+  .iu-balance__beam-tilt,
+  .iu-balance__dish-fill,
+  .iu-balance__bar::after,
+  .iu-balance__total-fill {
+    animation: none;
+    transition: none;
+  }
+}

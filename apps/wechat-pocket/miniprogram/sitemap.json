@@ -1,0 +1,15 @@
+{
+  "desc": "口袋端是登录后的私人工作台，不对外索引；仅开放学术名片分享落地页。",
+  "rules": [
+    {
+      "action": "disallow",
+      "page": "*"
+    },
+    {
+      "action": "allow",
+      "page": "pages/card/index",
+      "params": ["mx", "trace"],
+      "matching": "exact"
+    }
+  ]
+}

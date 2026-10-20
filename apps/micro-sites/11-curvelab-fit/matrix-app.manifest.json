@@ -1,0 +1,26 @@
+{
+  "manifest_version": "1.0",
+  "app_id": "curvelab",
+  "name": "CurveLab 非线性拟合示波器",
+  "entry_url": "https://curvelab.matrixos.edu",
+  "orbit_station": "workshop",
+  "accent_color": "#10b981",
+  "accepts": [
+    "comparison_matrix_row"
+  ],
+  "emits": [
+    "curve_fit_parameters"
+  ],
+  "permissions": [
+    "matrix_id:read",
+    "profile:read",
+    "assets:read",
+    "assets:write",
+    "wormhole:send",
+    "wormhole:receive"
+  ],
+  "author": {
+    "lab_name": "MatrixOS",
+    "university": "MatrixOS"
+  }
+}

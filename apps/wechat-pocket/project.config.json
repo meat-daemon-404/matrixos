@@ -1,0 +1,89 @@
+{
+  "description": "MatrixOS 口袋微信小程序伴侣端 —— 项目配置。AppID 为测试号占位，正式联调时替换为微信开放平台下发的真实 AppID。",
+  "miniprogramRoot": "miniprogram/",
+  "srcMiniprogramRoot": "miniprogram/",
+  "compileType": "miniprogram",
+  "appid": "touristappid",
+  "projectname": "matrixos-wechat-pocket",
+  "libVersion": "3.5.8",
+  "packOptions": {
+    "ignore": [
+      { "type": "folder", "value": "node_modules" },
+      { "type": "folder", "value": "mock-server" },
+      { "type": "folder", "value": "scripts" },
+      { "type": "folder", "value": "types" },
+      { "type": "file", "value": "tsconfig.json" },
+      { "type": "file", "value": "README.md" },
+      { "type": "suffix", "value": ".ts" },
+      { "type": "suffix", "value": ".map" }
+    ],
+    "include": []
+  },
+  "setting": {
+    "urlCheck": false,
+    "coverView": true,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "preloadBackgroundData": false,
+    "minified": true,
+    "newFeature": true,
+    "autoAudits": false,
+    "uglifyFileName": true,
+    "uploadWithSourceMap": true,
+    "useCompilerPlugins": ["typescript"],
+    "compileHotReLoad": false,
+    "lazyloadPlaceholderEnable": false,
+    "useMultiFrameRuntime": true,
+    "useApiHook": true,
+    "useApiHostProcess": true,
+    "showShadowRootInWxmlPanel": true,
+    "useStaticServer": false,
+    "packNpmManually": false,
+    "packNpmRelationList": [],
+    "minifyWXSS": true,
+    "minifyWXML": true,
+    "ignoreUploadUnusedFiles": true,
+    "checkInvalidKey": true,
+    "disableUseStrict": false,
+    "useIsolateContext": true,
+    "useCompilerModule": true,
+    "userConfirmedUseCompilerModuleSwitch": false
+  },
+  "condition": {
+    "miniprogram": {
+      "list": [
+        {
+          "name": "晨间三卡早报",
+          "pathName": "pages/morning/index",
+          "query": "",
+          "scene": null
+        },
+        {
+          "name": "学业打卡",
+          "pathName": "pages/checkin/index",
+          "query": "",
+          "scene": null
+        },
+        {
+          "name": "星门进组提醒",
+          "pathName": "pages/mentor/index",
+          "query": "",
+          "scene": null
+        },
+        {
+          "name": "学术名片（扫码落地）",
+          "pathName": "pages/card/index",
+          "query": "mx=MX-2026-8842&trace=0b8f0c1e-6a1d-4b2e-9c33-7f1a2d4e5f60",
+          "scene": 1011
+        },
+        {
+          "name": "桌面队列（分包）",
+          "pathName": "pkg-queue/queue/index",
+          "query": "",
+          "scene": null
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,58 @@
+/* ══════════════════════════════════════════════════════════════════════════════
+ * 本地 shim：@matrixos/instrument-ui/styles.css 的替身
+ *
+ * 仅在 instrument-ui 未就位时由 next.config.ts 别名到此文件。
+ * 承载库的对外 token 契约（--iu-* 变量），让 hub 的 CSS 在两种状态下都拿得到同名变量。
+ * 真实库就位后本文件自动失效。
+ *
+ * 值的来源仍是 docs/00-analysis/04-visual-system.md §九，不重新发明。
+ * ══════════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --iu-bg: #050814;
+  --iu-bg-panel: #0b1124;
+  --iu-bg-panel-end: #070b18;
+  --iu-bg-sunken: #020617;
+  --iu-bg-raised: #0f172a;
+  --iu-glass: rgba(13, 20, 38, 0.78);
+
+  --iu-border: #1e293b;
+  --iu-border-strong: #334155;
+  --iu-border-accent: rgba(99, 102, 241, 0.22);
+  --iu-bezel-border: rgba(56, 189, 248, 0.25);
+
+  --iu-text: #f1f5f9;
+  --iu-text-strong: #ffffff;
+  --iu-text-secondary: #cbd5e1;
+  --iu-text-muted: #94a3b8;
+  --iu-text-faint: #64748b;
+
+  --iu-action: #6366f1;
+  --iu-instrument: #06b6d4;
+  --iu-instrument-bright: #22d3ee;
+  --iu-positive: #10b981;
+  --iu-warning: #f59e0b;
+  --iu-danger: #f43f5e;
+  --iu-ecosystem: #8b5cf6;
+
+  --iu-glow-spread: 0 0 28px -5px;
+  --iu-glow-alpha: 0.45;
+
+  --iu-radius-xs: 4px;
+  --iu-radius-sm: 8px;
+  --iu-radius-md: 12px;
+  --iu-radius-lg: 16px;
+  --iu-radius-pill: 9999px;
+
+  --iu-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+  --iu-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --iu-dur-fast: 150ms;
+  --iu-dur-base: 300ms;
+  --iu-dur-slow: 500ms;
+  --iu-pulse-duration: 2.8s;
+
+  /* 语义缩放标尺（StarOrbit 用；1.0 → 10.0）。CSS 只读它做字号/透明度分档。 */
+  --iu-zoom: 2.5;
+}

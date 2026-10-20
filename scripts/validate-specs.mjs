@@ -143,7 +143,7 @@ if (existsSync(whPath)) {
 }
 
 // --------------------------------------------------------------- bundle 存在
-console.log('\n[5/6] 交付物归档完整性');
+console.log('\n[5/8] 交付物归档完整性');
 const bundleChecks = [
   ['bundle/MatrixOS_v3_完整交互规范与UI图谱_高清版.html', 'HTML 交互规范图谱'],
   ['bundle/matrix_os_agent_execution_spec.md', 'Agent 执行规范'],
@@ -160,7 +160,7 @@ if (existsSync(rendersDir)) {
 } else fail('bundle/UI_Renders/ 不存在');
 
 // --------------------------------------------------------------- bundle 存在
-console.log('\n[6/6] 中文编码完整性（U+FFFD + BOM 扫描）');
+console.log('\n[6/8] 中文编码完整性（U+FFFD + BOM 扫描）');
 /**
  * 双重编码检查：
  *  1. U+FFFD —— PowerShell 5.1 在 GBK 代码页下处理 UTF-8 中文会静默损坏内容，
@@ -203,6 +203,36 @@ console.log('\n[6/6] 中文编码完整性（U+FFFD + BOM 扫描）');
   for (const d of SCAN_DIRS) walkScan(join(ROOT, d));
 
   if (badCount === 0) ok(`扫描 ${scanned} 个文件，无 U+FFFD、无 BOM`);
+}
+
+// ------------------------------------------------------- 可疑产物防护
+console.log('\n[7/8] 注入产物防护');
+/**
+ * 2026-10-20 发现仓库内出现不属于本项目的「渗透测试」任务产物
+ * （operation-state.json / pentest/ / route-audit.md）。详见
+ * docs/02-engineering/SECURITY.md SEC-001。
+ *
+ * 处理策略：这些路径已在 .gitignore 中，不会进入版本库，所以只做提示
+ * 而非阻断——可能是用户在另一个会话中自行发起的工作，Lead 无权据此
+ * 单方面阻塞 MatrixOS 的正常提交。
+ *
+ * MatrixOS 的构建、测试、发布流程不依赖这些产物。
+ */
+{
+  const FORBIDDEN = [
+    ['operation-state.json', '外来任务台账'],
+    ['route-audit.md', '外来路由审计留痕'],
+    ['pentest', '对外渗透测试产物'],
+  ];
+  let found = 0;
+  for (const [name, why] of FORBIDDEN) {
+    if (existsSync(join(ROOT, name))) {
+      found++;
+      warn(`存在 ${name}（${why}）—— 与本项目无关，已 gitignore，不影响版本库`);
+    }
+  }
+  if (found === 0) ok('无可疑注入产物');
+  else ok('上述产物已 gitignore，不进入版本库');
 }
 
 // ------------------------------------------------------------------ 汇总

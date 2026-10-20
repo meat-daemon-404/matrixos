@@ -1,0 +1,20 @@
+{
+  "description": "微信开发者工具的私有配置样例。复制为 project.private.config.json 后填写本地调试地址；该文件含个人路径，不应提交。",
+  "projectname": "matrixos-wechat-pocket",
+  "setting": {
+    "compileHotReLoad": true,
+    "urlCheck": false
+  },
+  "condition": {
+    "miniprogram": {
+      "list": [
+        {
+          "name": "本地 mock 后端联调",
+          "pathName": "pages/morning/index",
+          "query": "env=local",
+          "scene": null
+        }
+      ]
+    }
+  }
+}

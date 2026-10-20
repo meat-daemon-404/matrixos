@@ -1,0 +1,14 @@
+# ---- 运行依赖（与 pyproject.toml 的 [project] 保持一致）----
+# 装依赖由 Tech Lead 统一执行：pip install -r requirements.txt
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30,<1.0
+httpx>=0.27,<1.0
+pydantic>=2.7,<3.0
+pydantic-settings>=2.3,<3.0
+apscheduler>=3.10,<4.0
+python-dateutil>=2.9,<3.0
+
+# ---- 开发/测试 ----
+pytest>=8.0,<9.0
+pytest-asyncio>=0.23,<1.0
+jsonschema>=4.20,<5.0

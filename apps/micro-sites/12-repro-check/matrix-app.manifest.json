@@ -1,0 +1,24 @@
+{
+  "manifest_version": "1.0",
+  "app_id": "repro-check",
+  "name": "顶刊代码复现核验舱",
+  "entry_url": "https://repro-check.matrixos.edu",
+  "orbit_station": "workshop",
+  "accent_color": "#10b981",
+  "accepts": [
+    "paper_doi_bundle",
+    "curve_fit_parameters"
+  ],
+  "emits": [],
+  "permissions": [
+    "matrix_id:read",
+    "profile:read",
+    "assets:read",
+    "assets:write",
+    "wormhole:receive"
+  ],
+  "author": {
+    "lab_name": "MatrixOS",
+    "university": "MatrixOS"
+  }
+}

@@ -1,0 +1,211 @@
+/* SonarDisc · 360° 极坐标声呐盘 */
+
+.iu-sonar {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  max-width: 100%;
+}
+
+.iu-sonar__frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--iu-radius-md);
+  background:
+    linear-gradient(145deg, var(--iu-bezel-from) 0%, var(--iu-bezel-to) 100%);
+  border: 1px solid var(--iu-border-instrument);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+    0 10px 30px -10px rgb(var(--iu-accent-rgb) / 0.25);
+  padding: var(--iu-space-2);
+  display: flex;
+  flex-direction: column;
+}
+
+.iu-sonar__title {
+  position: absolute;
+  top: var(--iu-space-2);
+  left: var(--iu-space-3);
+  z-index: 2;
+  color: var(--iu-accent-text);
+  font-size: var(--iu-text-2xs);
+  letter-spacing: 0.1em;
+  pointer-events: none;
+}
+
+.iu-sonar__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: visible;
+}
+
+/* ---- 扫描扇区：CSS rotate 无限动画（非 rAF，主线程零负担） --------------- */
+.iu-sonar__sweep {
+  transform-origin: 100px 100px; /* = viewBox 中心 */
+  animation-name: iu-sonar-spin;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+@keyframes iu-sonar-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .iu-sonar__sweep {
+    animation: none;
+    opacity: 0.35;
+  }
+}
+
+/* ---- 风险点 ------------------------------------------------------------ */
+.iu-sonar__blip {
+  outline: none;
+}
+
+.iu-sonar__blip.is-interactive {
+  cursor: pointer;
+}
+
+.iu-sonar__blip.is-interactive:focus-visible {
+  outline: 2px solid var(--iu-accent-bright);
+  outline-offset: 1px;
+  border-radius: 50%;
+}
+
+/* 扩散晕：三级风险共用动画，只有色相不同 */
+.iu-sonar__blip-halo {
+  animation: iu-sonar-ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+  will-change: transform, opacity;
+}
+
+.iu-sonar__blip[data-risk='critical'] .iu-sonar__blip-halo {
+  animation-duration: 1.5s;
+}
+
+.iu-sonar__blip[data-risk='safe'] .iu-sonar__blip-halo {
+  animation-duration: 3.2s;
+  opacity: 0.55;
+}
+
+@keyframes iu-sonar-ping {
+  0% { transform: scale(1); opacity: 0.55; }
+  70% { transform: scale(2.6); opacity: 0.08; }
+  100% { transform: scale(3); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .iu-sonar__blip-halo {
+    animation: none;
+    opacity: 0.35;
+  }
+}
+
+/* ---- 悬停信息卡 -------------------------------------------------------- */
+.iu-sonar__tip {
+  position: absolute;
+  left: var(--iu-space-3);
+  bottom: 34px;
+  right: var(--iu-space-3);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--iu-space-2) var(--iu-space-3);
+  background: rgb(4 12 20 / 0.95);
+  border: 1px solid rgb(var(--iu-accent-rgb) / 0.4);
+  border-radius: var(--iu-radius-sm);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+}
+
+.iu-sonar__tip-title {
+  font-size: var(--iu-text-xs);
+  font-weight: 600;
+  color: var(--iu-text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.iu-sonar__tip-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--iu-font-mono);
+  font-size: var(--iu-text-2xs);
+  color: var(--iu-text-muted);
+}
+
+.iu-sonar__tip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.iu-sonar__tip-dot[data-risk='safe'] { background: var(--iu-positive); }
+.iu-sonar__tip-dot[data-risk='caution'] { background: var(--iu-warning); }
+.iu-sonar__tip-dot[data-risk='critical'] { background: var(--iu-danger); }
+
+.iu-sonar__tip-detail {
+  font-size: var(--iu-text-2xs);
+  color: var(--iu-text-secondary);
+  line-height: var(--iu-leading-snug);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* ---- 图例 -------------------------------------------------------------- */
+.iu-sonar__legend {
+  display: flex;
+  justify-content: center;
+  gap: var(--iu-space-3);
+  padding-top: var(--iu-space-1);
+  flex: none;
+}
+
+.iu-sonar__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--iu-text-2xs);
+  color: var(--iu-text-muted);
+}
+
+/* 图例标记也复刻形状（第二通道） */
+.iu-sonar__legend-mark {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  background: currentColor;
+}
+
+.iu-sonar__legend-mark[data-risk='safe'] {
+  border-radius: 50%;
+  color: var(--iu-positive);
+}
+
+.iu-sonar__legend-mark[data-risk='caution'] {
+  transform: rotate(45deg);
+  color: var(--iu-warning);
+}
+
+.iu-sonar__legend-mark[data-risk='critical'] {
+  clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+  color: var(--iu-danger);
+}
+
+.iu-sonar__legend-count {
+  font-family: var(--iu-font-mono);
+  color: var(--iu-text-secondary);
+}

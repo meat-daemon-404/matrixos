@@ -1,0 +1,27 @@
+{
+  "name": "@matrixos/microsite-07-cold-email-lab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MatrixOS 微站 07 · 证据内嵌式套磁信推演器（轨道 4 · 星门 · cold-email.matrixos.edu）",
+  "scripts": {
+    "dev": "next dev -p 3016",
+    "build": "next build",
+    "start": "next start -p 3016",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf .next"
+  },
+  "dependencies": {
+    "@matrixos/instrument-ui": "workspace:*",
+    "@matrixos/sdk": "workspace:*",
+    "next": "^15.5.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.7.3"
+  }
+}

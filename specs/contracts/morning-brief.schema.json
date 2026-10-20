@@ -1,0 +1,342 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://matrixos.edu/contracts/morning-brief.schema.json",
+  "title": "MatrixOS_Morning_Brief",
+  "description": "04 站 PAT-HOT 每日 08:00 三卡晨间早报。由 services/openalex-pat-worker 生成，微信小程序（apps/wechat-pocket）消费。字段刻意扁平化：嵌套深度 ≤ 3，卡片内全部为标量或一维对象数组，避免小程序端做递归渲染。设计依据见 services/openalex-pat-worker/docs/02-morning-brief.md。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "digest_id",
+    "brief_date",
+    "generated_at",
+    "window",
+    "station",
+    "cards",
+    "stats"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "契约版本。不兼容变更必须升主版本并走 ADR。"
+    },
+    "digest_id": {
+      "type": "string",
+      "pattern": "^pb_[0-9]{8}_[a-f0-9]{8}$",
+      "description": "早报幂等键：pb_<brief_date 去横线>_<内容哈希前 8 位>。同一份内容重跑得到同一 id，便于缓存与去重推送。"
+    },
+    "brief_date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "早报所属日期（按 PAT_TIMEZONE，默认 Asia/Shanghai），非 UTC 日期。"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "生成时刻，带时区偏移的 ISO 8601。"
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end", "hours"],
+      "description": "监听窗口。默认 24h，回补时可放大但不得超过 168h。",
+      "properties": {
+        "start": { "type": "string", "format": "date-time" },
+        "end": { "type": "string", "format": "date-time" },
+        "hours": { "type": "integer", "minimum": 1, "maximum": 168 }
+      }
+    },
+    "station": {
+      "type": "string",
+      "const": "pat_hot",
+      "description": "固定为 pat_hot，与 dispatch-contract 的 station_id 枚举对齐，便于直接塞进调度 DAG。"
+    },
+    "cards": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "description": "严格三卡（R15 裁决）：headline / runner_up / wildcard 各一，候选不足时以 filler 补位，绝不交 2 卡或 4 卡。",
+      "items": { "$ref": "#/definitions/card" }
+    },
+    "stats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidates", "deduped", "selected", "sources"],
+      "properties": {
+        "candidates": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "窗口内各源返回的原始条目总数（未去重）。"
+        },
+        "deduped": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "跨源归并后的唯一条目数。"
+        },
+        "selected": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3,
+          "description": "本次入选卡片的真实条目数（不含 filler）。"
+        },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/source_id" },
+          "description": "本次参与采集且至少返回 1 条的信源。"
+        }
+      }
+    },
+    "disclaimer": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "免责声明。热度为算法估算值，非引用量或影响力指标。"
+    }
+  },
+  "definitions": {
+    "source_id": {
+      "type": "string",
+      "enum": [
+        "arxiv",
+        "openalex",
+        "crossref",
+        "nature_photonics",
+        "nature",
+        "nature_physics",
+        "nature_materials"
+      ],
+      "description": "信源标识。新增信源须先在本枚举登记，再写采集器。"
+    },
+    "card": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "card_id",
+        "rank",
+        "slot",
+        "title",
+        "summary",
+        "heat",
+        "source",
+        "url",
+        "published_at",
+        "fit"
+      ],
+      "properties": {
+        "card_id": {
+          "type": "string",
+          "pattern": "^card_[0-9]{2}$",
+          "description": "卡内唯一 id，同时作为「已读」与「推入桌面队列」的引用键。"
+        },
+        "rank": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3,
+          "description": "展示顺序，1 为最前。"
+        },
+        "slot": {
+          "type": "string",
+          "enum": ["headline", "runner_up", "wildcard", "filler"],
+          "description": "槽位语义：headline 当日最高热度；runner_up 与 headline 不同信源族的次高；wildcard 上升势能最高（topic_momentum 主导）的非重复项；filler 候选不足时的版块综述卡。"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "中文标题，≤80 字。超过 80 字请缩写，不要靠前端截断。"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "description": "一句话摘要，≤160 字。移动端两行内可读。"
+        },
+        "heat": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "multipleOf": 0.1,
+          "description": "热度分（0–100，一位小数）。算法见 services/openalex-pat-worker/docs/01-heat-algorithm.md。"
+        },
+        "heat_level": {
+          "type": "string",
+          "enum": ["hot", "warm", "watch"],
+          "description": "热度分档，供 UI 上色。hot ≥ 75，warm ≥ 55，其余 watch。由 heat 派生，不由客户端计算。"
+        },
+        "metrics": {
+          "type": "array",
+          "maxItems": 4,
+          "description": "关键指标，数量上限 4。label/value 为标量，避免小程序端解析嵌套对象。",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label", "value"],
+            "properties": {
+              "label": { "type": "string", "minLength": 1, "maxLength": 16 },
+              "value": { "type": "string", "minLength": 1, "maxLength": 24 },
+              "unit": { "type": "string", "maxLength": 8 }
+            }
+          }
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://",
+          "description": "原文链接，必须 https。展示前由客户端做跳转确认。"
+        },
+        "doi": {
+          "type": "string",
+          "pattern": "^10\\.[0-9]{4,9}/\\S+$",
+          "description": "小写 DOI，不带 https://doi.org/ 前缀。可与 06 站虫洞 payload 的 evidence_anchors.source_doi_or_url 直接拼接使用。"
+        },
+        "arxiv_id": {
+          "type": "string",
+          "pattern": "^([0-9]{4}\\.[0-9]{4,5}|[a-z-]+(\\.[A-Za-z]{2})?/[0-9]{7})$",
+          "description": "arXiv 编号，已去版本后缀（v1/v2 视为同一篇）。"
+        },
+        "source": { "$ref": "#/definitions/source_id" },
+        "published_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "原文发布时间（非抓取时间），带时区偏移。"
+        },
+        "fit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["score", "basis"],
+          "description": "与大创课题的契合度。basis=none 表示订阅方未配置关键词，此时 score 恒为 0，客户端应显示「—」而不是「0 分」。",
+          "properties": {
+            "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+            "basis": { "type": "string", "enum": ["keywords", "none"] },
+            "terms": {
+              "type": "array",
+              "maxItems": 6,
+              "items": { "type": "string", "minLength": 1, "maxLength": 24 },
+              "description": "命中的订阅关键词，用于解释契合度来源。"
+            }
+          }
+        },
+        "tags": {
+          "type": "array",
+          "maxItems": 5,
+          "items": { "type": "string", "minLength": 1, "maxLength": 24 },
+          "description": "学科/主题标签，英文小写短词，供筛选。"
+        },
+        "read": {
+          "type": "boolean",
+          "default": false,
+          "description": "已读状态。由 worker 读取 read-receipt 存储后投影写入，客户端只读不写。"
+        },
+        "action": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "queue_ref"],
+          "description": "移动端卡片上的唯一动作：「⚡ 推入电脑端待读队列」。真实投递由 matrix-core 完成，worker 只给引用键。",
+          "properties": {
+            "type": { "type": "string", "const": "push_desktop_queue" },
+            "queue_ref": { "type": "string", "minLength": 1, "maxLength": 64 }
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "schema_version": "1.0",
+      "digest_id": "pb_20261020_1f3c9a20",
+      "brief_date": "2026-10-20",
+      "generated_at": "2026-10-20T08:00:02+08:00",
+      "window": {
+        "start": "2026-10-19T08:00:00+08:00",
+        "end": "2026-10-20T08:00:00+08:00",
+        "hours": 24
+      },
+      "station": "pat_hot",
+      "cards": [
+        {
+          "card_id": "card_01",
+          "rank": 1,
+          "slot": "headline",
+          "title": "自组装单分子层将钙钛矿电池 EQE 推至 28.4%",
+          "summary": "通过在空穴传输界面插入双膦酸自组装层，器件在 850 nm 处外量子效率达 28.4%，开路电压损失降至 0.31 V。",
+          "heat": 87.4,
+          "heat_level": "hot",
+          "metrics": [
+            { "label": "EQE", "value": "28.4", "unit": "%" },
+            { "label": "Voc 损失", "value": "0.31", "unit": "V" },
+            { "label": "引用", "value": "14" }
+          ],
+          "url": "https://doi.org/10.1038/s41566-026-01542-1",
+          "doi": "10.1038/s41566-026-01542-1",
+          "source": "nature_photonics",
+          "published_at": "2026-10-19T17:05:00+08:00",
+          "fit": {
+            "score": 86,
+            "basis": "keywords",
+            "terms": ["钙钛矿", "钝化"]
+          },
+          "tags": ["perovskite", "eqe", "solar-cell"],
+          "read": false,
+          "action": { "type": "push_desktop_queue", "queue_ref": "card_01" }
+        },
+        {
+          "card_id": "card_02",
+          "rank": 2,
+          "slot": "runner_up",
+          "title": "超快泵浦-探测揭示二维钙钛矿激子退相干通道",
+          "summary": "arXiv 预印本用飞秒瞬态吸收给出 180 fs 的激子退相干时间，并指认声子散射为主导通道。",
+          "heat": 74.1,
+          "heat_level": "warm",
+          "metrics": [
+            { "label": "退相干时间", "value": "180", "unit": "fs" },
+            { "label": "信源覆盖", "value": "3" }
+          ],
+          "url": "https://arxiv.org/abs/2610.04921",
+          "arxiv_id": "2610.04921",
+          "source": "arxiv",
+          "published_at": "2026-10-19T22:11:00+08:00",
+          "fit": {
+            "score": 71,
+            "basis": "keywords",
+            "terms": ["钙钛矿", "超快光谱"]
+          },
+          "tags": ["perovskite", "ultrafast", "exciton"],
+          "read": false
+        },
+        {
+          "card_id": "card_03",
+          "rank": 3,
+          "slot": "wildcard",
+          "title": "光学微腔中的室温极化激元凝聚出现阈值骤降",
+          "summary": "同一周内 3 个信源同时出现相关预印本与期刊论文，主题热度较 7 日均值上升 3.2 倍。",
+          "heat": 68.9,
+          "heat_level": "warm",
+          "metrics": [
+            { "label": "主题热度比", "value": "3.2", "unit": "×" },
+            { "label": "信源覆盖", "value": "3" }
+          ],
+          "url": "https://doi.org/10.1103/PhysRevLett.137.143901",
+          "doi": "10.1103/physrevlett.137.143901",
+          "source": "crossref",
+          "published_at": "2026-10-19T09:40:00+08:00",
+          "fit": {
+            "score": 44,
+            "basis": "keywords",
+            "terms": ["微腔"]
+          },
+          "tags": ["polariton", "microcavity"],
+          "read": true
+        }
+      ],
+      "stats": {
+        "candidates": 213,
+        "deduped": 168,
+        "selected": 3,
+        "sources": ["arxiv", "openalex", "crossref", "nature_photonics"]
+      },
+      "disclaimer": "热度为 MatrixOS 自研算法估算值（pat-heat/1.0），仅供选题参考，不代表引用量或学术影响力评价。"
+    }
+  ]
+}

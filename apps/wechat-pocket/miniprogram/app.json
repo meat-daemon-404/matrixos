@@ -1,0 +1,79 @@
+{
+  "pages": [
+    "pages/morning/index",
+    "pages/checkin/index",
+    "pages/mentor/index",
+    "pages/card/index"
+  ],
+  "subPackages": [
+    {
+      "root": "pkg-queue",
+      "name": "queue",
+      "pages": [
+        "queue/index",
+        "detail/index"
+      ]
+    }
+  ],
+  "preloadRule": {
+    "pages/morning/index": {
+      "network": "all",
+      "packages": ["queue"]
+    }
+  },
+  "window": {
+    "backgroundTextStyle": "dark",
+    "backgroundColor": "#050814",
+    "backgroundColorTop": "#050814",
+    "backgroundColorBottom": "#050814",
+    "navigationBarBackgroundColor": "#050814",
+    "navigationBarTitleText": "MatrixOS 口袋",
+    "navigationBarTextStyle": "white",
+    "navigationStyle": "default"
+  },
+  "tabBar": {
+    "color": "#64748b",
+    "selectedColor": "#22d3ee",
+    "backgroundColor": "#070b18",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/morning/index",
+        "text": "晨间早报",
+        "iconPath": "assets/tabbar/morning.png",
+        "selectedIconPath": "assets/tabbar/morning-active.png"
+      },
+      {
+        "pagePath": "pages/checkin/index",
+        "text": "学业打卡",
+        "iconPath": "assets/tabbar/checkin.png",
+        "selectedIconPath": "assets/tabbar/checkin-active.png"
+      },
+      {
+        "pagePath": "pages/mentor/index",
+        "text": "进组提醒",
+        "iconPath": "assets/tabbar/mentor.png",
+        "selectedIconPath": "assets/tabbar/mentor-active.png"
+      },
+      {
+        "pagePath": "pages/card/index",
+        "text": "学术名片",
+        "iconPath": "assets/tabbar/card.png",
+        "selectedIconPath": "assets/tabbar/card-active.png"
+      }
+    ]
+  },
+  "networkTimeout": {
+    "request": 8000,
+    "connectSocket": 8000,
+    "downloadFile": 12000,
+    "uploadFile": 12000
+  },
+  "lazyCodeLoading": "requiredComponents",
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "darkmode": false,
+  "resizable": false,
+  "permission": {},
+  "requiredPrivateInfos": []
+}

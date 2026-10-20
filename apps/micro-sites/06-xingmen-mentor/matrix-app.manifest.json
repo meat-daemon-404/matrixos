@@ -1,0 +1,27 @@
+{
+  "manifest_version": "1.0",
+  "app_id": "mentor",
+  "name": "星门 · 导师五维星象仪",
+  "entry_url": "https://mentor.matrixos.edu",
+  "orbit_station": "xingmen",
+  "accent_color": "#06b6d4",
+  "accepts": [
+    "paper_doi_bundle",
+    "curve_fit_parameters"
+  ],
+  "emits": [
+    "mentor_match_card"
+  ],
+  "permissions": [
+    "matrix_id:read",
+    "profile:read",
+    "assets:read",
+    "assets:write",
+    "wormhole:send",
+    "wormhole:receive"
+  ],
+  "author": {
+    "lab_name": "MatrixOS",
+    "university": "MatrixOS"
+  }
+}

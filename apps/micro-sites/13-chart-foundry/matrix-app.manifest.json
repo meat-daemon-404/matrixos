@@ -1,0 +1,24 @@
+{
+  "manifest_version": "1.0",
+  "app_id": "chart-foundry",
+  "name": "Nature 级出版图表熔炉",
+  "entry_url": "https://chart-foundry.matrixos.edu",
+  "orbit_station": "workshop",
+  "accent_color": "#10b981",
+  "accepts": [
+    "curve_fit_parameters",
+    "comparison_matrix_row"
+  ],
+  "emits": [],
+  "permissions": [
+    "matrix_id:read",
+    "profile:read",
+    "assets:read",
+    "assets:write",
+    "wormhole:receive"
+  ],
+  "author": {
+    "lab_name": "MatrixOS",
+    "university": "MatrixOS"
+  }
+}

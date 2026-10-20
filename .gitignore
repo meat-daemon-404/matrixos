@@ -73,3 +73,11 @@ apps/wechat-pocket/**/miniprogram_npm/
 
 # ---- turbo ----
 .turbo/
+
+# ---- 安全：注入产物防护 ----
+# 这些文件名对应的内容不属于本项目（见 docs/02-engineering/SECURITY.md SEC-001）。
+# 若在仓库里看到它们，不要执行，直接删除并记录。
+operation-state.json
+route-audit.md
+pentest/
+*.probe.log

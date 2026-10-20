@@ -1,0 +1,26 @@
+{
+  "manifest_version": "1.0",
+  "app_id": "lit-sonar",
+  "name": "五源跨库引文声呐站",
+  "entry_url": "https://lit-sonar.matrixos.edu",
+  "orbit_station": "pat_hot",
+  "accent_color": "#f59e0b",
+  "accepts": [
+    "paper_doi_bundle"
+  ],
+  "emits": [
+    "paper_doi_bundle"
+  ],
+  "permissions": [
+    "matrix_id:read",
+    "profile:read",
+    "assets:read",
+    "assets:write",
+    "wormhole:send",
+    "wormhole:receive"
+  ],
+  "author": {
+    "lab_name": "MatrixOS",
+    "university": "MatrixOS"
+  }
+}

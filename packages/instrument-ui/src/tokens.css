@@ -1,0 +1,197 @@
+/* =============================================================================
+ * @matrixos/instrument-ui · tokens.css
+ * -----------------------------------------------------------------------------
+ * 唯一权威来源：docs/00-analysis/04-visual-system.md §9「可直接落地的 Token 定义」。
+ * 本文件的**值**逐条对齐该文档的实测结论，不发明颜色；命名改为 `--iu-*` 命名空间，
+ * 以免与 18 个微站各自的历史 `--color-*` 变量相互覆盖（映射表见 README 与
+ * tokens.compat.css）。
+ *
+ * 三条硬约束（来自视觉体系文档 §2.5 / §4 / §10）：
+ *   1. 正文对比度 ≥ 4.5:1。本文件在注释里标注了每个前景色对最差底色（#0f172a）
+ *      的实测对比度；**< 4.5 的色值禁止用于正文**，只允许用于图形/大号数字。
+ *   2. 圆角只有 8px / 12px 是主力（52% 用量），16px 只用于容器级。
+ *   3. 辉光配方固定为 `blur 28px + spread -5px + alpha 0.45`，只有色相可变。
+ * ========================================================================== */
+
+:root {
+  color-scheme: dark;
+
+  /* ---------- Surface · 表面层 -------------------------------------------
+   * 文档 §2.1：真正承担表面职责的是 Tailwind slate 色阶，不是品牌色。
+   * `panel`（#0B1021）在原设计里是死 token，这里把它接线到 --iu-bg-panel-end，
+   * 兑现设计意图（见视觉体系 §10 V1）。
+   * --------------------------------------------------------------------- */
+  --iu-bg: #050814;                 /* obsidian · 页面底色 */
+  --iu-bg-panel: #0b1124;           /* .instrument-bezel 渐变起点 */
+  --iu-bg-panel-end: #070b18;       /* .instrument-bezel 渐变终点 */
+  --iu-bg-panel-legacy: #0b1021;    /* 原 panel token，见上 */
+  --iu-bg-sunken: #020617;          /* slate-950 · 凹槽/画布底 */
+  --iu-bg-raised: #0f172a;          /* slate-900 · 次级面板 */
+  --iu-bg-inset: #0b1124;           /* 内嵌块 */
+  --iu-glass: rgba(13, 20, 38, 0.78);
+
+  /* ---------- Canvas 专用（SVG/Canvas 硬编码色，与 Tailwind 体系无关）------
+   * 文档 §2.6，逐条来自 drawCurveLab() 等实现。
+   * --------------------------------------------------------------------- */
+  --iu-canvas-bg: #040814;
+  --iu-canvas-grid: rgba(30, 41, 59, 0.75);
+  --iu-canvas-grid-strong: #334155;
+  --iu-canvas-axis: #475569;
+  --iu-canvas-band: rgba(6, 182, 212, 0.14);
+  --iu-canvas-curve: #22d3ee;
+  --iu-canvas-scatter: #f59e0b;
+  --iu-canvas-label: #94a3b8;
+  --iu-sonar-bg: #04121a;
+
+  /* ---------- Border · 边框 ---------------------------------------------- */
+  --iu-border: #1e293b;             /* slate-800 · 全局分隔线（77 处） */
+  --iu-border-strong: #334155;      /* slate-700 */
+  --iu-border-accent: rgba(99, 102, 241, 0.22);
+  --iu-border-instrument: rgba(56, 189, 248, 0.25); /* .instrument-bezel 的边 */
+
+  /* ---------- Text · 文字（括号内 = 对最差底色 #0f172a 的实测对比度）------ */
+  --iu-text: #f1f5f9;               /* 16.30 · 正文 */
+  --iu-text-strong: #ffffff;        /* 17.85 · 标题/主数值 */
+  --iu-text-secondary: #cbd5e1;     /* 12.02 · 次级正文 */
+  --iu-text-muted: #94a3b8;         /*  6.96 · 说明文字（主力） */
+  --iu-text-faint: #64748b;         /*  3.75 · ⚠ 仅图标/占位，禁止正文 */
+
+  /* ---------- Accent · 品牌六色（取自 Tailwind 500 档，与原设计一致）------
+   * 每个色族给三档：base(图形/描边) / bright(大号数字) / text(小号文字)
+   * 文档 §2.5 实测：indigo-500 4.47、violet-500 4.72 不达正文标准，
+   * 故小号文字一律降级到 400 档（--iu-*-text）。
+   * --------------------------------------------------------------------- */
+  --iu-action: #6366f1;             /* indigo-500 · 主 CTA（4.00，仅图形/大字） */
+  --iu-action-hover: #4f46e5;       /* indigo-600 */
+  --iu-action-text: #818cf8;        /* indigo-400 · 5.98 ✓ AA */
+  --iu-instrument: #06b6d4;         /* cyan-500 · 仪器/数据（7.35 ✓ AAA） */
+  --iu-instrument-bright: #22d3ee;  /* cyan-400（9.88 ✓ AAA） */
+  --iu-instrument-text: #22d3ee;
+  --iu-positive: #10b981;           /* emerald-500（7.04 ✓ AAA） */
+  --iu-positive-bright: #34d399;    /* emerald-400（9.29 ✓ AAA） */
+  --iu-positive-text: #34d399;
+  --iu-warning: #f59e0b;            /* amber-500（8.31 ✓ AAA） */
+  --iu-warning-bright: #fbbf24;     /* amber-400（10.69 ✓ AAA） */
+  --iu-warning-text: #fbbf24;
+  --iu-danger: #f43f5e;             /* rose-500（4.86 ✓ AA） */
+  --iu-danger-bright: #fb7185;      /* rose-400（6.63 ✓ AA） */
+  --iu-danger-text: #fb7185;        /* ⚠ 小号文字用 400 档，不用 500 */
+  --iu-ecosystem: #8b5cf6;          /* violet-500（4.22 ✗ 仅图形/大字） */
+  --iu-ecosystem-text: #a78bfa;     /* violet-400（6.56 ✓ AA） */
+
+  /* RGB 三元组：供 rgba(var(--iu-x-rgb) / a) 拼装透明色 */
+  --iu-action-rgb: 99 102 241;
+  --iu-instrument-rgb: 6 182 212;
+  --iu-positive-rgb: 16 185 129;
+  --iu-warning-rgb: 245 158 11;
+  --iu-danger-rgb: 244 63 94;
+  --iu-ecosystem-rgb: 139 92 246;
+  --iu-neutral-rgb: 148 163 184;
+
+  /* 当前强调色（组件内部按 accent 覆写，缺省 = 仪器 cyan） */
+  --iu-accent: var(--iu-instrument);
+  --iu-accent-bright: var(--iu-instrument-bright);
+  --iu-accent-text: var(--iu-instrument-text);
+  --iu-accent-rgb: var(--iu-instrument-rgb);
+
+  /* ---------- Glow · 辉光（配方固定，只有色相变化）------------------------ */
+  --iu-glow-spread: 0 0 28px -5px;
+  --iu-glow-alpha: 0.45;
+  --iu-glow: var(--iu-glow-spread) rgb(var(--iu-accent-rgb) / var(--iu-glow-alpha));
+  --iu-glow-strong: 0 0 40px -2px rgb(var(--iu-accent-rgb) / 0.55);
+
+  /* ---------- Bezel · 仪器面板（本设计的核心资产，视觉体系 §5.2）---------- */
+  --iu-bezel-from: var(--iu-bg-panel);
+  --iu-bezel-to: var(--iu-bg-panel-end);
+  --iu-bezel-sheen: inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+  --iu-bezel-outer: 0 10px 30px -10px rgb(var(--iu-accent-rgb) / 0.25);
+
+  /* ---------- Radius · 圆角 ---------------------------------------------- */
+  --iu-radius-xs: 4px;
+  --iu-radius-sm: 8px;
+  --iu-radius-md: 12px;
+  --iu-radius-lg: 16px;
+  --iu-radius-xl: 24px;
+  --iu-radius-pill: 9999px;
+
+  /* ---------- Typography · 字体 ------------------------------------------
+   * 文档 §3.1 V3：原设计无 CJK 回退，这里补齐；且**不依赖 Google Fonts CDN**
+   * （国内高校网络不可达，见 V10）。字体二进制不进仓库，由宿主 app 自托管
+   * woff2 后覆盖本变量即可，自托管模板见 src/fonts.example.css。
+   * --------------------------------------------------------------------- */
+  --iu-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC',
+    'Source Han Sans SC', sans-serif;
+  --iu-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo,
+    'Cascadia Mono', 'Roboto Mono', 'Noto Sans Mono CJK SC', monospace;
+
+  /* 密度倍数：文档 §3.2 V8 的解法——默认 1，答辩/投屏模式整体放大 1.25× */
+  --iu-type-scale: 1;
+
+  --iu-text-2xs: calc(10px * var(--iu-type-scale)); /* 仅仪器刻度标签 */
+  --iu-text-xs: calc(12px * var(--iu-type-scale));
+  --iu-text-sm: calc(14px * var(--iu-type-scale));
+  --iu-text-base: calc(16px * var(--iu-type-scale));
+  --iu-text-lg: calc(18px * var(--iu-type-scale));
+  --iu-text-xl: calc(20px * var(--iu-type-scale));
+  --iu-text-2xl: calc(24px * var(--iu-type-scale));
+  --iu-text-3xl: calc(30px * var(--iu-type-scale));
+
+  --iu-leading-tight: 1.15;
+  --iu-leading-snug: 1.35;
+  --iu-leading-base: 1.6;
+  --iu-tracking-label: 0.08em;
+
+  /* ---------- Space · 间距 ---------------------------------------------- */
+  --iu-space-1: 4px;
+  --iu-space-2: 8px;
+  --iu-space-3: 12px;
+  --iu-space-4: 16px;
+  --iu-space-5: 20px;
+  --iu-space-6: 24px;
+  --iu-space-8: 32px;
+
+  /* ---------- Motion · 动效 --------------------------------------------- */
+  --iu-dur-fast: 150ms;
+  --iu-dur-base: 300ms;
+  --iu-dur-slow: 500ms;
+  --iu-ease-base: cubic-bezier(0.4, 0, 0.2, 1);
+  --iu-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --iu-pulse-duration: 2.8s;        /* 唯一自定义 keyframes 的原始时长 */
+
+  /* ---------- Layer · 层级 ---------------------------------------------- */
+  --iu-z-panel: 1;
+  --iu-z-overlay: 20;
+  --iu-z-dock: 40;
+  --iu-z-tooltip: 60;
+}
+
+/* 答辩 / 投屏模式：整体字号放大 1.25×（视觉体系 §3.2 V8 建议） */
+[data-iu-density='presentation'] {
+  --iu-type-scale: 1.25;
+}
+
+/* -----------------------------------------------------------------------------
+ * prefers-reduced-motion：原设计 0 处覆盖（V4），组件库强制补齐。
+ * 这里只做「兜底」——每个组件自身也显式关闭装饰性动画，见各自 CSS。
+ * -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --iu-dur-fast: 0.01ms;
+    --iu-dur-base: 0.01ms;
+    --iu-dur-slow: 0.01ms;
+    --iu-pulse-duration: 0.01ms;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+ * 高对比度模式：Windows 强制色模式下把辉光/渐变降级为实色边。
+ * -------------------------------------------------------------------------- */
+@media (forced-colors: active) {
+  :root {
+    --iu-glow: none;
+    --iu-glow-strong: none;
+    --iu-bezel-sheen: none;
+    --iu-bezel-outer: none;
+  }
+}

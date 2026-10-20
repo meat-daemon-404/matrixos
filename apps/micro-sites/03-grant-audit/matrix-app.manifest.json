@@ -1,0 +1,20 @@
+{
+  "manifest_version": "1.0",
+  "app_id": "grant-audit",
+  "name": "大创五科目经费液位仪",
+  "entry_url": "https://grant-audit.matrixos.edu",
+  "orbit_station": "spark",
+  "accent_color": "#8b5cf6",
+  "accepts": [],
+  "emits": [],
+  "permissions": [
+    "matrix_id:read",
+    "profile:read",
+    "assets:read",
+    "assets:write"
+  ],
+  "author": {
+    "lab_name": "MatrixOS",
+    "university": "MatrixOS"
+  }
+}

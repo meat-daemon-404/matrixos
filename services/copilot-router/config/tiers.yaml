@@ -127,7 +127,15 @@ routing:
     # 只有「长度敏感」的任务，长输入才允许触发升档到 Pro。
     # 否则长输入一律留在 flash 档 —— 这是控制 R-T05 成本的第一道阀门。
     pro_min_tokens: 16000
+    # 「长度敏感」的含义：这类任务在**输入很长**时才真的需要 Pro 的长上下文能力；
+    # 输入短的时候用便宜档完全够。因此它们是长度维度的真实作用对象。
+    #
+    # 注意（诚实说明）：multi_paper_compare / review_outline / cold_email 三项
+    # 的默认档位本来就是 tier-03，长度规则对它们是 no-op —— 它们进来是为了
+    # 语义完整（万一将来把默认档下调，规则立刻生效），而不是为了「显得规则有用」。
+    # 真正靠长度维度省钱的是 long_document_read（默认 tier-02，长文才升 Pro）。
     length_sensitive_task_types:
+      - long_document_read
       - multi_paper_compare
       - review_outline
       - cold_email
@@ -222,6 +230,22 @@ routing:
         - "对齐字段"
       regex:
         - "(?:字段|列名|表头)\\s*(?:对齐|映射|统一)"
+    long_document_read:
+      tier: tier-02
+      description: "整篇 PDF/长文档的精读抽取（短则 Flash，长则升 Pro）"
+      # 这个任务类型是「长度维度」的真实作用对象：默认在 ¥0.40/M 的 tier-02，
+      # 只有输入 ≥ pro_min_tokens 时才升到 Pro —— 对应 10 号站 pdf-sniper
+      # 「点开一篇 40 页论文问细节」的真实场景。
+      keywords:
+        - "精读"
+        - "通读全文"
+        - "整篇论文"
+        - "全文抽取"
+        - "读了这篇"
+        - "这篇 pdf"
+        - "paper reading"
+      regex:
+        - "(?:精读|通读|读完整篇|逐段读)"
     multi_paper_compare:
       tier: tier-03
       description: "Matrix-Cross 多篇顶刊长上下文横向对比"
@@ -286,6 +310,7 @@ routing:
         - "术语一致性"
       regex:
         - "(?:校准|统一|核对).{0,6}(?:术语|译名|专有名词)"
+        - "(?:术语|译名|专有名词).{0,12}(?:校准|统一|核对|校对)"
 
 # -----------------------------------------------------------------------------
 # 敏感数据识别（合规红线）

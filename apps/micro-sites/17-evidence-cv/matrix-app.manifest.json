@@ -1,0 +1,29 @@
+{
+  "manifest_version": "1.0",
+  "app_id": "evidence-cv",
+  "name": "区块链级学术证据简历工坊",
+  "entry_url": "https://evidence-cv.matrixos.edu",
+  "orbit_station": "pre_job",
+  "accent_color": "#f43f5e",
+  "accepts": [
+    "paper_doi_bundle",
+    "comparison_matrix_row",
+    "curve_fit_parameters",
+    "mentor_match_card"
+  ],
+  "emits": [
+    "verified_cv_evidence"
+  ],
+  "permissions": [
+    "matrix_id:read",
+    "profile:read",
+    "assets:read",
+    "assets:write",
+    "wormhole:send",
+    "wormhole:receive"
+  ],
+  "author": {
+    "lab_name": "MatrixOS",
+    "university": "MatrixOS"
+  }
+}

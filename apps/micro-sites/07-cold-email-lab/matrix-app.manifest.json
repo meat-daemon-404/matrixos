@@ -1,0 +1,24 @@
+{
+  "manifest_version": "1.0",
+  "app_id": "cold-email",
+  "name": "证据内嵌式套磁信推演器",
+  "entry_url": "https://cold-email.matrixos.edu",
+  "orbit_station": "xingmen",
+  "accent_color": "#06b6d4",
+  "accepts": [
+    "mentor_match_card",
+    "curve_fit_parameters"
+  ],
+  "emits": [],
+  "permissions": [
+    "matrix_id:read",
+    "profile:read",
+    "assets:read",
+    "assets:write",
+    "wormhole:receive"
+  ],
+  "author": {
+    "lab_name": "MatrixOS",
+    "university": "MatrixOS"
+  }
+}

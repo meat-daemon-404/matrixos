@@ -1,0 +1,23 @@
+{
+  "manifest_version": "1.0",
+  "app_id": "prejob",
+  "name": "生涯多重宇宙期望决策树",
+  "entry_url": "https://prejob.matrixos.edu",
+  "orbit_station": "pre_job",
+  "accent_color": "#f43f5e",
+  "accepts": [
+    "verified_cv_evidence"
+  ],
+  "emits": [],
+  "permissions": [
+    "matrix_id:read",
+    "profile:read",
+    "assets:read",
+    "assets:write",
+    "wormhole:receive"
+  ],
+  "author": {
+    "lab_name": "MatrixOS",
+    "university": "MatrixOS"
+  }
+}

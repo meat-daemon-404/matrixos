@@ -1,0 +1,23 @@
+{
+  "manifest_version": "1.0",
+  "app_id": "spark",
+  "name": "双创互补组队雷达",
+  "entry_url": "https://spark.matrixos.edu",
+  "orbit_station": "spark",
+  "accent_color": "#8b5cf6",
+  "accepts": [
+    "verified_cv_evidence"
+  ],
+  "emits": [],
+  "permissions": [
+    "matrix_id:read",
+    "profile:read",
+    "assets:read",
+    "assets:write",
+    "wormhole:receive"
+  ],
+  "author": {
+    "lab_name": "MatrixOS",
+    "university": "MatrixOS"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "@matrixos/wechat-pocket",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MatrixOS 口袋微信小程序伴侣端 —— 双端不对称协同中的移动轻交互端（冷启动目标 < 800ms）",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "mock:server": "node mock-server/server.cjs",
+    "mock:check": "node mock-server/selftest.cjs"
+  },
+  "keywords": ["matrixos", "wechat-miniprogram", "pocket"],
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

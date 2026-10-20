@@ -1,0 +1,24 @@
+{
+  "manifest_version": "1.0",
+  "app_id": "review-lab",
+  "name": "综述拓扑推演与写作舱",
+  "entry_url": "https://review-lab.matrixos.edu",
+  "orbit_station": "workshop",
+  "accent_color": "#10b981",
+  "accepts": [
+    "paper_doi_bundle",
+    "comparison_matrix_row"
+  ],
+  "emits": [],
+  "permissions": [
+    "matrix_id:read",
+    "profile:read",
+    "assets:read",
+    "assets:write",
+    "wormhole:receive"
+  ],
+  "author": {
+    "lab_name": "MatrixOS",
+    "university": "MatrixOS"
+  }
+}

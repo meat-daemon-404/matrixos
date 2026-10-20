@@ -1,0 +1,23 @@
+{
+  "manifest_version": "1.0",
+  "app_id": "lab-kanban",
+  "name": "太空任务式进组跟进台账",
+  "entry_url": "https://lab-kanban.matrixos.edu",
+  "orbit_station": "xingmen",
+  "accent_color": "#06b6d4",
+  "accepts": [
+    "mentor_match_card"
+  ],
+  "emits": [],
+  "permissions": [
+    "matrix_id:read",
+    "profile:read",
+    "assets:read",
+    "assets:write",
+    "wormhole:receive"
+  ],
+  "author": {
+    "lab_name": "MatrixOS",
+    "university": "MatrixOS"
+  }
+}

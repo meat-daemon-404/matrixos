@@ -1,0 +1,26 @@
+{
+  "manifest_version": "1.0",
+  "app_id": "pdf-sniper",
+  "name": "PDF 公式与参量狙击镜",
+  "entry_url": "https://pdf-sniper.matrixos.edu",
+  "orbit_station": "workshop",
+  "accent_color": "#10b981",
+  "accepts": [
+    "paper_doi_bundle"
+  ],
+  "emits": [
+    "comparison_matrix_row"
+  ],
+  "permissions": [
+    "matrix_id:read",
+    "profile:read",
+    "assets:read",
+    "assets:write",
+    "wormhole:send",
+    "wormhole:receive"
+  ],
+  "author": {
+    "lab_name": "MatrixOS",
+    "university": "MatrixOS"
+  }
+}
