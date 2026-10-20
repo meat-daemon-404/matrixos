@@ -44,7 +44,7 @@ HTML 共 442,654 字符，其中 **313,552 字符（70.8%）是 4 张图片的 b
 | 1 | Tab 6 目录树含 `15-journal-compass`（投稿罗盘），但花名册**无此站**；且目录树把"导师+进组"合并、花名册拆成两站，从 06 起整体错位 | ✅ **已裁决**：以 `specs/microsites.json` 为准，目录树仅借其描述性命名；`journal-compass` 列为 Backlog，若要做走第 19 号 SDK 插槽。见 [ADR-001](../01-plan/00-adr-001-microsite-numbering.md)。**`journal-compass` 去留仍需业务方确认** |
 | 2 | 商业数字三处不自洽：单用户成本宣称 `<¥1.5` 但仿真器用 `¥1.76`；"第 9 个月转正"无逐月模型；仿真器固定成本 ¥20,000 与预算表科目对不上 | 答辩前必须统一口径，否则易被追问 |
 | 3 | 4 张渲染图含伪造文字（`Hytothesis Lab`/`Caosed`/`Statuss`/`Curvetab`）与版本号错误（`Academic Workspace **v3.8**`）、物理错误（`CPU 122.38 GHz`） | 答辩展示前标注"AI 概念图"，或遮挡重制标头 |
-| 4 | 四个原型线上地址（scholarmatrix / xingmen-mentor / pat-hot / workbuddy）本次分析环境**无法发起外部 HTTPS，未核实可用性** | 需有外网权限者确认。这决定 Stage 1 是「解耦现有代码」还是「重写」 |
+| 4 | 四个原型线上可用性 | ✅ **已核实（Lead 2026-10-20）**：四个地址全部 HTTP 200 可访问。详见 [02-prototype-status.md](../02-engineering/02-prototype-status.md)。**遗留**：预职源码仓库未找到；四站涉及 React/Vue-Vite/Vue-CDN 三种技术栈，解耦不能按统一方案推进 |
 
 ---
 
