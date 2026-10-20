@@ -320,6 +320,26 @@ function cmdLs(flags) {
     for (const r of staleSuspects) console.log(`  #${r.n} ${r.why}｜${r.title.slice(0, 50)}`);
   }
 
+  // 已关闭但残留认领标签 = 死票顶活标签（#33）。ls 主列表只看 open，
+  // 这些残留会藏在这条兜底提示里，直到有人用 done 补证据或手动摘除。
+  // 注意：gh 的 --label A,B 是 AND 语义，所以要分两次查再按编号去重。
+  const residueMap = new Map();
+  for (const one of [LABEL_CLAIMED, LABEL_REVIEW]) {
+    const rows = ghJson(["issue", "list", "--repo", REPO, "--state", "closed",
+      "--label", one, "--limit", "20", "--json", "number,title"]);
+    for (const i of rows) {
+      if (!residueMap.has(i.number)) residueMap.set(i.number, { n: i.number, title: i.title, labels: new Set() });
+      residueMap.get(i.number).labels.add(one);
+    }
+  }
+  if (residueMap.size) {
+    console.log(`\n⚠️ 已关闭但残留认领标签（${residueMap.size}）—— 关单没走 claim（如 PR 自动关单），标签没被摘：`);
+    for (const r of residueMap.values()) {
+      console.log(`  #${r.n} [${[...r.labels].join(",")}] ${r.title.slice(0, 48)}`);
+    }
+    console.log("  处理：node scripts/claim.mjs done <编号> --evidence \"补记\"（会自动摘标签）");
+  }
+
   if (flags.deep) {
     console.log(`\n🔍 深查：拿每个空闲 Issue 的技术标识符回查 main，看有没有提交就是在做它（提示，不是结论）`);
     const ranked = free.map((r) => ({ r, h: commitHint(r.title) }));
@@ -392,18 +412,24 @@ function cmdDone(n, flags) {
     die("关闭必须带证据：node scripts/claim.mjs done 16 --evidence \"typecheck 25/25 + 385 测试通过，见 PR #7\"\n" +
       "  没有证据的关闭会让下一个人在同一处重复开工。");
   }
-  const detail = ghJson(["issue", "view", String(n), "--repo", REPO, "--json", "state,title"]);
+  const detail = ghJson(["issue", "view", String(n), "--repo", REPO, "--json", "state,title,labels"]);
   const who = me();
+  const labs = (detail.labels || []).map((l) => l.name);
   const closed = detail.state !== "OPEN";
   gh(["issue", "comment", String(n), "--repo", REPO, "--body",
     `### ✅ 完成证据\n\n${evidence}\n\n由 @${who} 于 ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC ${closed ? "补记" : "关闭"}。`]);
+  // 关单路径必须摘掉认领状态标签（#33）：claim/pr 打的标签此前没有任何清理者，
+  // 死票顶着 status:claimed 会和票面失真同构地误导后来者。非认领状态（blocked 等）保留。
+  const stale = [LABEL_CLAIMED, LABEL_REVIEW].filter((l) => labs.includes(l));
+  if (stale.length) gh(["issue", "edit", String(n), "--repo", REPO, "--remove-label", stale.join(",")]);
+  const cleared = stale.length ? `（已清理 ${stale.join(" / ")}）` : "";
   if (closed) {
     // 已关闭的只补证据。不能再调 close——那会报 "already closed" 并以退出码 2 死掉。
-    console.log(`\n✓ #${n} 已是 ${detail.state}，证据已补记。\n`);
+    console.log(`\n✓ #${n} 已是 ${detail.state}，证据已补记${cleared}\n`);
     return;
   }
   gh(["issue", "close", String(n), "--repo", REPO, "--reason", "completed"]);
-  console.log(`\n✓ #${n} 已关闭｜${detail.title}\n`);
+  console.log(`\n✓ #${n} 已关闭｜${detail.title}${cleared}\n`);
 }
 
 // ---------- 分支与 PR ----------

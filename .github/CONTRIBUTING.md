@@ -99,7 +99,8 @@ node scripts/claim.mjs pr 16      # 用当前分支开 PR，正文自动写 Clos
 
 Issue 挂着 open 但活已经做完 = 在下一个人面前放了一个诱饵。所以：
 
-- **确认已完成的**：`node scripts/claim.mjs done <编号> --evidence "..."`。脚本强制要求证据（测试输出 / 提交号 / PR 链接 / 文档路径），没有证据不给关。
+- **确认已完成的**：`node scripts/claim.mjs done <编号> --evidence "..."`。脚本强制要求证据（测试输出 / 提交号 / PR 链接 / 文档路径），没有证据不给关；关闭时自动摘掉 `status:claimed` / `status:in-review`。
+- **PR 合并自动关单的**：GitHub 侧关单不经过本工具，认领标签可能残留——`claim ls` 会列进「已关闭但残留认领标签」兜底提示，看到就 `done <编号> --evidence "补记"` 顺手清掉（见 Issue #33）。
 - **只完成一半的**：在该 Issue 下评论写清「已有什么、还缺什么」，别关也别放着当没看见。
 - **纯决策类**（要项目负责人拍板、要外部账号资质）：`node scripts/claim.mjs block <编号> --note "等学生认证到账"`。`blocked` 不是待办，不要用写代码的方式去「关闭」它。
 
