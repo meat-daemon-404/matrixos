@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: 架构决策讨论
-    url: https://github.com/meat-daemon-404/matrixos/discussions
-    about: 设计争议、技术选型、契约变更请走 Discussion，不要开 Issue
+  - name: 开工前先查台账并认领
+    url: https://github.com/meat-daemon-404/matrixos/issues?q=is%3Aissue+is%3Aopen
+    about: 别挑个 open Issue 就直接做——先跑 `node scripts/claim.mjs ls --deep` 确认没人在做、台账没落后于代码，再 claim
   - name: 设计交付物说明
     url: https://github.com/meat-daemon-404/matrixos/tree/main/bundle
     about: bundle/ 是设计图谱交付物，不含可运行代码

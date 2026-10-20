@@ -49,6 +49,11 @@ desktop.ini
 .tmp/
 scratch/
 
+# ---- 并行工作的独立 worktree（由 scripts/claim.mjs branch 创建）----
+# 认领后的活都在 .worktrees/<branch>/ 里做，主工作区只用于查状态。
+# 这些目录本身不是仓库内容，绝不入库。
+.worktrees/
+
 # ---- MatrixID 密钥（🔴 红线：私钥绝不提交）----
 # 规则：所有 pem 一律忽略，只放行 public 密钥
 services/matrix-core/keys/

@@ -1,17 +1,25 @@
 /**
  * MatrixOS SDK · 冻结契约的内嵌镜像
  *
- * 这三份 JSON 是 `specs/contracts/*.schema.json` 的**逐字副本**，供 SDK 在浏览器/
+ * 下面这两份 JSON 是 `specs/contracts/*.schema.json` 的**逐字副本**，供 SDK 在浏览器/
  * 第三方站内做运行时校验（那些环境访问不到仓库的 `specs/` 目录）。
+ * 未内嵌的 `dispatch-contract` / `morning-brief` 只被服务端消费，无需副本；
+ * 新增契约时必须二选一，`test/contracts.conformance.test.ts` 会拦住「未归类」的契约。
  *
- * ## 防漂移机制
+ * ## 防漂移机制（两道，各管一类）
  *
- * `test/contracts.conformance.test.ts` 会直接读取仓库里的冻结契约文件，
- * 与本文件做**深度相等**断言（含键顺序无关的递归比较）。
- * 任何人改了 `specs/contracts/` 而没同步这里，SDK 测试立刻失败——这是**刻意**的，
- * 因为它把「契约漂移」从「线上才发现」提前到「提交前就红」。
+ * 1. 镜像漂移 —— `test/contracts.conformance.test.ts`
+ *    读冻结契约原文，与本文件做深度相等断言（键顺序无关、数组按下标严格比，
+ *    因为 enum 顺序有语义）。改了 `specs/contracts/` 而没同步这里，SDK 测试立刻红。
+ * 2. 契约本体漂移 —— `scripts/check-contract-drift.mjs`
+ *    比对 `specs/contracts/.drift-lock.json` 里的规范化哈希。
+ *    这一道不可省：把 schema 与本文件**同时**改掉时，第 1 道依然全绿，
+ *    只有哈希锁能察觉「已冻结的契约被动了」。
  *
- * 唯一合法的不一致：本文件不含注释能力，所以是纯 JSON 结构的等价副本。
+ * 两道均已接入 `pnpm check` / 本地 pre-commit 钩子（GitHub Actions 未生效，见 BLK-001）。
+ *
+ * 注意 `packages/twin-schema` 的 zod 校验器是契约的**语义子集**（顶层 strictObject、
+ * 嵌套处刻意 looseObject 保留扩展键），与本文件不是机械等价关系，改动需人工评审。
  *
  * @see specs/contracts/matrix-app-manifest.schema.json
  * @see specs/contracts/wormhole-envelope.schema.json

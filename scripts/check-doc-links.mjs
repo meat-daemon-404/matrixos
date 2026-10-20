@@ -55,10 +55,15 @@ function listMarkdownFiles() {
   }
 }
 
-// 回落路径专用的跳过名单：git 不可用时也要躲开这些必然不属于本仓的目录
+// 回落路径专用的跳过名单：git 不可用时也要躲开这些必然不属于本仓的目录。
+// .tmp / scratch：gitignore 的一次性目录（脚本与子代理的暂存产物）。它们的内容随时出现又消失，
+//   不该参与文档门禁。实测教训：#28 期间生成的 .tmp/pr-body.md 被扫出一条「断链」，
+//   而它根本不是仓库文档——扫它只会让正常提交被无关文件拦下。
+// .worktrees：claim.mjs branch 创建的并行工作区，属于另一个检出，不是本检出的引用对象。
+// .pnpm-store / .venv / __pycache__ / .pytest_cache：包管理与 Python 运行时目录。
 const SKIP_DIRS = new Set([
   'node_modules', '.git', '.next', 'dist', 'build', '.turbo', 'coverage',
-  '.pnpm-store', '.venv', '__pycache__', '.pytest_cache', '.tmp', '.worktrees',
+  '.pnpm-store', '.venv', '__pycache__', '.pytest_cache', '.tmp', '.worktrees', 'scratch',
 ]);
 
 function walk(dir, out = []) {

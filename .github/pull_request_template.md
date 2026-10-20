@@ -4,6 +4,8 @@
 
 Closes #
 
+> ⚠️ 这个 `Closes #` 必须指向**你认领过的 Issue**。没认领的 PR 无法判断是不是重复动工，会被退回——流程见 [CONTRIBUTING 第二节](CONTRIBUTING.md)。
+
 ## 变更类型
 
 - [ ] `feat` 新功能
@@ -14,6 +16,12 @@ Closes #
 - [ ] `test` 测试
 - [ ] `spec` 契约变更 ⚠️ 需架构评审
 - [ ] `ci` / `build` / `chore`
+
+## 开工认领自查
+
+- [ ] 开工前跑过 `node scripts/claim.mjs ls --deep`，确认没人在做同一件事
+- [ ] 对应 Issue 已 `claim`（assignee 是我，或沟通后 `--force` 接手）
+- [ ] 改动在 `.worktrees/<branch>/` 独立工作区进行，没直接动主工作区
 
 ## 变更范围
 

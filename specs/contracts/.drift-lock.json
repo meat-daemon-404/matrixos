@@ -1,0 +1,23 @@
+{
+  "_comment": "specs/contracts/*.schema.json 的规范化哈希锁。改契约 = 合规红线流程：开 type:spec Issue → PR 同步内嵌副本（packages/matrix-sdk/src/contracts/schemas.ts）→ 跑 `node scripts/check-contract-drift.mjs --repair` 重新生成此文件。校验入口：node scripts/check-contract-drift.mjs（已接入 pnpm check / pre-commit）",
+  "_canonical": "sha256 over 递归键排序后的 JSON（与键顺序无关，仅对内容敏感）",
+  "_generated_by:": "scripts/check-contract-drift.mjs --repair",
+  "contracts": {
+    "dispatch-contract.schema.json": {
+      "hash": "6fd29d7cad3e8b4b7e4afc4701eac9bbd75188e583d8f171ba80f8e33996dd8b",
+      "title": "MatrixOS_Dispatch_Contract"
+    },
+    "matrix-app-manifest.schema.json": {
+      "hash": "d9b722a69808e64468bfd444549e275672f359781dada0f45d93471ea445e614",
+      "title": "MatrixOS_MicroApp_Manifest"
+    },
+    "morning-brief.schema.json": {
+      "hash": "1dd3ad36dc35029532046dd7f683cd06a9ffcf12a5b12553d6100b75a384ec16",
+      "title": "MatrixOS_Morning_Brief"
+    },
+    "wormhole-envelope.schema.json": {
+      "hash": "802c8a005e45506b7fc05e2a5072aff504d080fc79b2ab871fd539d5acf2bd43",
+      "title": "MatrixOS_v3_Wormhole_Envelope"
+    }
+  }
+}
