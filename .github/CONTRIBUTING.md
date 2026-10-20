@@ -198,14 +198,22 @@ Closes #42
 
 ## 六、契约变更流程（重要）
 
-`specs/contracts/` 下的 JSON Schema 是跨微站的硬约束。变更流程：
+`specs/contracts/` 下的 JSON Schema 是跨微站的硬约束，内容哈希锁在
+`specs/contracts/.drift-lock.json`。变更流程：
 
 1. 开 Issue，标签 `type:spec`，说明为什么要改、影响哪些微站
-2. 提交 PR，同时更新 Schema 与受影响微站的兼容代码
-3. 架构负责人评审，确认向后兼容策略
-4. 若为 breaking change，必须在 `docs/02-engineering/CHANGELOG-contracts.md` 登记，并给出迁移窗口
+2. 提交 PR，**同一 PR 内**同步三处：Schema 本体、`packages/matrix-sdk/src/contracts/schemas.ts`
+   内嵌副本、`packages/twin-schema` 的 zod 校验器（后者是语义子集，需人工判断，不能机械复制）
+3. 跑 `node scripts/check-contract-drift.mjs --repair` 重新入锁，并把锁文件一起提交
+   （不带这一步，pre-commit 直接拒签——这是设计，不是故障）
+4. 架构负责人评审，确认向后兼容策略
+5. 若为 breaking change，在 PR 中给出迁移窗口，并登记到 `docs/02-engineering/CHANGELOG-contracts.md`
+   （该文件尚未创建，首次 breaking change 时由登记人新建）
 
 **铁律**：任何 `evidence_anchors` 字段的弱化（比如允许为空）都是合规红线，不允许通过。
+两道锁拦的是「没同步就改」，**拦不住**「三处一起弱化」——后者靠评审。已知缺口：
+`validate-specs.mjs [4/5]` 只检查 `required` 与三档枚举，不检查 `minItems: 1`
+（实测把 `minItems` 改成 0，`pnpm check` 依旧全绿），已另开 Issue 跟踪。
 
 ---
 
@@ -253,7 +261,12 @@ node scripts/install-hooks.mjs
 | 检查 | 脚本 |
 | :--- | :--- |
 | 契约 Schema + 18 微站花名册 + 编码完整性 | `scripts/validate-specs.mjs` |
+| **契约漂移锁**（冻结 schema 内容 vs `.drift-lock.json` 哈希） | `scripts/check-contract-drift.mjs` |
 | Markdown 内部链接断链 | `scripts/check-doc-links.mjs` |
+
+外加 SDK 侧的一致性测试 `packages/matrix-sdk/test/contracts.conformance.test.ts`
+——它被 `packages/matrix-sdk/package.json` 的 `test` 脚本（`node --test "test/**/*.test.ts"`）
+通配收集，管「内嵌副本没跟上契约」这一类漂移。
 
 不通过则**拒绝提交**。手动跑：`pnpm check`。需要跳过：`git commit --no-verify`（仅在确认误报时用）。
 
