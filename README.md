@@ -172,6 +172,42 @@ MatrixOS/
 
 ---
 
+## ⚠️ 开工前必读：两条已裁决的关键事实
+
+### 1. Bundle 内两份规范互相冲突，v3 HTML 图谱为唯一权威源
+
+`bundle/matrix_os_agent_execution_spec.md` 经全文关键词扫描确认是 **v2 时代旧稿**——`18` / `v3` / `orbital` / `wormhole` / `Q1-Q5` / `Turborepo` / `Next.js` / `pgvector` / `MatrixID` 出现次数**全部为 0 次**。它描述的「42 工具 + `services/` + `core-agent/` 集中式状态机」与 v3 的「18 独立微站 + Turborepo + 虫洞投送」根本不可调和。
+
+**裁决：以 HTML 图谱为准，MD 旧稿降级为历史参考。**
+完整证据与影响分析见 [`docs/01-plan/00-adr-000-spec-authority.md`](docs/01-plan/00-adr-000-spec-authority.md)。
+
+### 2. HTML 图谱是设计演示页，不是产品原型
+
+它能点击、能拖动滑块、能弹出虫洞环，但：
+
+| 检查项 | 实际 |
+| :--- | :--- |
+| `fetch` / `XHR` 网络请求 | **0 处** |
+| `localStorage` / `indexedDB` 持久化 | **0 处** |
+| `draggable` / `dragstart` / `dataTransfer` 真实拖拽 | **0 处** |
+| Q3 核心交互「拖拽即张开虫洞环」 | **未实现**，仅点击弹窗 + 文案 |
+| CurveLab 的 R² | 装饰性公式 `max(0.912, 0.996 - noise*0.0022)`，非真实拟合 |
+| 4 张渲染图 | **AI 生成**，含伪造文字（`Hytothesis Lab`、`Enformatics`、`Ceiton Mareme` 等） |
+
+**结论**：设计稿 ≠ 可交付产品。产品代码从 Stage 1 第一行开始写，详见 [`bundle/README.md`](bundle/README.md)。
+
+---
+
+## 已知阻塞项
+
+见 [`docs/02-engineering/00-known-issues.md`](docs/02-engineering/00-known-issues.md)。当前有 1 个需人工处理的阻塞：
+
+| ID | 问题 | 状态 |
+| :--- | :--- | :--- |
+| BLK-001 | GitHub Actions 因账户计费无法启动（CI 零步骤执行） | 🔴 待用户处理 |
+
+---
+
 ## 项目状态
 
 | 项 | 状态 |
