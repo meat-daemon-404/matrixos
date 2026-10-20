@@ -38,7 +38,7 @@
     "preview": "vite --config vite.demo.config.ts preview",
     "build": "vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node ../../scripts/self-test.mjs --package instrument-ui",
+    "test": "node --test \"test/**/*.test.ts\"",
     "clean": "rimraf dist .turbo"
   },
   "peerDependencies": {

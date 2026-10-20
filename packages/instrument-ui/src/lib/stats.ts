@@ -148,7 +148,14 @@ export function inverseNormalCdf(p: number): number {
 
   const pLow = 0.02425;
   const pHigh = 1 - pLow;
-  const q = clamp01(p);
+  // Acklam 只在**开区间** (0,1) 上有定义：p=0（含被 clamp01 归到 0 的 NaN / 负数 /
+  // Infinity）会走 sqrt(-2*log(0)) = ∞ 再 ∞/∞ = NaN，p=1 同理。
+  // 本函数喂给置信带宽度——把 NaN 交出去等于让 Canvas **静默画不出曲线**，
+  // 比画错更难排查。所以再夹一次进 [P_FLOOR, 1-P_FLOOR]：退化端返回本库愿意
+  // 画出的最远分位（约 ±7σ），而不是 NaN/±∞。
+  // 开区间内的取值一个字节都没被改动，<1.15e-9 的精度承诺不受影响。
+  const P_FLOOR = 1e-12;
+  const q = Math.min(Math.max(clamp01(p), P_FLOOR), 1 - P_FLOOR);
 
   // 下尾：x = 分子 / 分母
   if (q < pLow) {

@@ -31,6 +31,15 @@ const waitArg = args.find((a) => a.startsWith('--wait='));
 const MAX_WAIT_S = waitArg ? Number(waitArg.split('=')[1]) : 600;
 const turboArgs = args.filter((a) => !a.startsWith('--wait='));
 
+// 并发上限：19 个 Next.js 应用同时读写各自 .next/ 会在 Windows 上互相删除
+// 对方的中间产物（ENOENT 假红灯）。仓库文档把 --concurrency=2 定为约定，
+// 但**只写在文档里就等于没写**——`pnpm build` 走的是这个脚本，
+// 以前它照样把默认并发传下去，于是"按文档做了还是一片红"。
+// 现在在这里兜底：调用方没显式指定就补 2，显式指定（含 --concurrency=1）则尊重。
+if (!turboArgs.some((a) => a === '--concurrency' || a.startsWith('--concurrency='))) {
+  turboArgs.push('--concurrency=2');
+}
+
 mkdirSync(LOCK_DIR, { recursive: true });
 
 function isAlive(pid) {
