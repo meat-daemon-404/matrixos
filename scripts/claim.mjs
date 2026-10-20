@@ -393,12 +393,15 @@ function cmdDone(n, flags) {
       "  没有证据的关闭会让下一个人在同一处重复开工。");
   }
   const detail = ghJson(["issue", "view", String(n), "--repo", REPO, "--json", "state,title"]);
-  if (detail.state !== "OPEN") {
-    console.log(`\n#${n} 已经是 ${detail.state}，只需补证据评论。\n`);
-  }
   const who = me();
+  const closed = detail.state !== "OPEN";
   gh(["issue", "comment", String(n), "--repo", REPO, "--body",
-    `### ✅ 完成证据\n\n${evidence}\n\n由 @${who} 于 ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC 关闭。`]);
+    `### ✅ 完成证据\n\n${evidence}\n\n由 @${who} 于 ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC ${closed ? "补记" : "关闭"}。`]);
+  if (closed) {
+    // 已关闭的只补证据。不能再调 close——那会报 "already closed" 并以退出码 2 死掉。
+    console.log(`\n✓ #${n} 已是 ${detail.state}，证据已补记。\n`);
+    return;
+  }
   gh(["issue", "close", String(n), "--repo", REPO, "--reason", "completed"]);
   console.log(`\n✓ #${n} 已关闭｜${detail.title}\n`);
 }
@@ -426,7 +429,7 @@ function cmdBranch(n, flags, slugArg) {
   sh("git", ["worktree", "add", `.worktrees/${branch}`, "-b", branch, `origin/${base}`]);
   console.log(`\n✓ 已在独立 worktree 建分支：${branch}`);
   console.log(`  进入：cd .worktrees/${branch}`);
-  console.log(`  独立 worktree 的约定见 CONTRIBUTING「二、开工前必须认领」——不动别人正在改的工作区\n`);
+  console.log(`  独立 worktree 的约定见 CONTRIBUTING 2.3「多会话 / 多代理并行」——不动别人正在改的工作区\n`);
 }
 
 function branchExists(name) {
@@ -461,10 +464,11 @@ function cmdPr(n) {
     }
   })();
   const subject = sh("git", ["log", "-1", "--pretty=%s"]);
+  // 两处替换各司其职，不能重叠：标题段只填 subject，Closes 行只填编号。
+  // （早期写法把 Closes 塞进标题段替换里，产出两行 Closes #28。）
   const body = template
-    .replace(/^Closes #\s*$/m, `Closes #${n}`)
-    .replace(/^## PR 做了什么\n\n<!--.*?-->\n/m, `## PR 做了什么\n\n${subject}\n\nCloses #${n}\n`)
-    .concat(`\n关联 Issue：#${n}\n`);
+    .replace(/(## PR 做了什么\n\n)<!--[^>]*-->/, `$1${subject}`)
+    .replace(/^Closes #\s*$/m, `Closes #${n}`);
 
   const url = gh(["pr", "create", "--repo", REPO, "--base", "main", "--head", branch,
     "--title", subject.slice(0, 140), "--body", body]);

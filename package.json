@@ -19,6 +19,7 @@
     "check:docs": "node scripts/check-doc-links.mjs",
     "check:staged": "node scripts/verify.mjs --staged",
     "sync:labels": "node scripts/sync-labels.mjs",
+    "test:templates": "node scripts/test-pr-template.mjs",
     "setup": "node scripts/install-hooks.mjs && node scripts/doctor.mjs",
     "setup:hooks": "node scripts/install-hooks.mjs",
     "gen:keys": "node scripts/gen-keys.mjs",
