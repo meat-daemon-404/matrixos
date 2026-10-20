@@ -7,10 +7,11 @@
  *   node scripts/gate.mjs --quick   # 跳过 Python 语法扫描（快 3 倍）
  *
  * 检查项：
- *   1. 契约 / 编码 / 注入产物（validate-specs）
+ *   1. 契约 / 18 微站花名册 / 编码 / 并行会话产物（validate-specs）
  *   2. 文档断链（check-doc-links）
  *   3. TypeScript 全仓 typecheck（turbo）
- *   4. Python 全量语法扫描
+ *   4. 生产构建（可选，--full 开启，经构建锁串行）
+ *   5. Python 全量语法扫描
  *
  * 与 pre-commit 钩子的区别：钩子只跑 1+2（快），这个跑全套（慢但全）。
  * 建议在合并 PR 前、以及每次大批量并行开发收尾时跑。
@@ -60,8 +61,8 @@ function run(label, cmd, args, opts = {}) {
   }
 }
 
-// ───────────────────── 1. 契约 / 编码 / 注入产物 ─────────────────────
-section('契约 / 编码 / 注入产物');
+// ─────────────── 1. 契约 / 花名册 / 编码 / 并行会话产物 ───────────────
+section('契约 / 花名册 / 编码 / 并行会话产物');
 {
   const r = run('validate', process.execPath, [join(ROOT, 'scripts', 'validate-specs.mjs')]);
   if (r.ok) pass('validate-specs 通过');
