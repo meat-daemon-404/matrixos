@@ -161,10 +161,28 @@ try {
   if (!ok) throw new Error('out/index.html 未生成');
 
   // 4. 生成 Pages 的 _headers
-  const headers = `# Cloudflare Pages headers · 自动生成
+  //
+  // ⚠️ 与微站的安全头**不同源**（已知漏网点，2026-10-20）：
+  //   微站的 _headers 由 scripts/lib/pages-headers.mjs 生成，含 CSP frame-ancestors +
+  //   HSTS + Permissions-Policy + COOP；而 hub 这一份是手写的，原先只有 3 条，
+  //   **缺 HSTS 与 Permissions-Policy** → 线上 mx-orbital.pages.dev 实测两者皆无。
+  //
+  //   这里对齐同一套安全头，但**刻意不给 hub 加 CSP frame-ancestors**：
+  //   hub 是顶层页，不需要限制「谁能嵌它」；加了反而挡住未来 hub 被别的容器嵌入。
+  //   （微站的 frame-ancestors 是为了防第三方把微站套进钓鱼 iframe，hub 无此诉求。）
+  //
+  //   注：更彻底的做法是在 pages-headers.mjs 里导出一个「同安全头、无 CSP」的变体
+  //   供本文件调用（单一事实源）。该文件归属另一条线，本次不改，仅在此对齐取值；
+  //   两处取值若将来漂移，用本注释提醒同步。
+  const headers = `# Cloudflare Pages headers · 自动生成（scripts/build-hub-static.mjs）
+#
+# 安全头取值与 scripts/lib/pages-headers.mjs 保持一致（差异仅：hub 不设 CSP frame-ancestors）
 /*
   Referrer-Policy: strict-origin-when-cross-origin
   X-Content-Type-Options: nosniff
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin-allow-popups
 
 /_next/static/*
   Cache-Control: public, max-age=31536000, immutable

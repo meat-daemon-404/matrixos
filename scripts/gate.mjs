@@ -109,6 +109,24 @@ section('TypeScript typecheck（turbo，全仓）');
   }
 }
 
+// ───────────────────── 3.5 构建产物配置断言 ─────────────────────
+// 为什么需要（2026-10-20 真实事故，发生了两次）：
+// `build-static-site.mjs` 对每个站做「备份 next.config.ts → 覆盖成 output:'export'
+// 模板 → build → finally 恢复」。进程正常走完才安全；实测构建在
+// `Collecting build traces` 阶段被中断（日志无任何错误，是进程被杀），finally 没跑 →
+// 该站 next.config.ts 被留在 export 模板，**静默丢掉 CSP frame-ancestors**。
+// 这种污染 dev/typecheck 都照常跑，git 也未必看得出来（.deploybak 可能被 ignore）。
+// 所以把它变成一道可断言的门禁：构建/部署后跑，防止把裸奔的 config 提交上去。
+section('静态导出配置未残留（防止 next.config.ts 被留在 export 模式）');
+{
+  const r = run('assert-config', process.execPath, [join(ROOT, 'scripts', 'assert-config-restored.mjs')]);
+  if (r.ok) pass('无 export 残留 / CSP 与安全头完整');
+  else {
+    fail('存在被留在 export 模式的 next.config.ts（可用 --repair 自动恢复）');
+    console.log(r.out.split('\n').filter((l) => l.includes('·') || l.includes('✗')).slice(0, 12).join('\n'));
+  }
+}
+
 // ───────────────────── 4. 生产构建（CSS / 打包管线）─────────────────────
 // 为什么需要这一步：
 // typecheck 只看类型，抓不到 CSS 语法、打包器配置、静态生成期错误。
