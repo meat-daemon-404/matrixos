@@ -374,14 +374,20 @@ ${glyph.body(accent)}
 /**
  * `src/app/layout.tsx` 的 metadata 段（含 SITE_ORIGIN 常量）。
  *
- * canonical 为什么用 pages.dev 而不是 matrixos.edu：
- *   2026-10-20 实测 `matrixos.edu` 与 `*.matrixos.edu` 全部 NXDOMAIN，而 18 个微站
- *   已实际部署在 `https://mx-<appId>.pages.dev`。canonical 的作用是告诉爬虫
- *   “这个内容的正式地址”，指向一个解析不到的主机等于自报死链，比没有 canonical 更糟。
- *   所以这里以部署真实来源为基准；等 matrixos.edu 的 DNS 落地，只改 SITE_ORIGIN 一行。
+ * canonical 为什么用 `mx-<appId>.matrixos.cc.cd`：
+ *   2026-10-21 账号迁移完成后，18 个微站的生产入口是自有域名的二级域名
+ *   `https://mx-<appId>.matrixos.cc.cd`（19/19 实测 HTTP 200）。
+ *   旧的 `mx-<appId>.pages.dev` 仍属于**旧账号**，新账号里同名项目被 Cloudflare
+ *   自动改名成 `mx-<appId>-<hash>.pages.dev`，那个 hash 不可预测、也不该写进产物。
+ *
+ *   canonical 的作用是告诉爬虫「这个内容的正式地址」，必须指向真实可解析的生产入口，
+ *   否则等于自报死链。域名若再变，只改这里一行 + 重跑 gen-site。
  */
+export const PROD_SITE_ORIGIN_TEMPLATE =
+  process.env.MATRIXOS_SITE_ORIGIN_TEMPLATE ?? "https://mx-' + SITE.appId + '.matrixos.cc.cd";
+
 export function renderMetadataBlock() {
-  return `const SITE_ORIGIN = 'https://mx-' + SITE.appId + '.pages.dev';
+  return `const SITE_ORIGIN = '${PROD_SITE_ORIGIN_TEMPLATE}';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_ORIGIN),

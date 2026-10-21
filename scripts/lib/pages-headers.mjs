@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 生成 Cloudflare Pages 的 `_headers` 文件内容。
+ * 生成 Cloudflare Pages 的 `_headers` 文件内容，并导出「宿主来源」唯一事实源。
  *
  * 为什么单独抽出这个模块：
  *   `build-static-site.mjs`（构建后写）与 `redeploy-headers.mjs`（只改头重部署）
@@ -8,35 +8,85 @@
  *   —— 实际发生过：第一次 CSP 白名单只写了 orbital.pages.dev，
  *   而实际 hub 域名是 mx-orbital.pages.dev，线上 iframe 全被拦。
  *
- * 单一事实源在这里，两个脚本都 import 它。
+ * ## 2026-10-21 扩展：宿主来源成了「两处消费、必须同源」的事
+ *
+ * 同一份「谁可以嵌我」的清单现在被**两种完全不同的语法**消费：
+ *
+ *   1. `Content-Security-Policy: frame-ancestors`（浏览器执行）—— 用 `'self'`
+ *      与完整 origin，通配写 `https://*.x`；
+ *   2. SDK 的 `allowedOrigins`（微站自己执行）—— 语法见
+ *      `packages/matrix-sdk/src/security/origin.ts`：通配必须写成 `*.x`
+ *      （**不能**带 `https://` 前缀，否则会被当成「主机名里含星号的精确
+ *      origin」，永远不匹配）。
+ *
+ * 这两种语法**不能互抄**：把 CSP 的 `https://*.x` 直接丢给 SDK，它会被
+ * `parseOrigin()` 解析成一个名为 `*.x` 的主机，于是白名单「看起来配了」但
+ * 一条都不放行 —— 正是本轮线上 MatrixID 恒 offline 的同类故障模式。
+ *
+ * 所以这里把清单存成**结构化条目**（一个 csp 写法 + 一个 sdk 写法），
+ * 两种渲染都从同一份派生。改一处，两边同时生效。
  */
 
 /**
- * frame-ancestors 白名单。
+ * 宿主来源清单（唯一事实源）。
  *
- * 覆盖三类来源：
+ * `csp`：写进 `frame-ancestors` 的形式。
+ * `sdk`：写进 SDK `allowedOrigins` 的形式（OriginAllowList 语法）。
+ *
+ * 两类都要覆盖：
  *   1. 线上 hub（生产域名 + 预览子域通配）
- *   2. 未来自定义域名
+ *   2. 自主域名 / 历史命名 / 未来自定义域名
  *   3. 本地开发
  *
- * ⚠️ 改 Pages 项目名前缀时必须同步改这里，否则 iframe 全被 CSP 拦。
- *    验证方式：`curl -sI https://mx-<appId>.pages.dev | grep -i content-security`
+ * ⚠️ 改 Pages 项目名前缀时必须同步改这里，否则 iframe 被 CSP 拦、或微站
+ *    握不上手（SDK 白名单不认）。验证方式：
+ *    `curl -sI https://mx-<appId>.pages.dev | grep -i content-security`
  */
-const FRAME_ANCESTORS = [
-  "'self'",
-  // 线上 hub 生产域名
-  'https://mx-orbital.pages.dev',
-  // hub 的预览部署：每次 commit 一个 <hash>.mx-orbital.pages.dev
-  'https://*.mx-orbital.pages.dev',
-  // 历史/备用命名，保留以防改名
-  'https://orbital.pages.dev',
-  'https://orbital-hub.pages.dev',
+const HUB_ORIGINS = [
+  // 线上 hub 生产域名（2026-10-21 迁移后）
+  { csp: 'https://matrixos.cc.cd', sdk: 'https://matrixos.cc.cd' },
+  { csp: 'https://www.matrixos.cc.cd', sdk: 'https://www.matrixos.cc.cd' },
+  // 微站与 hub 的预览部署都在 mx-<appId>.matrixos.cc.cd 下
+  { csp: 'https://*.matrixos.cc.cd', sdk: '*.matrixos.cc.cd' },
+
+  // 新账号里的 hub pages.dev 入口。
+  // ⚠️ 注意：`mx-orbital.pages.dev` 属于【旧账号】；新账号建同名项目时
+  //    Cloudflare 自动改名成 `mx-orbital-c6y.pages.dev`（hash 不可预测）。
+  //    所以这里显式列出新账号那两个真实主机名，不再泛匹配 `*.pages.dev`。
+  { csp: 'https://mx-orbital-c6y.pages.dev', sdk: 'https://mx-orbital-c6y.pages.dev' },
+  // hub 的预览部署：每次 commit 一个 <hash>.mx-orbital-c6y.pages.dev
+  { csp: 'https://*.mx-orbital-c6y.pages.dev', sdk: '*.mx-orbital-c6y.pages.dev' },
+
+  // 旧账号域名：保留兼容（旧站仍在线、可回滚），不是生产入口
+  { csp: 'https://mx-orbital.pages.dev', sdk: 'https://mx-orbital.pages.dev' },
+  { csp: 'https://*.mx-orbital.pages.dev', sdk: '*.mx-orbital.pages.dev' },
+  { csp: 'https://orbital.pages.dev', sdk: 'https://orbital.pages.dev' },
+  { csp: 'https://orbital-hub.pages.dev', sdk: 'https://orbital-hub.pages.dev' },
+
   // 未来自定义域名
-  'https://orbital.matrixos.edu',
+  { csp: 'https://orbital.matrixos.edu', sdk: 'https://orbital.matrixos.edu' },
   // 本地开发
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
-].join(' ');
+  { csp: 'http://localhost:3000', sdk: 'http://localhost:3000' },
+  { csp: 'http://127.0.0.1:3000', sdk: 'http://127.0.0.1:3000' },
+];
+
+/**
+ * CSP `frame-ancestors` 的取值。
+ *
+ * `'self'` 只出现在 CSP 里：它表示「同源页面可以嵌我」，而 SDK 白名单是
+ * 「哪些宿主 origin 可以跟我说话」，两者语义不同，不能合并成一条。
+ */
+const FRAME_ANCESTORS = ["'self'", ...HUB_ORIGINS.map((entry) => entry.csp)].join(' ');
+
+/**
+ * 注入微站的宿主 origin 清单（逗号分隔），由构建脚本写进
+ * `NEXT_PUBLIC_MATRIXOS_HUB_ORIGINS`，微站 `sdk-facade` 构造 SDK 时消费。
+ *
+ * 为什么走**构建期注入**而不是运行时去问：
+ *   微站是静态站，没有后端路由可以回答「我信谁」；把清单编进产物，
+ *   就等于把「谁能嵌我」这件事固化在部署单元里，与 `_headers` 天然一致。
+ */
+const HUB_ORIGINS_FOR_SDK = HUB_ORIGINS.map((entry) => entry.sdk).join(',');
 
 /**
  * 生成某站点的 _headers。
@@ -95,4 +145,4 @@ export function pagesHeaders(station) {
 `;
 }
 
-export { FRAME_ANCESTORS };
+export { FRAME_ANCESTORS, HUB_ORIGINS_FOR_SDK };

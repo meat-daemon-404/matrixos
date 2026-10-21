@@ -40,6 +40,20 @@ const PH_BAK = join(HUB, 'src', 'app', '__placeholder.disabled');
  */
 const PRODUCTION_BUILD = process.argv.includes('--production');
 
+/**
+ * 生产环境的微站地址模板。
+ *
+ * 为什么不再用 `https://mx-{appId}.pages.dev`（2026-10-21 迁移后）：
+ *   `mx-<appId>.pages.dev` 这套子域名仍属于【旧账号】的 Pages 项目。
+ *   本项目已整体迁到专用新账号，新账号里同名项目会被 Cloudflare 自动改名成
+ *   `mx-<appId>-<hash>.pages.dev`（例如 mx-curvelab-7r4），那个 hash 不可预测、
+ *   也不该写进产物。所以微站的稳定入口改用自有根域下的二级域名：
+ *   `https://mx-{appId}.matrixos.cc.cd`。
+ * 可用 MATRIXOS_MICROSITE_TEMPLATE 覆盖（本地 harness / 灰度时用）。
+ */
+const PROD_MICROSITE_TEMPLATE =
+  process.env.MATRIXOS_MICROSITE_TEMPLATE ?? 'https://mx-{appId}.matrixos.cc.cd';
+
 const origCfg = readFileSync(CFG);
 
 const staticCfg = `/**
@@ -169,8 +183,8 @@ try {
             ? 'false'
             : (process.env.NEXT_PUBLIC_MICROSITE_LOCAL_MODE ?? 'false'),
           NEXT_PUBLIC_MICROSITE_ORIGIN_TEMPLATE: PRODUCTION_BUILD
-            ? 'https://mx-{appId}.pages.dev'
-            : (process.env.NEXT_PUBLIC_MICROSITE_ORIGIN_TEMPLATE ?? 'https://mx-{appId}.pages.dev'),
+            ? PROD_MICROSITE_TEMPLATE
+            : (process.env.NEXT_PUBLIC_MICROSITE_ORIGIN_TEMPLATE ?? PROD_MICROSITE_TEMPLATE),
           NEXT_PUBLIC_MICROSITE_PLACEHOLDER: PRODUCTION_BUILD
             ? 'false'
             : (process.env.NEXT_PUBLIC_MICROSITE_PLACEHOLDER ?? 'false'),
