@@ -200,6 +200,50 @@ for (const t of targets.slice(1)) {          // 第 0 个是 hub 自己，顶层
   });
 }
 
+/*
+ * ── 8 信任白名单里不许出现「不属于本项目」的 host ──
+ *
+ * 背景（2026-10-21 真实发现）：CSP `frame-ancestors` 与 SDK `allowedOrigins`
+ * 里曾长期挂着 `https://orbital.pages.dev`，实测那是一个**第三方站点**
+ * （title="Orbital Trails"）。它只是当年第一次写 CSP 时**写错的域名**，
+ * 后来被当成「历史兼容」一直留着。
+ *
+ * 危害：白名单是**信任声明**。把陌生 origin 列进去 = 允许它向微站 iframe
+ * 投递伪造的 mx_idt / 虫洞信封，并被当作合法宿主。
+ *
+ * 判据：白名单里每一条 pages.dev 主机，都必须能在本项目的 Pages 项目名单里
+ * 找到对应项（或属于我方自有域名）。这样任何「顺手加一条」都会被抓到。
+ */
+const TRUSTED_HOST_SUFFIXES = [ZONE];
+/** 已知第三方的 host：出现即失败。加新条目时先从线上真实内容确认归属。 */
+const KNOWN_THIRD_PARTY = [
+  'orbital.pages.dev',        // 实测 title="Orbital Trails"，非本项目
+  'orbital-hub.pages.dev',    // 不属于本项目（302）
+  'orbital.matrixos.edu',     // 已废弃愿景域名，实测 NXDOMAIN
+];
+
+const trustChecks = [];
+for (const c of cspChecks) {
+  const h = curlHead(targets.find((t) => t.label === c.label).url, ['-H', 'Accept: text/html']);
+  const csp = /^content-security-policy:\s*(.+)$/im.exec(h.raw)?.[1]?.trim() ?? null;
+  const fa = csp ? (/frame-ancestors\s+([^;]+)/i.exec(csp)?.[1]?.trim() ?? null) : null;
+  if (!fa) { trustChecks.push({ label: c.label, offenders: [], ok: false, reason: '无 frame-ancestors' }); continue; }
+
+  const hosts = fa.split(/\s+/).filter((x) => x.startsWith('http'));
+  const offenders = hosts.filter((origin) => {
+    const host = origin.replace(/^https?:\/\//, '').replace(/:\d+$/, '').replace(/^\*\./, '');
+    if (KNOWN_THIRD_PARTY.includes(host)) return true;
+    // 自有域名后缀直接放行；其余（pages.dev 等共享域）必须显式匹配已知项目
+    if (TRUSTED_HOST_SUFFIXES.some((s) => host === s || host.endsWith(`.${s}`))) return false;
+    // loopback 放行（本地开发）
+    if (/^(localhost|127\.0\.0\.1)$/.test(host)) return false;
+    // 共享域上的主机名必须是本项目已知的（mx-* 前缀）
+    return !/^mx-[a-z0-9-]+/.test(host);
+  });
+  trustChecks.push({ label: c.label, offenders, ok: offenders.length === 0 });
+}
+const trustPass = trustChecks.filter((t) => t.ok).length;
+
 /* ── 汇总 ── */
 const pass = results.filter((r) => r.ok).length;
 const metaPass = metaChecks.filter((m) => m.ok).length;
@@ -210,12 +254,13 @@ const allOk =
   wafResults.every((w) => w.ok) &&
   apex.ok &&
   metaPass === metaChecks.length &&
-  cspPass === cspChecks.length;
+  cspPass === cspChecks.length &&
+  trustPass === trustChecks.length;
 
 if (jsonOut) {
   console.log(JSON.stringify({
     sites: results, tls: tlsChecks, waf: wafResults, apex,
-    meta: metaChecks, csp: cspChecks, allOk,
+    meta: metaChecks, csp: cspChecks, trust: trustChecks, allOk,
   }, null, 2));
 } else {
   console.log(`生产验证 · zone ${ZONE} · ${targets.length} 个目标\n`);
@@ -254,6 +299,14 @@ if (jsonOut) {
     console.log(`  ${c.label.padEnd(24)} ${why}  <<<`);
   }
   if (cspPass === cspChecks.length) console.log('  全部放行');
+
+  console.log(`\n信任白名单无第三方域名  ${trustPass}/${trustChecks.length}`);
+  for (const x of trustChecks) {
+    if (x.ok) continue;
+    const why = x.reason ?? `第三方/未知 host: ${x.offenders.join(', ')}`;
+    console.log(`  ${x.label.padEnd(24)} ${why}  <<<`);
+  }
+  if (trustPass === trustChecks.length) console.log('  全部为本项目域名');
 
   console.log(`\n${allOk ? '✓ 全部通过' : '✗ 存在未通过项'}`);
 }

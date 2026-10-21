@@ -131,7 +131,8 @@ function readInjectedHubOrigins(): string {
  * 所以兜底清单自己得把 `localhost:3000` / `127.0.0.1:3000` 写全。
  */
 const DEFAULT_HUB_ORIGINS: readonly string[] = [
-  'https://orbital.matrixos.edu',
+  /* 生产宿主由构建期注入（pages-headers.mjs 单一事实源）；
+     这里只放开发期 loopback。原写死的 orbital.matrixos.edu 实测 NXDOMAIN，已移除。*/
   'http://localhost:3000',
   'http://127.0.0.1:3000',
 ];
@@ -627,6 +628,120 @@ export function onWormholeDrop(
         handler(toReceipt(context.envelope));
       },
     });
+  } catch {
+    return undefined;
+  }
+}
+
+/* ───────────────────────── 宿主字号密度下发 ───────────────────────── */
+
+/**
+ * 宿主（orbital-hub）的字号密度档位，通过 iframe 桥下发给微站。
+ *
+ * ## 为什么必须有这条链路
+ *
+ * hub 顶栏有「A±」字号开关（答辩投影用，normal 1.0 / large 1.25 / xlarge 1.5）。
+ * 但它**只作用于 hub 自己的 DOM** —— iframe 是独立浏览上下文，父页面的 CSS 变量
+ * 和 font-size 都不会继承进去。实测（2026-10-21，线上）：
+ *
+ * ```
+ * hub 切到 xlarge 后：
+ *   hub 自己的 .hub-stat  = 15px  ✓ 放大了
+ *   iframe 内 .instrument .mono = 10px  ✗ 完全没变
+ * ```
+ *
+ * 而答辩时要看的恰恰是**仪器里的公式与读数**（那些 8–10px 的字），
+ * 不是顶栏统计。不打通这条链路，那个开关对它的初衷只做了一半。
+ *
+ * ## 为什么用 `data-iu-density` 而不是自己造一套
+ *
+ * `packages/instrument-ui` 早就定义了这套机制（`tokens.css:174`）：
+ *
+ * ```css
+ * [data-iu-density='presentation'] { --iu-type-scale: 1.25; }
+ * ```
+ *
+ * 组件库里所有字号都走 `--iu-type-scale`，所以**只要把属性挂上去，整套仪器
+ * 就会等比放大**，不需要微站或组件库改任何字号。这正是该机制存在的目的
+ * （视觉体系 §3.2 V8 建议），复用它比自己再造一层更不容易漂移。
+ *
+ * ## 档位映射
+ *
+ *   hub normal  → 移除属性（默认密度）
+ *   hub large   → 'presentation'（组件库定义的 1.25×，与 hub 的 large 倍数一致）
+ *   hub xlarge  → 'presentation' + 额外把缩放提到 1.5
+ *
+ * 注意 `--iu-type-scale` 是组件库的内部变量，直接覆盖属于「跨层改内部量」，
+ * 但这里没有更好的公开接口（`data-iu-density` 只有 default/presentation 两档），
+ * 且失败时只是放大倍数不精确、不会破版 —— 可接受，已在下面注明。
+ */
+export function applyHostDensity(mode: unknown): void {
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+
+  if (mode === 'large' || mode === 'xlarge') {
+    root.setAttribute('data-iu-density', 'presentation');
+    /*
+     * 组件库只提供 1.25 一档。xlarge 需要 1.5，
+     * 在 html 上覆盖 `--iu-type-scale` 即可（该变量被组件库所有字号引用）。
+     * 若组件库将来改了这个变量名，最坏情况是回落到 1.25 —— 仍然是放大，不会破版。
+     */
+    if (mode === 'xlarge') {
+      root.style.setProperty('--iu-type-scale', '1.5');
+    } else {
+      root.style.removeProperty('--iu-type-scale');
+    }
+  } else {
+    root.removeAttribute('data-iu-density');
+    root.style.removeProperty('--iu-type-scale');
+  }
+}
+
+/**
+ * 订阅宿主下发的字号密度，并自动应用。返回取消订阅函数。
+ *
+ * 宿主侧通过桥的 `theme.density` 消息发送 `{ mode: 'normal' | 'large' | 'xlarge' }`。
+ * 未收到任何消息时保持微站自己的默认密度（不擅自放大）。
+ *
+ * 为什么复用桥而不是 query string / postMessage 裸通道：
+ * 桥已带 origin 白名单与协议版本校验，是宿主↔微站唯一被审计过的通道；
+ * 另开一条通道等于绕过那层校验。
+ */
+export function onHostDensity(handler?: (mode: string) => void): (() => void) | undefined {
+  const sdk = resolveSdk();
+  if (sdk === null) return undefined;
+  const host = liveHost();
+  /* 独立窗口没有宿主，谈不上"宿主下发" */
+  if (!host.embedded) return undefined;
+
+  const apply = (raw: unknown): void => {
+    const payload = (raw ?? {}) as Record<string, unknown>;
+    const mode = typeof payload.mode === 'string' ? payload.mode : 'normal';
+    applyHostDensity(mode);
+    handler?.(mode);
+  };
+
+  try {
+    const off = host.on('theme.density', apply);
+    /*
+     * 握手时补一次：宿主可能在桥连上之前就发过密度（那时消息入队/丢失），
+     * 而 `bridge.connected` 时宿主通常已把当前档位准备好。
+     * 这里**主动问一次**，避免"首次放大要等用户再点一下开关"。
+     */
+    const offConnected = host.on('bridge.connected', () => {
+      try {
+        (host as unknown as { post?: (type: string, payload?: unknown) => void }).post?.(
+          'theme.density.request',
+          {},
+        );
+      } catch {
+        /* 老宿主不认这条消息：保持默认密度即可 */
+      }
+    });
+    return () => {
+      off();
+      offConnected();
+    };
   } catch {
     return undefined;
   }

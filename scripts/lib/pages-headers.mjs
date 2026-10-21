@@ -43,29 +43,50 @@
  *    `curl -sI https://mx-<appId>.pages.dev | grep -i content-security`
  */
 const HUB_ORIGINS = [
-  // 线上 hub 生产域名（2026-10-21 迁移后）
+  // ── 生产：自有域名（2026-10-21 账号迁移后）────────────────────────────
   { csp: 'https://matrixos.cc.cd', sdk: 'https://matrixos.cc.cd' },
   { csp: 'https://www.matrixos.cc.cd', sdk: 'https://www.matrixos.cc.cd' },
   // 微站与 hub 的预览部署都在 mx-<appId>.matrixos.cc.cd 下
   { csp: 'https://*.matrixos.cc.cd', sdk: '*.matrixos.cc.cd' },
 
-  // 新账号里的 hub pages.dev 入口。
-  // ⚠️ 注意：`mx-orbital.pages.dev` 属于【旧账号】；新账号建同名项目时
-  //    Cloudflare 自动改名成 `mx-orbital-c6y.pages.dev`（hash 不可预测）。
-  //    所以这里显式列出新账号那两个真实主机名，不再泛匹配 `*.pages.dev`。
+  // ── 新账号 hub 的 pages.dev 入口 ───────────────────────────────────
+  // 新账号建同名项目时 Cloudflare 会自动改名加 hash（mx-orbital-c6y），
+  // hash 不可预测，所以必须显式列出，不做任何 `*.pages.dev` 泛匹配。
   { csp: 'https://mx-orbital-c6y.pages.dev', sdk: 'https://mx-orbital-c6y.pages.dev' },
   // hub 的预览部署：每次 commit 一个 <hash>.mx-orbital-c6y.pages.dev
   { csp: 'https://*.mx-orbital-c6y.pages.dev', sdk: '*.mx-orbital-c6y.pages.dev' },
 
-  // 旧账号域名：保留兼容（旧站仍在线、可回滚），不是生产入口
+  // ── 旧账号域名（回滚兼容）──────────────────────────────────────────
+  // 旧项目保留未删，仍可访问，仅用于回滚验证；不是生产入口。
   { csp: 'https://mx-orbital.pages.dev', sdk: 'https://mx-orbital.pages.dev' },
   { csp: 'https://*.mx-orbital.pages.dev', sdk: '*.mx-orbital.pages.dev' },
-  { csp: 'https://orbital.pages.dev', sdk: 'https://orbital.pages.dev' },
-  { csp: 'https://orbital-hub.pages.dev', sdk: 'https://orbital-hub.pages.dev' },
 
-  // 未来自定义域名
-  { csp: 'https://orbital.matrixos.edu', sdk: 'https://orbital.matrixos.edu' },
-  // 本地开发
+  /*
+   * ── 已删除的条目（2026-10-21 安全清理）─────────────────────────────
+   *
+   * 以下三条曾被当作「历史/兼容」留着，实测都不属于本项目，已移除：
+   *
+   *   https://orbital.pages.dev
+   *     第三方站点（title="Orbital Trails"，HTTP 200）。
+   *     本项目从未部署在裸 `orbital` 项目名上 —— 它只是当年第一次写
+   *     CSP 白名单时写错的域名（见本文件顶部「实际发生过」那段）。
+   *     把它列进白名单，等于允许一个陌生站点给微站投递伪造的
+   *     `mx_idt` / 虫洞信封，并让它被当作合法宿主。
+   *
+   *   https://orbital-hub.pages.dev
+   *     不属于本项目（实测 302），且从未在矩阵里使用过。
+   *
+   *   https://orbital.matrixos.edu
+   *     已废弃的愿景域名，实测 NXDOMAIN。放开一个解析不到的主机没有收益，
+   *     反而在将来该域被他人注册时成为现实风险。
+   *
+   * 教训：CSP `frame-ancestors` 与 SDK `allowedOrigins` 是**信任声明**，
+   *      不是 URL 注释。任何一条都要能回答「这个 origin 现在真的属于我吗」。
+   *      验证方式：`curl -s https://<host>/ | grep <本站特征词>`，或用
+   *      `npm run verify:prod` 的 canonical 项交叉确认归属。
+   */
+
+  // ── 本地开发 ───────────────────────────────────────────────────────
   { csp: 'http://localhost:3000', sdk: 'http://localhost:3000' },
   { csp: 'http://127.0.0.1:3000', sdk: 'http://127.0.0.1:3000' },
 ];
