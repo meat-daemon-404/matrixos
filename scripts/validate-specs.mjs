@@ -13,6 +13,7 @@
  * 无第三方依赖，CI 与本地都能直接跑：node scripts/validate-specs.mjs
  */
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -172,37 +173,83 @@ console.log('\n[6/9] 中文编码完整性（U+FFFD + BOM 扫描）');
  * 参见 .github/CONTRIBUTING.md 与 Issue「中文文档禁用 PowerShell 文本管道」。
  */
 {
-  const SCAN_DIRS = ['docs', 'specs', 'bundle', 'scripts', '.github'];
-  const SCAN_EXT = /\.(md|json|mjs|js|txt|yml|yaml)$/i;
-  let scanned = 0;
-  let badCount = 0;
+  // Issue #27：扫描范围由 5 个固定目录扩到全库。旧 SCAN_DIRS 只看
+  // docs/specs/bundle/scripts/.github —— df584df 上 md/json 共 133 个，它只覆盖 30 个
+  // （对账文档 08-ledger-reconciliation 记的「扫描覆盖率 30/133」就是这一条）；
+  // 7a75bff 上该口径为 157 个 / 覆盖 34 个，按本脚本全部扩展名口径为 230 个 / 覆盖 95 个，
+  // 即改动前约 59% 的受管文件（apps/ 108、packages/ 12、仓库根 11、services/ 4）从未被扫到。
+  //
+  // 文件范围优先取自 git（已跟踪 + 未跟踪但未被 .gitignore 排除），与 check-doc-links.mjs
+  // 同一套口径：手写 SKIP_DIRS 必然与 .gitignore 漂移，会把 .tmp/、.worktrees/ 里另一个
+  // 会话的完整仓库副本一并扫进来，既慢又报假阳性（见 SEC-001 共享工作目录）。
+  // git 不可用时回落到裸 walk，并在输出里如实标注来源——降级不可静默（ADR-09）。
+  const ENC_EXT = ['md', 'json', 'mjs', 'js', 'txt', 'yml', 'yaml'];
+  const SCAN_EXT = new RegExp(`\\.(${ENC_EXT.join('|')})$`, 'i');
 
-  const walkScan = (dir) => {
-    if (!existsSync(dir)) return;
+  // 仅回落路径使用：git 不可用时也要躲开必然不属于本检出的目录。
+  const SKIP_DIRS = new Set([
+    'node_modules', '.git', 'UI_Renders', '.next', 'dist', 'build', '.turbo',
+    'coverage', '.pnpm-store', '.venv', '__pycache__', '.pytest_cache',
+    '.tmp', '.worktrees', 'scratch', '.qr-selftest',
+  ]);
+
+  const walkAll = (dir, out = []) => {
+    if (!existsSync(dir)) return out;
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const p = join(dir, entry.name);
       if (entry.isDirectory()) {
-        if (['node_modules', '.git', 'UI_Renders'].includes(entry.name)) continue;
-        walkScan(p);
+        if (SKIP_DIRS.has(entry.name)) continue;
+        walkAll(p, out);
       } else if (SCAN_EXT.test(entry.name)) {
-        scanned++;
-        const buf = readFileSync(p);
-        if (buf.length >= 3 && buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) {
-          badCount++;
-          fail(`${relative(ROOT, p)} 含 UTF-8 BOM（会导致 JSON.parse 失败）`);
-        }
-        const n = (buf.toString('utf8').match(/\uFFFD/g) || []).length;
-        if (n > 0) {
-          badCount++;
-          fail(`${relative(ROOT, p)} 含 ${n} 处 U+FFFD（中文已损坏）`);
-        }
+        out.push(p);
       }
     }
+    return out;
   };
 
-  for (const d of SCAN_DIRS) walkScan(join(ROOT, d));
+  const gitLines = (args) =>
+    execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+      .split('\0')
+      .map((line) => line.trim())
+      .filter(Boolean);
 
-  if (badCount === 0) ok(`扫描 ${scanned} 个文件，无 U+FFFD、无 BOM`);
+  let files;
+  let via;
+  try {
+    const pathspecs = ENC_EXT.map((ext) => `*.${ext}`);
+    const tracked = gitLines(['ls-files', '-z', '--', ...pathspecs]);
+    const pending = gitLines(['ls-files', '-z', '--others', '--exclude-standard', '--', ...pathspecs]);
+    files = [...new Set([...tracked, ...pending])].map((p) => join(ROOT, p));
+    via = 'git';
+  } catch {
+    files = walkAll(ROOT);
+    via = 'fs-walk（git 不可用，已回落到目录遍历）';
+  }
+
+  let scanned = 0;
+  let badCount = 0;
+
+  for (const p of files) {
+    let buf;
+    try {
+      buf = readFileSync(p);
+    } catch {
+      // 在索引里但读不到（例如别人刚 rm 尚未提交）——跳过，不冒充已扫描
+      continue;
+    }
+    scanned++;
+    if (buf.length >= 3 && buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) {
+      badCount++;
+      fail(`${relative(ROOT, p)} 含 UTF-8 BOM（会导致 JSON.parse 失败）`);
+    }
+    const n = (buf.toString('utf8').match(/\uFFFD/g) || []).length;
+    if (n > 0) {
+      badCount++;
+      fail(`${relative(ROOT, p)} 含 ${n} 处 U+FFFD（中文已损坏）`);
+    }
+  }
+
+  if (badCount === 0) ok(`全库扫描 ${scanned} 个文件（范围来源：${via}），无 U+FFFD、无 BOM`);
 }
 
 // ------------------------------------------- 并行会话产物（勿入库）提示
