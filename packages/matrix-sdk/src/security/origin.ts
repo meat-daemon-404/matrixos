@@ -205,7 +205,19 @@ function defaultLoopbackPolicy(): boolean {
  * `*.matrixos.edu` 覆盖 18 个微站 + hub + api；apex 单独列出供营销站/文档站使用。
  * **第三方实验室站自己的域必须由接入方显式配置**——SDK 不会自动信任任意 `.edu` 域。
  */
-export const DEFAULT_ALLOWED_ORIGINS: readonly string[] = ['*.matrixos.edu', 'matrixos.edu', 'https://orbital.matrixos.edu'];
+export const DEFAULT_ALLOWED_ORIGINS: readonly string[] = [
+  '*.matrixos.edu',
+  'matrixos.edu',
+  /*
+   * 这里曾经还显式列了一条 'https://orbital.matrixos.edu'，2026-10-21 删除：
+   *   - 冗余：'*.matrixos.edu' 已完整覆盖它（含多级子域）
+   *   - 误导：该主机实测 NXDOMAIN，是已废弃的愿景域名；
+   *           把它列为「官方站」会让人误以为它真的存在，进而照着它去配 CSP
+   *
+   * 判据提醒：本数组是「官方域」的语义声明，不是「当前部署在哪」的清单。
+   * 具体部署域名（matrixos.cc.cd 等）由使用方通过 allowedOrigins 显式传入。
+   */
+];
 
 /** 把 `AppKey` 归一化成裸 key。`'curvelab.matrixos.edu'` → `'curvelab'`。 */
 export function normalizeAppKey(app: string): string {
