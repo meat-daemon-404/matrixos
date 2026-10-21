@@ -8,12 +8,15 @@
   "accepts": [
     "verified_cv_evidence"
   ],
-  "emits": [],
+  "emits": [
+    "verified_cv_evidence"
+  ],
   "permissions": [
     "matrix_id:read",
     "profile:read",
     "assets:read",
     "assets:write",
+    "wormhole:send",
     "wormhole:receive"
   ],
   "author": {

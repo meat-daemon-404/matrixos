@@ -9,7 +9,8 @@
     "paper_doi_bundle",
     "comparison_matrix_row",
     "curve_fit_parameters",
-    "mentor_match_card"
+    "mentor_match_card",
+    "verified_cv_evidence"
   ],
   "emits": [
     "verified_cv_evidence"

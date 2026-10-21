@@ -12,7 +12,7 @@ import "@matrixos/instrument-ui/styles.css";
 import { SITE } from '../site.config';
 import './globals.css';
 
-const SITE_ORIGIN = 'https://mx-' + SITE.appId + '.pages.dev';
+const SITE_ORIGIN = 'https://mx-' + SITE.appId + '.matrixos.cc.cd';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_ORIGIN),

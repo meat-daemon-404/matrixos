@@ -1,0 +1,570 @@
+/**
+ * ⚠️ 由 scripts/wire-workbench.mjs 从 apps/micro-sites/shared/templates/ 分发，请勿直接修改本文件。
+ * 模板：apps/micro-sites/shared/templates/workbench-impl.tsx
+ * 作用：完工台实现（台账增删改 / 导出 / 虫洞投送接收），18 站共用
+ * 站点：18 生涯多重宇宙期望决策树
+ * 轨道：轨道 7 · 预职 · 域名：prejob.matrixos.edu
+ * 改法：改模板 → 跑 `node scripts/wire-workbench.mjs` 重新分发（18 站会一起更新）。
+ */
+'use client';
+
+/**
+ * 微站「完工台」(Workbench) —— 18 个微站共用的完工层。
+ *
+ * 为什么只有一份：
+ *   18 个站的结构完全同构。台账增删改查、导出、虫洞投送、资产落库这些
+ *   **完工契约**如果让 18 个站各写一套，必然写出 18 种不一致实现，
+ *   集成验收会全线失败。所以这一层只写一次，各站只提供业务规格
+ *   `SiteWorkbenchSpec<T>`（见 `./types.ts`）。
+ *
+ * 样式为什么内联：
+ *   18 个站的 `globals.css` 各不相同（每站 accent 不同），若把完工台样式
+ *   加进去就要改 18 个文件。这里用带 `.mx-wb` 前缀的内联 `<style>` 把
+ *   样式封在组件内部，18 个站**零 CSS 改动**即可获得一致的完工台外观。
+ *
+ * 诚实性约定（重要）：
+ *   - 静态演示站没有后端。只有 `bridge.hostConnected === true`（真正嵌在
+ *     hub iframe 里）才允许真投送 / 真落库；否则只做本地演示，
+ *     并在反馈里写明「未实际投送」。
+ *   - 存储不可用时显式提示，不假装保存成功。
+ *   - 投送时证据锚点为 0 会被当场拦下并如实报告（虫洞契约红线）。
+ */
+
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
+
+import {
+  createLedger,
+  type ConsumableEnvelope,
+  type EnvelopePayloadLike,
+  type Ledger,
+  type LedgerSnapshot,
+  type RecordView,
+  type SdkBridge,
+  type SiteIdentityLike,
+  type SiteWorkbenchSpec,
+} from '@matrixos/microsite-data';
+
+/* ─────────────────────────────── 工具函数 ─────────────────────────────── */
+
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
+/** UUID v4 形状。crypto 不可用时退化实现，仅用于演示。 */
+function makeTraceId(): string {
+  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (c && typeof c.randomUUID === 'function') return c.randomUUID();
+  const hex = '0123456789abcdef';
+  let out = '';
+  for (let i = 0; i < 36; i += 1) {
+    if (i === 8 || i === 13 || i === 18 || i === 23) out += '-';
+    else if (i === 14) out += '4';
+    else if (i === 19) out += hex[(Math.floor(Math.random() * 4) + 8) & 0xf] ?? '8';
+    else out += hex[Math.floor(Math.random() * 16)] ?? '0';
+  }
+  return out;
+}
+
+/** 默认的站级证据锚点。台账为空时投送也要有据可依，不能凭空投。 */
+function baselineAnchor(identity: SiteIdentityLike) {
+  return {
+    source_doi_or_url: `https://${identity.domain}/`,
+    verification_level: 'Level_B_Preprint' as const,
+  };
+}
+
+function shortId(id: string): string {
+  return id.length <= 10 ? id : `${id.slice(0, 8)}…`;
+}
+
+/* ─────────────────────────────── 样式 ─────────────────────────────── */
+
+const WORKBENCH_CSS = `
+.mx-wb {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border-radius: var(--radius-md, 12px);
+  background: var(--color-bg-panel, #0b1124);
+  border: 1px solid var(--color-border, #1e293b);
+  min-width: 0;
+}
+.mx-wb-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px; }
+.mx-wb-head h2 {
+  margin: 0; font-size: var(--text-sm, 14px); font-weight: 600;
+  color: var(--color-instrument-bright, #22d3ee);
+}
+.mx-wb-head p { margin: 0; font-size: var(--text-xs, 12px); color: var(--color-text-muted, #94a3b8); }
+.mx-wb-count { margin-left: auto; font-family: var(--font-mono, monospace); font-size: var(--text-xs, 12px); color: var(--color-text-secondary, #cbd5e1); }
+.mx-wb-count b { color: var(--color-instrument-bright, #22d3ee); font-size: var(--text-sm, 14px); }
+.mx-wb-toolbar { display: flex; flex-wrap: wrap; gap: 8px; }
+.mx-wb-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: var(--radius-sm, 8px);
+  font-family: var(--font-sans, system-ui); font-size: var(--text-xs, 12px); font-weight: 500;
+  color: var(--color-text-secondary, #cbd5e1);
+  background: var(--color-bg-raised, #0f172a);
+  border: 1px solid var(--color-border-strong, #334155);
+  cursor: pointer; transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
+}
+.mx-wb-btn:hover:not(:disabled) { color: var(--color-text, #f1f5f9); border-color: var(--color-action, #6366f1); }
+.mx-wb-btn:disabled { opacity: .45; cursor: not-allowed; }
+.mx-wb-btn[data-variant='primary'] {
+  color: var(--color-bg, #050814); background: var(--color-action, #6366f1); border-color: transparent;
+}
+.mx-wb-btn[data-variant='primary']:hover:not(:disabled) { background: var(--color-action, #6366f1); color: var(--color-bg, #050814); filter: brightness(1.12); }
+.mx-wb-btn[data-variant='danger'] { color: var(--color-danger, #f43f5e); border-color: rgba(244,63,94,.4); }
+.mx-wb-btn[data-variant='danger']:hover:not(:disabled) { color: var(--color-danger, #f43f5e); border-color: var(--color-danger, #f43f5e); }
+.mx-wb-list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.mx-wb-row {
+  display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 12px;
+  padding: 10px 12px; border-radius: var(--radius-sm, 8px);
+  background: var(--color-bg-sunken, #020617);
+  border: 1px solid var(--color-border, #1e293b);
+  border-left: 2px solid var(--site-accent, #6366f1);
+  min-width: 0;
+}
+.mx-wb-row-main { flex: 1 1 220px; min-width: 0; }
+.mx-wb-row-title { display: block; font-size: var(--text-xs, 12px); font-weight: 600; color: var(--color-text, #f1f5f9); overflow-wrap: anywhere; }
+.mx-wb-row-meta { display: block; margin-top: 2px; font-family: var(--font-mono, monospace); font-size: var(--text-2xs, 10px); color: var(--color-text-faint, #64748b); overflow-wrap: anywhere; }
+.mx-wb-row-detail { display: block; margin-top: 3px; font-size: var(--text-2xs, 10px); color: var(--color-text-muted, #94a3b8); overflow-wrap: anywhere; }
+.mx-wb-row-actions { display: flex; flex-shrink: 0; gap: 6px; }
+.mx-wb-row-actions .mx-wb-btn { padding: 3px 8px; font-size: var(--text-2xs, 10px); }
+.mx-wb-empty {
+  padding: 18px 12px; text-align: center;
+  font-size: var(--text-xs, 12px); color: var(--color-text-faint, #64748b);
+  border: 1px dashed var(--color-border-strong, #334155);
+  border-radius: var(--radius-sm, 8px);
+}
+.mx-wb-feedback {
+  margin: 0; padding: 8px 10px; min-height: 1.2em;
+  font-family: var(--font-mono, monospace); font-size: var(--text-2xs, 10px);
+  line-height: 1.5; color: var(--color-text-muted, #94a3b8);
+  background: rgba(6,182,212,.06); border-left: 2px solid var(--color-instrument, #06b6d4);
+  border-radius: var(--radius-xs, 4px); overflow-wrap: anywhere;
+}
+.mx-wb-feedback[data-tone='ok'] { color: var(--color-positive, #10b981); border-left-color: var(--color-positive, #10b981); background: rgba(16,185,129,.07); }
+.mx-wb-feedback[data-tone='warn'] { color: var(--color-warning, #f59e0b); border-left-color: var(--color-warning, #f59e0b); background: rgba(245,158,11,.07); }
+.mx-wb-feedback[data-tone='error'] { color: var(--color-danger, #f43f5e); border-left-color: var(--color-danger, #f43f5e); background: rgba(244,63,94,.07); }
+.mx-wb-split { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px; min-width: 0; }
+.mx-wb-panel {
+  display: flex; flex-direction: column; gap: 8px; min-width: 0;
+  padding: 10px 12px; border-radius: var(--radius-sm, 8px);
+  background: var(--color-bg-raised, #0f172a);
+  border: 1px solid var(--color-border, #1e293b);
+}
+.mx-wb-panel h3 { margin: 0; font-size: var(--text-2xs, 10px); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--color-text-faint, #64748b); }
+.mx-wb-panel p { margin: 0; font-size: var(--text-2xs, 10px); line-height: 1.6; color: var(--color-text-muted, #94a3b8); overflow-wrap: anywhere; }
+.mx-wb-panel code { font-family: var(--font-mono, monospace); color: var(--color-instrument-bright, #22d3ee); }
+.mx-wb-note { margin: 0; font-size: var(--text-2xs, 10px); color: var(--color-warning, #f59e0b); }
+@media (max-width: 420px) {
+  .mx-wb { padding: 12px; }
+  .mx-wb-count { margin-left: 0; width: 100%; }
+  .mx-wb-row-actions { width: 100%; }
+  .mx-wb-row-actions .mx-wb-btn { flex: 1 1 auto; justify-content: center; }
+}
+`;
+
+/* ─────────────────────────────── 组件 ─────────────────────────────── */
+
+export interface WorkbenchProps<T> {
+  /** 站点身份，来自各站 `src/site.config.ts` 的 `SITE`。 */
+  readonly identity: SiteIdentityLike;
+  /** 该站的业务规格 —— 每个站唯一需要手写的业务代码。 */
+  readonly spec: SiteWorkbenchSpec<T>;
+  /** SDK 能力桥。没有宿主时传 `hostConnected: false`。 */
+  readonly bridge: SdkBridge;
+  /** localStorage 键名；缺省 `mx.<appId>.<exportName>`。 */
+  readonly ledgerKey?: string;
+  /** 数据结构版本；缺省 1。改字段含义时 +1 并补 migrate。 */
+  readonly ledgerVersion?: number;
+  /** 可选：渲染在完工台上方的自定义内容（如仪表盘）。 */
+  readonly primaryTool?: ReactNode;
+  readonly className?: string;
+}
+
+type Tone = 'info' | 'ok' | 'warn' | 'error';
+
+interface FeedbackState {
+  readonly text: string;
+  readonly tone: Tone;
+}
+
+export function Workbench<T>(props: WorkbenchProps<T>) {
+  const { identity, spec, bridge, primaryTool, className } = props;
+  const ledgerKey = props.ledgerKey ?? `mx.${identity.appId}.${spec.exportName}`;
+  const ledgerVersion = props.ledgerVersion ?? 1;
+
+  /* 台账句柄。spec 视为常量，只在键/版本变化时重建。 */
+  const ledger = useMemo<Ledger<T>>(
+    () =>
+      createLedger<T>({
+        key: ledgerKey,
+        version: ledgerVersion,
+        createDefault: spec.createDefault,
+        validate: spec.validate,
+      }),
+    // spec 是模块级常量；ledgerKey / ledgerVersion 决定实例身份
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ledgerKey, ledgerVersion],
+  );
+
+  /* 首帧必须与服务端一致：先用默认值，挂载后再读真实存储。 */
+  const [snapshot, setSnapshot] = useState<LedgerSnapshot<T>>(() => ledger.readDefault());
+  /* 存储可用性是三态，避免服务端/客户端首帧渲染不一致造成 hydration 警告。 */
+  const [storage, setStorage] = useState<'pending' | 'ok' | 'unavailable'>('pending');
+  const [feedback, setFeedback] = useState<FeedbackState>({ text: '', tone: 'info' });
+
+  useEffect(() => {
+    setSnapshot(ledger.read());
+    setStorage(ledger.available ? 'ok' : 'unavailable');
+  }, [ledger]);
+
+  const data = snapshot.data;
+  const records = useMemo<readonly RecordView[]>(() => {
+    try {
+      return spec.records(data);
+    } catch {
+      return [];
+    }
+  }, [spec, data]);
+
+  const say = useCallback((text: string, tone: Tone = 'info') => {
+    setFeedback({ text, tone });
+  }, []);
+
+  /* ── 增 ── */
+  const handleSave = useCallback(() => {
+    try {
+      const next = ledger.update((prev) => spec.add(prev, nowIso()));
+      setSnapshot(next);
+      const count = spec.records(next.data).length;
+      say(`已保存并持久化 · 台账现有 ${count} 条`, 'ok');
+    } catch (error) {
+      say(`保存失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+    }
+  }, [ledger, spec, say]);
+
+  /* ── 改 ── */
+  const handleEdit = useCallback(
+    (id: string) => {
+      try {
+        const next = ledger.update((prev) => spec.edit(prev, id, nowIso()));
+        setSnapshot(next);
+        say(`已修改 ${shortId(id)} 并持久化`, 'ok');
+      } catch (error) {
+        say(`修改失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+      }
+    },
+    [ledger, spec, say],
+  );
+
+  /* ── 删 ── */
+  const handleRemove = useCallback(
+    (id: string) => {
+      try {
+        const next = ledger.update((prev) => spec.remove(prev, id));
+        setSnapshot(next);
+        const count = spec.records(next.data).length;
+        say(`已删除 ${shortId(id)} · 剩余 ${count} 条`, 'ok');
+      } catch (error) {
+        say(`删除失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+      }
+    },
+    [ledger, spec, say],
+  );
+
+  /* ── 清空 ── */
+  const handleClear = useCallback(() => {
+    try {
+      const next = ledger.write(spec.createEmpty());
+      setSnapshot(next);
+      const count = spec.records(next.data).length;
+      say(count === 0 ? '已清空台账（持久化已同步）' : `已重置台账 · 剩余 ${count} 条`, 'ok');
+    } catch (error) {
+      say(`清空失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+    }
+  }, [ledger, spec, say]);
+
+  /* ── 导出 ── */
+  const handleExportJson = useCallback(() => {
+    const filename = `${spec.exportName}.json`;
+    if (ledger.exportJson(filename)) {
+      say(`已导出 ${filename}（${records.length} 条）`, 'ok');
+    } else {
+      say('导出失败：当前环境不支持文件下载（非浏览器）', 'error');
+    }
+  }, [ledger, spec, records.length, say]);
+
+  const handleExportCsv = useCallback(() => {
+    const filename = `${spec.exportName}.csv`;
+    try {
+      const table = spec.csv
+        ? spec.csv(data)
+        : {
+            header: ['id', 'title', 'meta', 'detail'] as const,
+            rows: records.map((r) => [r.id, r.title, r.meta, r.detail ?? '']),
+          };
+      const ok = ledger.exportCsv(filename, table.rows, { header: table.header });
+      if (ok) say(`已导出 ${filename}（${table.rows.length} 行）`, 'ok');
+      else say('导出失败：当前环境不支持文件下载（非浏览器）', 'error');
+    } catch (error) {
+      say(`导出失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+    }
+  }, [ledger, spec, data, records, say]);
+
+  /* ── 投送（emits） ── */
+  const handleEmit = useCallback(async () => {
+    const stamp = nowIso();
+    let payload: EnvelopePayloadLike;
+    try {
+      payload = spec.emit.build(data, stamp);
+    } catch (error) {
+      say(`投送被拦截：构建 payload 失败 · ${error instanceof Error ? error.message : String(error)}`, 'error');
+      return;
+    }
+
+    /* 契约红线：evidence_anchors 至少 1 条。台账为空时用站级基线锚点，
+       并明确告知这是基线而非台账证据，绝不伪造。 */
+    const builtAnchors = payload.evidence_anchors ?? [];
+    const anchors =
+      builtAnchors.length > 0 ? builtAnchors : [baselineAnchor(identity)];
+    const usedBaseline = builtAnchors.length === 0;
+    const envelope: EnvelopePayloadLike = {
+      data: payload.data,
+      evidence_anchors: anchors,
+    };
+    const traceId = makeTraceId();
+    const target = spec.emit.targetApp;
+    const payloadType = spec.emit.payloadType;
+    const baselineNote = usedBaseline ? ' · 台账为空，使用站级基线锚点' : '';
+
+    /* 只有真的嵌在 hub iframe 内才真投送；否则本地演示，绝不谎称已送达。 */
+    if (bridge.hostConnected && bridge.sendWormhole) {
+      try {
+        const receipt = (await bridge.sendWormhole(target, payloadType, envelope)) as
+          | { traceId?: string; ok?: boolean; reason?: string }
+          | undefined;
+        const ok = receipt?.ok !== false;
+        const realTrace = receipt?.traceId ?? traceId;
+        say(
+          ok
+            ? `已投送至 ${target} · ${payloadType} · trace ${realTrace} · 证据 ${anchors.length} 条${baselineNote}`
+            : `投送未成功：${receipt?.reason ?? '目标站未确认'} · trace ${realTrace}`,
+          ok ? 'ok' : 'warn',
+        );
+      } catch (error) {
+        say(`投送失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+      }
+      return;
+    }
+
+    say(
+      `本地演示 · 未实际投送（当前不在 hub iframe 内）· 目标 ${target} · ${payloadType} · trace ${traceId} · 证据 ${anchors.length} 条${baselineNote}`,
+      'warn',
+    );
+  }, [bridge, identity, spec, data, say]);
+
+  /* ── 接收（accepts） ── */
+  const handleAcceptDemo = useCallback(() => {
+    const stamp = nowIso();
+    let envelope: ConsumableEnvelope;
+    try {
+      envelope = spec.accept.demoEnvelope
+        ? spec.accept.demoEnvelope(stamp)
+        : {
+            trace_id: makeTraceId(),
+            source_app: 'demo',
+            payload_type: spec.accept.payloadType,
+            payload: {
+              data: { note: '本地演示信封' },
+              evidence_anchors: [baselineAnchor(identity)],
+            },
+          };
+      const next = ledger.update((prev) => spec.accept.consume(prev, envelope, stamp));
+      setSnapshot(next);
+      say(
+        `已消费 ${envelope.payload_type ?? spec.accept.payloadType} 信封 · trace ${envelope.trace_id} · 台账现有 ${spec.records(next.data).length} 条`,
+        'ok',
+      );
+    } catch (error) {
+      say(`消费失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+    }
+  }, [ledger, spec, identity, say]);
+
+  /* ── 资产落库 ── */
+  const handleEmitAsset = useCallback(async () => {
+    const stamp = nowIso();
+    const asset = spec.asset
+      ? spec.asset.build(data, stamp)
+      : {
+          assetType: 'dataset',
+          title: `${identity.name} · ${spec.exportName}`,
+          payload: { records: records.length, exportedAt: stamp },
+          evidenceAnchors: [baselineAnchor(identity)],
+        };
+
+    if (bridge.hostConnected && bridge.emitAsset) {
+      try {
+        await bridge.emitAsset(asset);
+        say('已写入资产图谱（AssetGraph）', 'ok');
+      } catch (error) {
+        say(`资产落库失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+      }
+      return;
+    }
+    say('本地演示 · 未写入资产图谱（当前不在 hub iframe 内）', 'warn');
+  }, [bridge, identity, spec, data, records.length, say]);
+
+  const recordCount = records.length;
+  const styleVars = { '--site-accent': identity.accent } as CSSProperties;
+
+  return (
+    <section
+      className={['mx-wb', className].filter(Boolean).join(' ')}
+      style={styleVars}
+      data-testid="primary-tool"
+      data-workbench={spec.exportName}
+    >
+      <style>{WORKBENCH_CSS}</style>
+
+      {primaryTool}
+
+      <div className="mx-wb-head">
+        <h2>{identity.ledger}</h2>
+        <p>
+          本机持久化台账 · 可增 / 改 / 删 / 导出 · 投送 {spec.emit.payloadType} →{' '}
+          {spec.emit.targetApp}
+        </p>
+        <span className="mx-wb-count">
+          <b data-testid="ledger-count">{recordCount}</b> 条记录
+        </span>
+      </div>
+
+      <div className="mx-wb-toolbar">
+        <button
+          type="button"
+          className="mx-wb-btn"
+          data-variant="primary"
+          data-testid="ledger-save"
+          onClick={handleSave}
+        >
+          + 新增一条
+        </button>
+        <button
+          type="button"
+          className="mx-wb-btn"
+          data-testid="ledger-export-json"
+          onClick={handleExportJson}
+        >
+          导出 JSON
+        </button>
+        <button type="button" className="mx-wb-btn" onClick={handleExportCsv}>
+          导出 CSV
+        </button>
+        <button
+          type="button"
+          className="mx-wb-btn"
+          data-variant="danger"
+          data-testid="ledger-clear"
+          onClick={handleClear}
+        >
+          清空台账
+        </button>
+        <button
+          type="button"
+          className="mx-wb-btn"
+          data-testid="wormhole-emit"
+          onClick={() => {
+            void handleEmit();
+          }}
+        >
+          虫洞投送
+        </button>
+        <button
+          type="button"
+          className="mx-wb-btn"
+          onClick={() => {
+            void handleEmitAsset();
+          }}
+        >
+          写入资产图谱
+        </button>
+      </div>
+
+      {storage === 'unavailable' ? (
+        <p className="mx-wb-note">
+          存储不可用（隐私模式或浏览器限制）· 本次操作只在内存中生效，刷新后会丢失。
+        </p>
+      ) : null}
+
+      <p className="mx-wb-feedback" data-testid="wormhole-feedback" data-tone={feedback.tone} role="status">
+        {feedback.text}
+      </p>
+
+      {recordCount === 0 ? (
+        <p className="mx-wb-empty">
+          台账为空。点「+ 新增一条」开始记录，或「清空台账」后重新开始。
+        </p>
+      ) : (
+        <ul className="mx-wb-list">
+          {records.map((record) => (
+            <li className="mx-wb-row" key={record.id}>
+              <span className="mx-wb-row-main">
+                <span className="mx-wb-row-title">{record.title}</span>
+                <span className="mx-wb-row-meta">{record.meta}</span>
+                {record.detail ? <span className="mx-wb-row-detail">{record.detail}</span> : null}
+              </span>
+              <span className="mx-wb-row-actions">
+                <button type="button" className="mx-wb-btn" onClick={() => handleEdit(record.id)}>
+                  编辑
+                </button>
+                <button
+                  type="button"
+                  className="mx-wb-btn"
+                  data-variant="danger"
+                  onClick={() => handleRemove(record.id)}
+                >
+                  删除
+                </button>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="mx-wb-split">
+        <div className="mx-wb-panel">
+          <h3>投送契约 · emits</h3>
+          <p>
+            payload_type <code>{spec.emit.payloadType}</code> → 目标 <code>{spec.emit.targetApp}</code>
+          </p>
+          <p>
+            虫洞契约要求 <code>evidence_anchors ≥ 1</code>。台账为空时使用站级基线锚点，
+            反馈里会写明，不会伪造证据。
+          </p>
+        </div>
+        <div className="mx-wb-panel">
+          <h3>接收契约 · accepts</h3>
+          <p>
+            payload_type <code>{spec.accept.payloadType}</code>
+          </p>
+          <p>{spec.accept.description}</p>
+          <button type="button" className="mx-wb-btn" onClick={handleAcceptDemo}>
+            接收演示信封
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export default Workbench;

@@ -17,13 +17,13 @@
  *   node scripts/build-static-site.mjs --all
  */
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, rmSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// 共享 _headers 生成器
-import { pagesHeaders } from './lib/pages-headers.mjs';
+// 共享 _headers 生成器 + 宿主来源唯一事实源
+import { pagesHeaders, HUB_ORIGINS_FOR_SDK } from './lib/pages-headers.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const MICRO = join(ROOT, 'apps', 'micro-sites');
@@ -52,6 +52,41 @@ if (!existsSync(TEMPLATE)) {
 }
 
 const templateSrc = readFileSync(TEMPLATE, 'utf8');
+
+/**
+ * 把「宿主来源清单」注入构建环境。
+ *
+ * 为什么必须在这里注入：微站的 `sdk-facade` 构造 SDK 时要显式传 `allowedOrigins`
+ * （SDK 默认只信任 `*.matrixos.edu`，而线上真实部署在 `*.pages.dev`，不传就一条
+ * 消息都发不出去 —— 表现为 MatrixID 恒 offline、`layout.resize` 永不生效）。
+ *
+ * 清单本身**不在这里维护**：它来自 `pages-headers.mjs` 的 `HUB_ORIGINS`，
+ * 与 `_headers` 的 CSP `frame-ancestors` 同源派生。这样「谁能嵌我」与
+ * 「我信谁的跨源消息」是同一个答案，不会一处改了另一处忘了。
+ *
+ * 变量名要带 `NEXT_PUBLIC_` 前缀：Next 在**构建期**把带该前缀的环境变量静态
+ * 内联进客户端产物，静态站没有服务端可查询，这是唯一能让浏览器端读到的方式。
+ */
+const BUILD_ENV_BASE = {
+  NODE_ENV: 'production',
+  NEXT_TELEMETRY_DISABLED: '1',
+  NEXT_PUBLIC_MATRIXOS_HUB_ORIGINS: HUB_ORIGINS_FOR_SDK,
+  /*
+   * 后端 API 基址。
+   *
+   * 为什么必须可注入：`api.matrixos.edu` 当前 **NXDOMAIN**（域名未注册/未配置），
+   * 而后端可能实际跑在别的地址（例如 Cloudflare Tunnel 的临时域名）。
+   * 若不注入，微站的 `/v1/auth/exchange` 会打到一个不可解析的主机 ——
+   * 表现是 `AUTH_SERVICE_UNAVAILABLE: ... Failed to fetch`，而且**看起来像网络问题**，
+   * 很难定位到「地址本身就不存在」。
+   *
+   * 优先级：调用方 env > 默认（保持正式域名不变）。
+   * 与 `packages/matrix-sdk/src/http/client.ts` 的 `resolveDefaultApiBase()` 同名。
+   */
+  ...(process.env.NEXT_PUBLIC_MATRIXOS_API_BASE_URL
+    ? { NEXT_PUBLIC_MATRIXOS_API_BASE_URL: process.env.NEXT_PUBLIC_MATRIXOS_API_BASE_URL }
+    : {}),
+};
 
 /** _headers 生成器在 scripts/lib/pages-headers.mjs（单一事实源） */
 
@@ -116,6 +151,46 @@ for (const site of sites) {
     //
     // 策略：先彻底清理增量产物，再构建；失败则重试（最多 3 次）。
     // 这不是掩盖问题——真失败会连报 3 次，错误照样抛出。
+    // 「构建成功」的判据不能只看 out/index.html：
+    // Next 15.5.28 的 output:'export' 偶发报
+    // `Invariant: no direct app page entry found for /icon.svg`（与 /_not-found 同族），
+    // 此时命令退出码是 0，out/ 里也有 index.html，但缺 icon.svg / index.txt ——
+    // 半成品被当成成功，下游验收器会报 /icon.svg 404。实测同一份代码 8 次构建 4 成 4 败。
+    // 因此判据改为三个关键产物同时存在，缺一个就继续重试。
+    const REQUIRED_ARTIFACTS = ['index.html', 'icon.svg', 'index.txt'];
+    const missingArtifacts = () =>
+      REQUIRED_ARTIFACTS.filter((name) => !existsSync(join(dir, 'out', name)));
+    const exportComplete = () => missingArtifacts().length === 0;
+
+    /**
+     * Next 15.5.28 的 `output: 'export'` 在本仓库里**成族地不稳定**：
+     * 同一份代码连续构建，报错会在下面这几种之间随机切换，且都是「构建过程中读不到
+     * 自己刚写的中间产物」，重跑就好：
+     *
+     *   Invariant: no direct app page entry found for /xxx   ← app 页面收集
+     *   ENOENT ... .nft.json                                 ← build traces
+     *   ENOENT ... pages-manifest.json                       ← pages 路由清单
+     *   ENOENT ... build-manifest.json                       ← 增量清单
+     *   ENOENT ... _ssgManifest.js
+     *   ENOENT ... prerender-manifest.json
+     *   Could not find a production build in the '.next' directory   ← 收尾阶段
+     *
+     * 判据必须覆盖整族，只认 `Invariant:` 会漏掉实测最常见的 ENOENT / production build 两类
+     * （本轮 14/15/16/17/18 五站连挂就是被这个窄判据拦在重试之外的）。
+     * 这不是掩盖问题：真失败会连报 3 次，错误照样抛出。
+     */
+    const FLAKY_BUILD_MARKERS = [
+      'Invariant: no direct app page entry',
+      'Could not find a production build',
+      '.nft.json',
+      'pages-manifest.json',
+      'build-manifest.json',
+      '_ssgManifest.js',
+      'prerender-manifest.json',
+    ];
+    const isFlakyBuildError = (output) =>
+      FLAKY_BUILD_MARKERS.some((needle) => output.includes(needle));
+
     const MAX_ATTEMPTS = 3;
     let attempt = 0;
     let lastErr = '';
@@ -129,27 +204,60 @@ for (const site of sites) {
       rmSync(join(dir, 'tsconfig.tsbuildinfo'), { force: true });
 
       try {
-        execFileSync(cmd, cmdArgs, {
+        /**
+         * 关键：这里必须 `stdio: 'pipe'` 而不是 `'inherit'`。
+         *
+         * 之前用 inherit，构建日志直接进终端、**但 execFileSync 抛错时 e.stdout/e.stderr 是
+         * undefined** —— 于是下面的 `isFlakyBuildError(out)` 永远拿到空串、恒为 false，
+         * 不稳定族错误一次都不会被重试，全部当硬失败抛出（实测 09/10/11/16 就是这么连挂的）。
+         *
+         * 改 pipe 后自己把输出原样转发到终端，既保留可读日志，又能真正拿到文本做判据。
+         * 失败时 e.stdout/e.stderr 仍可能为空，所以额外累积本轮的 combinedOutput 兜底。
+         */
+        const result = spawnSync(cmd, cmdArgs, {
           cwd: dir,
-          stdio: 'inherit',
+          encoding: 'utf8',
           shell: !useCli && process.platform === 'win32',
           env: {
             ...process.env,
-            NODE_ENV: 'production',
-            NEXT_PUBLIC_MICROSITE_ORIGIN_TEMPLATE: 'https://{appId}.pages.dev',
+            ...BUILD_ENV_BASE,
+            // 历史遗留：微站侧实际不读它（只有 hub 的 hub-config.ts 读），
+            // 保留是为了不改变既有构建环境，避免与本轮目标无关的行为漂移。
+            // 2026-10-21 账号迁移后生产微站入口是 mx-<appId>.matrixos.cc.cd，
+            // 同步改掉，免得将来有人误把 pages.dev 当成生产地址。
+            NEXT_PUBLIC_MICROSITE_ORIGIN_TEMPLATE:
+              process.env.MATRIXOS_MICROSITE_TEMPLATE ?? 'https://mx-{appId}.matrixos.cc.cd',
             // 关掉 Next 自带的类型检查：tsc 有独立步骤，且它会引入
             // tsbuildinfo 增量状态，是上面那个不稳定 bug 的诱因之一。
-            NEXT_TELEMETRY_DISABLED: '1',
           },
           timeout: 900000,
+          maxBuffer: 64 * 1024 * 1024,
         });
+
+        const combinedOutput = `${result.stdout ?? ''}${result.stderr ?? ''}`;
+        // 把构建日志转发到终端（只打尾部，避免淹没输出）
+        const logLines = combinedOutput.split('\n').filter((line) => line.trim() !== '');
+        for (const line of logLines.slice(-40)) console.log('    ' + line);
+
+        if (result.status !== 0) {
+          lastErr = `next build 退出码 ${result.status}`;
+          if (isFlakyBuildError(combinedOutput) && attempt < MAX_ATTEMPTS) {
+            console.log(`  （第 ${attempt} 次遇到 Next export 已知不稳定族，清理后重试）`);
+            continue;
+          }
+          throw new Error(
+            `next build 失败（退出码 ${result.status}）：${logLines.slice(-3).join(' | ')}`,
+          );
+        }
+
         lastErr = '';
 
-        // 即使命令成功，也要确认产物真的齐了（上面记录过"报成功但没产物"）
-        if (existsSync(join(dir, 'out', 'index.html'))) break;
+        // 即使命令成功，也要确认产物真的齐了（上面记录过"报成功但产物不全"）
+        if (exportComplete()) break;
 
         // 产物不齐：尝试从 .next/server/app 补齐
-        console.log('  （out/index.html 缺失，尝试 fixup 补齐）');
+        const missing = missingArtifacts();
+        console.log(`  （out/ 缺 ${missing.join(' / ')}，尝试 fixup 补齐）`);
         try {
           execFileSync(
             process.execPath,
@@ -159,21 +267,32 @@ for (const site of sites) {
         } catch (e) {
           lastErr = String(e.message).split('\n')[0];
         }
-        if (existsSync(join(dir, 'out', 'index.html'))) break;
+        if (exportComplete()) break;
+
+        // 补齐仍失败 → 当作可重试失败，不要静默放行半成品
+        lastErr = `out/ 缺少 ${missingArtifacts().join(' / ')}`;
+        if (attempt < MAX_ATTEMPTS) {
+          console.log(`  （第 ${attempt} 次产物不完整，清理后重试）`);
+          continue;
+        }
       } catch (e) {
         lastErr = String(e.message).split('\n')[0];
         const out = `${e.stdout || ''}${e.stderr || ''}`;
-        const invariant = out.includes('Invariant: no direct app page entry');
-        if (invariant && attempt < MAX_ATTEMPTS) {
-          console.log(`  （第 ${attempt} 次遇到 Next export 已知不稳定问题，清理后重试）`);
+        if (isFlakyBuildError(out) && attempt < MAX_ATTEMPTS) {
+          console.log(`  （第 ${attempt} 次遇到 Next export 已知不稳定族，清理后重试）`);
           continue;
         }
         throw e;
       }
     }
 
-    if (!existsSync(join(dir, 'out', 'index.html'))) {
-      throw new Error(`out/index.html 缺失（尝试 ${attempt} 次）${lastErr ? '：' + lastErr : ''}`);
+    const stillMissing = missingArtifacts();
+    if (stillMissing.length > 0) {
+      throw new Error(
+        `out/ 产物不完整（尝试 ${attempt} 次），缺少 ${stillMissing.join(' / ')}${
+          lastErr ? '：' + lastErr : ''
+        }`,
+      );
     }
     if (attempt > 1) {
       console.log(`  （第 ${attempt} 次构建成功）`);

@@ -5,13 +5,19 @@
   "entry_url": "https://gpa.matrixos.edu",
   "orbit_station": "study",
   "accent_color": "#6366f1",
-  "accepts": [],
-  "emits": [],
+  "accepts": [
+    "verified_cv_evidence"
+  ],
+  "emits": [
+    "verified_cv_evidence"
+  ],
   "permissions": [
     "matrix_id:read",
     "profile:read",
     "assets:read",
-    "assets:write"
+    "assets:write",
+    "wormhole:send",
+    "wormhole:receive"
   ],
   "author": {
     "lab_name": "MatrixOS",

@@ -1,0 +1,275 @@
+/*
+ * 专业锚定面板样式。
+ *
+ * 与 xz-explorer.css 同理：单独成文件由组件自己 import，
+ * 不往生成物 globals.css 里追加（重跑生成器会覆盖）。
+ * 颜色/圆角/字号一律取 globals.css 的 token。
+ */
+
+.anchor {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.anchor-head { display: flex; flex-direction: column; gap: 3px; }
+
+.anchor-title {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-instrument-bright);
+  letter-spacing: 0.02em;
+}
+
+.anchor-sub { font-size: var(--text-2xs); color: var(--color-text-faint); }
+
+/* ── 选择态 ───────────────────────────────────────────────────────────── */
+.anchor-pick { display: flex; flex-direction: column; gap: 10px; }
+
+.anchor-input {
+  font-family: inherit;
+  font-size: var(--text-xs);
+  color: var(--color-text);
+  background: var(--color-bg-sunken);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  outline: none;
+  transition: border-color var(--dur-fast) ease;
+}
+.anchor-input:focus { border-color: var(--color-action); }
+
+.anchor-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.anchor-chips-label { font-size: var(--text-2xs); color: var(--color-text-faint); }
+
+.anchor-chip {
+  appearance: none;
+  font-family: inherit;
+  font-size: var(--text-2xs);
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border-accent);
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.anchor-chip:hover { border-color: var(--color-action); color: var(--color-text-strong); }
+
+.anchor-results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+
+.anchor-result {
+  appearance: none;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: inherit;
+  font-size: var(--text-xs);
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-raised);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) ease;
+}
+.anchor-result:hover { border-color: var(--site-accent); }
+.anchor-result-meta { font-size: var(--text-2xs); color: var(--color-text-faint); white-space: nowrap; }
+.anchor-empty { font-size: var(--text-2xs); color: var(--color-text-faint); padding: 8px 0; }
+
+/* ── 结果态 ───────────────────────────────────────────────────────────── */
+.anchor-body { display: flex; flex-direction: column; gap: 12px; }
+
+.anchor-spec-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.anchor-spec-name { font-size: var(--text-base); font-weight: 600; color: var(--color-text-strong); display: block; }
+.anchor-spec-meta { font-size: var(--text-2xs); color: var(--color-text-muted); }
+
+.anchor-change {
+  appearance: none;
+  flex: none;
+  font-family: inherit;
+  font-size: var(--text-2xs);
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border-strong);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.anchor-change:hover { border-color: var(--color-action); color: var(--color-text-strong); }
+
+.anchor-note {
+  margin: 0;
+  font-size: var(--text-2xs);
+  line-height: 1.7;
+  color: var(--color-text-faint);
+  padding: 8px 10px;
+  border-radius: var(--radius-xs);
+  background: rgba(245, 158, 11, 0.07);
+  border-left: 2px solid var(--color-warning);
+}
+
+/* ── 满意度 ───────────────────────────────────────────────────────────── */
+.anchor-sat { display: flex; flex-direction: column; gap: 5px; }
+.anchor-sat-row { display: grid; grid-template-columns: 58px minmax(0, 1fr) 118px; align-items: center; gap: 8px; }
+.anchor-sat-label { font-size: var(--text-2xs); color: var(--color-text-muted); }
+.anchor-sat-num { font-size: var(--text-2xs); color: var(--color-text-faint); text-align: right; }
+.anchor-sat-bar { display: block; height: 5px; border-radius: var(--radius-pill); background: var(--color-bg-sunken); overflow: hidden; }
+.anchor-sat-fill { display: block; height: 100%; border-radius: var(--radius-pill); background: linear-gradient(90deg, var(--color-instrument) 0%, var(--color-positive) 100%); }
+
+/* ── 事实卡 ───────────────────────────────────────────────────────────── */
+.anchor-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+.anchor-facts > div {
+  padding: 7px 9px;
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-raised);
+  border: 1px solid var(--color-border);
+}
+.anchor-facts dt { font-size: var(--text-2xs); color: var(--color-text-faint); }
+.anchor-facts dd { margin: 2px 0 0; font-size: var(--text-xs); color: var(--color-text-secondary); }
+
+/* ── 小节 ─────────────────────────────────────────────────────────────── */
+.anchor-h {
+  margin: 0 0 5px;
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  color: var(--color-instrument-bright);
+  letter-spacing: 0.04em;
+}
+
+.anchor-courses ul,
+.anchor-advice ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+
+.anchor-course {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 9px;
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-raised);
+  font-size: var(--text-2xs);
+}
+.anchor-course-m { color: var(--color-text-faint); white-space: nowrap; }
+
+.anchor-advice li {
+  padding: 7px 9px;
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-raised);
+  border-left: 2px solid var(--site-accent);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.anchor-advice-meta { font-size: var(--text-2xs); color: var(--color-text-faint); }
+
+/* ── 毕业去向（原站真实统计）───────────────────────────────────────────── */
+.anchor-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 11px;
+  border-radius: var(--radius-sm);
+  background: rgba(16, 185, 129, 0.05);
+  border: 1px solid rgba(16, 185, 129, 0.22);
+}
+
+.anchor-flow-paths,
+.anchor-flow-occ { display: flex; flex-direction: column; gap: 4px; }
+.anchor-flow-paths { list-style: none; margin: 0; padding: 0; }
+
+.anchor-flow-path {
+  display: grid;
+  grid-template-columns: 96px 48px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-raised);
+  /* 左侧实线：与下方模型假设的虚线框在视觉上区分开 */
+  border-left: 2px solid var(--color-positive);
+}
+
+.anchor-flow-name { font-size: var(--text-xs); color: var(--color-text-secondary); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+/* 原站职业微视频角标：按 zhiyId 命中才出现（60.6% 的流向行有），查不到不渲染占位 */
+.anchor-flow-video {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  background: rgba(139, 92, 246, 0.12);
+  color: var(--color-ecosystem);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: border-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+
+.anchor-flow-video:hover { border-color: var(--color-ecosystem); color: var(--color-text-strong); }
+.anchor-flow-pct { font-size: var(--text-xs); color: var(--color-positive-bright); text-align: right; font-weight: 600; }
+.anchor-flow-cap { font-size: var(--text-2xs); color: var(--color-text-faint); }
+.anchor-flow-none,
+.anchor-flow-sub { font-size: var(--text-2xs); color: var(--color-text-faint); }
+.anchor-flow-none { margin: 0; }
+.anchor-flow-sub { display: block; margin-bottom: 3px; letter-spacing: 0.03em; }
+
+.anchor-flow-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 52px;
+  align-items: center;
+  gap: 8px;
+}
+
+.anchor-flow-bar { display: block; height: 5px; border-radius: var(--radius-pill); background: var(--color-bg-sunken); overflow: hidden; }
+.anchor-flow-fill { display: block; height: 100%; border-radius: var(--radius-pill); background: linear-gradient(90deg, var(--color-positive) 0%, var(--color-instrument) 100%); }
+
+.anchor-flow-inline { margin: 0; font-size: var(--text-2xs); display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+
+/* ── 诚实边界块 ───────────────────────────────────────────────────────── */
+.anchor-bridge {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  padding: 10px 11px;
+  border-radius: var(--radius-sm);
+  background: rgba(6, 182, 212, 0.06);
+  border: 1px dashed rgba(34, 211, 238, 0.28);
+}
+.anchor-bridge p { margin: 0; font-size: var(--text-2xs); line-height: 1.75; color: var(--color-text-muted); }
+.anchor-bridge b { color: var(--color-warning); font-weight: 600; }
+.anchor-bridge-tag {
+  flex: none;
+  font-size: var(--text-2xs);
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  color: var(--color-instrument-bright);
+}
+.anchor-link {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: var(--text-2xs);
+  color: var(--color-instrument-bright);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(34, 211, 238, 0.3);
+}
+.anchor-link:hover { border-bottom-color: var(--color-instrument-bright); }
+
+@media (max-width: 720px) {
+  .anchor-sat-row { grid-template-columns: 52px minmax(0, 1fr) 96px; }
+  .anchor-result { flex-direction: column; align-items: flex-start; gap: 2px; }
+}

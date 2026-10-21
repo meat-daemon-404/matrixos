@@ -23,7 +23,7 @@
   --iu-text-strong: #ffffff;
   --iu-text-secondary: #cbd5e1;
   --iu-text-muted: #94a3b8;
-  --iu-text-faint: #64748b;
+  --iu-text-faint: #7d8ba1; /* V6 修正：与 globals.css --color-text-faint 同步（5.17:1 ✓ AA） */
 
   --iu-action: #6366f1;
   --iu-instrument: #06b6d4;
@@ -46,6 +46,17 @@
     'Microsoft YaHei', 'Noto Sans SC', sans-serif;
   --iu-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
+  /* 密度档（与真实 tokens.css 同机制同值）：默认 1×，答辩/投屏 1.25× */
+  --iu-type-scale: 1;
+  --iu-text-2xs: calc(10px * var(--iu-type-scale));
+  --iu-text-xs: calc(12px * var(--iu-type-scale));
+  --iu-text-sm: calc(14px * var(--iu-type-scale));
+  --iu-text-base: calc(16px * var(--iu-type-scale));
+  --iu-text-lg: calc(18px * var(--iu-type-scale));
+  --iu-text-xl: calc(20px * var(--iu-type-scale));
+  --iu-text-2xl: calc(24px * var(--iu-type-scale));
+  --iu-text-3xl: calc(30px * var(--iu-type-scale));
+
   --iu-dur-fast: 150ms;
   --iu-dur-base: 300ms;
   --iu-dur-slow: 500ms;
@@ -54,3 +65,7 @@
   /* 语义缩放标尺（StarOrbit 用；1.0 → 10.0） */
   --iu-zoom: 2.5;
 }
+
+/* 答辩/投屏密度档开关（与 globals.css 的 --type-scale 开关同名同效，
+ * 真实库就位后由 tokens.css 的同名规则接管，行为不变） */
+[data-iu-density='presentation'] { --iu-type-scale: 1.25; }

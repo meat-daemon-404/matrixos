@@ -1,0 +1,409 @@
+/*
+ * 学职平台浏览器样式。
+ *
+ * 为什么单独一个文件而不是往 globals.css 里追加：globals.css 由
+ * scripts/gen-site.mjs 生成，重跑会覆盖。本文件只被 xz-explorer.tsx import，
+ * 与生成器零冲突。
+ *
+ * 所有颜色/圆角/字号一律取 globals.css 的 token，不写死值 —— 保证与
+ * instrument-ui 及矩阵其他站同一套视觉语言（docs/00-analysis/04-visual-system.md）。
+ */
+
+.xz-explorer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── 头部与标签页 ─────────────────────────────────────────────────────── */
+.xz-explorer-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.xz-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-sunken);
+  border: 1px solid var(--color-border);
+}
+
+.xz-tab {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: var(--text-xs);
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: color var(--dur-fast) ease, background var(--dur-fast) ease;
+}
+
+.xz-tab:hover { color: var(--color-text); }
+
+.xz-tab[data-active='true'] {
+  background: var(--site-accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.xz-src {
+  font-size: var(--text-2xs);
+  color: var(--color-text-faint);
+}
+
+/* ── 面板 ─────────────────────────────────────────────────────────────── */
+.xz-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+}
+
+.xz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.xz-input,
+.xz-select {
+  font-family: inherit;
+  font-size: var(--text-xs);
+  color: var(--color-text);
+  background: var(--color-bg-sunken);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  padding: 6px 9px;
+  outline: none;
+  transition: border-color var(--dur-fast) ease;
+}
+
+.xz-input { flex: 1 1 180px; min-width: 140px; }
+.xz-input:focus,
+.xz-select:focus { border-color: var(--color-action); }
+.xz-select:disabled { opacity: 0.45; cursor: not-allowed; }
+.xz-count { margin-left: auto; font-size: var(--text-2xs); color: var(--color-text-faint); }
+
+/* ── 列表通用 ─────────────────────────────────────────────────────────── */
+.xz-case-list,
+.xz-spec-list,
+.xz-group-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.xz-case-main,
+.xz-spec-main,
+.xz-group-main {
+  appearance: none;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  background: var(--color-bg-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) ease, background var(--dur-fast) ease;
+}
+
+.xz-case-main:hover,
+.xz-spec-main:hover,
+.xz-group-main:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-bg-panel-end);
+}
+
+/* ── 职业人物 ─────────────────────────────────────────────────────────── */
+.xz-case-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 9px 11px;
+}
+
+.xz-case-summary { font-size: var(--text-xs); line-height: 1.6; }
+
+.xz-case-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+
+.xz-case-detail {
+  padding: 4px 11px 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.xz-case[open] ,
+.xz-case[data-open='true'] .xz-case-main { border-color: var(--site-accent); }
+
+/* ── 专业目录 ─────────────────────────────────────────────────────────── */
+.xz-spec-main {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1.6fr) 62px minmax(0, 1.4fr) 34px 66px auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 11px;
+  font-size: var(--text-xs);
+}
+
+.xz-spec-rank { color: var(--site-accent); font-weight: 600; font-size: var(--text-2xs); }
+.xz-spec-name { color: var(--color-text-strong); font-weight: 500; }
+.xz-spec-code,
+.xz-spec-score,
+.xz-spec-evl { color: var(--color-text-muted); font-size: var(--text-2xs); }
+.xz-spec-cat { color: var(--color-text-muted); font-size: var(--text-2xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.xz-spec-score { color: var(--color-positive-bright); }
+
+.xz-spec[data-open='true'] .xz-spec-main { border-color: var(--site-accent); }
+
+.xz-spec-detail {
+  padding: 10px 11px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--color-bg-sunken);
+  border: 1px solid var(--color-border);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
+.xz-intro {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.75;
+  color: var(--color-text-secondary);
+}
+
+/* ── 键值卡 ───────────────────────────────────────────────────────────── */
+.xz-kv {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.xz-kv-4 { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+
+.xz-kv > div {
+  padding: 7px 9px;
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-raised);
+  border: 1px solid var(--color-border);
+}
+
+.xz-kv dt { font-size: var(--text-2xs); color: var(--color-text-faint); }
+.xz-kv dd { margin: 2px 0 0; font-size: var(--text-xs); color: var(--color-text-secondary); }
+
+/* ── 满意度条 ─────────────────────────────────────────────────────────── */
+.xz-sat { display: flex; flex-direction: column; gap: 5px; }
+
+.xz-sat-row {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) 128px;
+  align-items: center;
+  gap: 8px;
+}
+
+.xz-sat-label { font-size: var(--text-2xs); color: var(--color-text-muted); }
+.xz-sat-num { font-size: var(--text-2xs); color: var(--color-text-faint); text-align: right; }
+
+.xz-sat-bar {
+  display: block;
+  height: 5px;
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-raised);
+  overflow: hidden;
+}
+
+.xz-sat-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, var(--color-instrument) 0%, var(--color-positive) 100%);
+}
+
+/* ── 课程 ─────────────────────────────────────────────────────────────── */
+.xz-sub-h {
+  margin: 0 0 5px;
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  color: var(--color-instrument-bright);
+  letter-spacing: 0.04em;
+}
+
+.xz-courses ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.xz-course {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 52px 52px 62px;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 8px;
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-raised);
+  font-size: var(--text-2xs);
+}
+
+.xz-course-name { color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.xz-course-metric { color: var(--color-text-faint); text-align: right; }
+
+.xz-related { margin: 0; font-size: var(--text-2xs); display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+
+/* ── 标签 ─────────────────────────────────────────────────────────────── */
+.xz-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--text-2xs);
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid var(--color-border-accent);
+  color: var(--color-text-muted);
+}
+
+.xz-tag-geo { background: rgba(6, 182, 212, 0.1); border-color: rgba(6, 182, 212, 0.3); color: var(--color-instrument-bright); }
+.xz-tag-star { background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.35); color: var(--color-warning); }
+.xz-tag-deep { background: rgba(16, 185, 129, 0.12); border-color: rgba(16, 185, 129, 0.35); color: var(--color-positive-bright); }
+
+/*
+ * 学科代码角标：贴在标签内文字后面。
+ * 用途是区分同名不同 code 的研究生学科（如「临床医学 100200」学术型
+ * 与「临床医学 105100」专业型）—— 不显示代码就会渲染出两个一模一样的标签。
+ */
+.xz-tag-code {
+  margin-left: 5px;
+  padding-left: 5px;
+  border-left: 1px solid var(--color-border-strong);
+  font-size: var(--text-2xs);
+  color: var(--color-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 职业分类 ─────────────────────────────────────────────────────────── */
+.xz-group-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 11px;
+}
+
+.xz-group-name { font-size: var(--text-xs); color: var(--color-text); font-weight: 500; }
+.xz-group-count { font-size: var(--text-2xs); color: var(--color-text-faint); }
+.xz-group[data-open='true'] .xz-group-main { border-color: var(--site-accent); }
+
+.xz-group-detail {
+  padding: 8px 11px 11px;
+  border: 1px solid var(--color-border);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  background: var(--color-bg-sunken);
+}
+
+.xz-occ-pills { display: flex; flex-wrap: wrap; gap: 5px; }
+
+/* ── 学长学姐建议 ─────────────────────────────────────────────────────── */
+.xz-advice ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.xz-advice-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 9px;
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-raised);
+  border-left: 2px solid var(--site-accent);
+}
+
+.xz-advice-text { font-size: var(--text-xs); line-height: 1.6; color: var(--color-text-secondary); }
+.xz-advice-meta { font-size: var(--text-2xs); color: var(--color-text-faint); }
+
+/* ── 分页 / 说明 / 链接 ───────────────────────────────────────────────── */
+.xz-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding-top: 2px;
+}
+
+.xz-page-btn {
+  appearance: none;
+  font-family: inherit;
+  font-size: var(--text-2xs);
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-bg-raised);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+
+.xz-page-btn:hover:not(:disabled) { border-color: var(--color-action); color: var(--color-text-strong); }
+.xz-page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.xz-page-info { font-size: var(--text-2xs); color: var(--color-text-faint); }
+
+.xz-note {
+  margin: 0;
+  font-size: var(--text-2xs);
+  line-height: 1.7;
+  color: var(--color-text-faint);
+  padding-top: 8px;
+  border-top: 1px dashed var(--color-border);
+}
+
+.xz-faint { font-size: var(--text-2xs); color: var(--color-text-faint); margin: 0; }
+.xz-empty { font-size: var(--text-xs); color: var(--color-text-faint); padding: 18px 0; text-align: center; margin: 0; }
+
+.xz-link {
+  color: var(--color-instrument-bright);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(34, 211, 238, 0.3);
+  margin-left: 6px;
+  font-size: inherit;
+}
+
+.xz-link:hover { border-bottom-color: var(--color-instrument-bright); }
+
+/* ── 窄屏：专业行折叠成两行 ───────────────────────────────────────────── */
+@media (max-width: 720px) {
+  .xz-spec-main {
+    grid-template-columns: 40px minmax(0, 1fr) 34px 60px;
+    row-gap: 4px;
+  }
+  .xz-spec-code,
+  .xz-spec-cat { display: none; }
+  .xz-sat-row { grid-template-columns: 56px minmax(0, 1fr) 104px; }
+  .xz-course { grid-template-columns: minmax(0, 1fr) 46px 46px 54px; }
+}

@@ -9,12 +9,15 @@
     "curve_fit_parameters",
     "comparison_matrix_row"
   ],
-  "emits": [],
+  "emits": [
+    "comparison_matrix_row"
+  ],
   "permissions": [
     "matrix_id:read",
     "profile:read",
     "assets:read",
     "assets:write",
+    "wormhole:send",
     "wormhole:receive"
   ],
   "author": {

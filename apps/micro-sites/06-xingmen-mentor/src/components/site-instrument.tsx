@@ -172,6 +172,7 @@ function GrantGauge({ accent = 'amber' }: SiteInstrumentProps) {
         columns={GRANT_COLUMNS}
         accent={accent}
         blockOnBreach
+        totalBudget={GRANT_TOTAL}
         onColumnHover={(col) => setHovered(col ? col.id : null)}
         formatValue={(v, col) => `${col.unit ?? ''}${v.toLocaleString('zh-CN')}`}
       />

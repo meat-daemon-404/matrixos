@@ -1,26 +1,23 @@
 /**
- * ⚠️ 自动生成 · scripts/gen-site.mjs
+ * ⚠️ 由 scripts/wire-workbench.mjs 从 apps/micro-sites/shared/templates/ 分发，请勿直接修改本文件。
+ * 模板：apps/micro-sites/shared/templates/page.tsx
+ * 作用：页面装配（外壳 + 完工台 + 页脚）
  * 站点：01 学分绩点动态配重台
  * 轨道：轨道 1 · 学阶 · 域名：gpa.matrixos.edu
- * 命名依据：docs/01-plan/00-adr-001-microsite-numbering.md（目录名与域名可不一致，刻意）
- * 重新生成：pnpm gen:site --id=01 --force
+ * 改法：改模板 → 跑 `node scripts/wire-workbench.mjs` 重新分发（18 站会一起更新）。
  */
 import { SiteShell } from '../components/site-shell';
+import { SiteWorkbench } from '../components/site-workbench';
 import { SITE } from '../site.config';
 
-/**
- * 微站入口页（骨架 / 占位）。
- *
- * 服务端只负责吐静态骨架；身份状态、iframe 握手、虫洞接收器都在
- * <SiteShell />（client component）里挂载。
- */
 export default function Page() {
   return (
     <main className="site-root">
       <SiteShell />
+      <SiteWorkbench />
       <footer className="site-footer">
         <span className="mono">{SITE.domain}</span>
-        <span>骨架由 scripts/gen-site.mjs 生成 · ADR-001</span>
+        <span>本地持久化台账 · 可增改删导出 · 虫洞投送见面板 · ADR-001</span>
       </footer>
     </main>
   );

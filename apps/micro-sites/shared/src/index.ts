@@ -92,8 +92,11 @@ export function weightedGpa(courses: readonly CourseWeight[], useTarget = false)
 export const GRANT_COLUMNS: readonly GaugeColumn[] = [
   { id: 'compute', label: '云算力与测试加工', value: 6800, capacity: 6800, unit: '¥' },
   { id: 'ip', label: '知识产权与出版版面', value: 4500, capacity: 4500, unit: '¥' },
-  // 劳务：已用 2500 / 预算 2500，上限按 20% 红线计为 4000
-  { id: 'labor', label: '学生科研测试劳务', value: 2500, capacity: 4000, redline: 0.2, unit: '¥' },
+  // 劳务：已用 2500；capacity 4000 是「项目总额 20% 红线」换算出的额度。
+  // redlineBasis: 'total' 告诉组件：红线量的是「占项目总额 20000 的比例」，
+  // 不是「占本柱 4000 的比例」。不写这一条时 2500/4000 = 62.5% 会被误判成超限，
+  // 而高校财务的真实判据是 2500/20000 = 12.5% ≤ 20%，合规。
+  { id: 'labor', label: '学生科研测试劳务', value: 2500, capacity: 4000, redline: 0.2, redlineBasis: 'total', unit: '¥' },
   { id: 'travel', label: '跨校调研与竞赛差旅', value: 3500, capacity: 3500, unit: '¥' },
   { id: 'data', label: '数据采集与文献耗材', value: 2700, capacity: 2700, unit: '¥' },
 ];
@@ -875,3 +878,59 @@ export const IMPLEMENTED_SITES: readonly string[] = [
   '01', '02', '03', '04', '05', '06', '07', '08', '09',
   '10', '11', '12', '13', '14', '15', '16', '17', '18',
 ];
+
+/* ==========================================================================
+ * 本地台账与虫洞演示信封（2026-10-20 微站功能完备化）
+ * ========================================================================== */
+
+export {
+  createLedger,
+  downloadBlob,
+  downloadText,
+  toCsv,
+  createLocalWormholeEnvelope,
+  __resetLedgerStorageProbe,
+} from './ledger.js';
+export type {
+  Ledger,
+  LedgerOptions,
+  LedgerSnapshot,
+  LedgerStorage,
+  WormholeEnvelopeLike,
+  WormholeEvidenceAnchor,
+  WormholePayloadType,
+} from './ledger.js';
+
+/* ==========================================================================
+ * 完工台类型契约（2026-10-20 微站功能完备化）
+ *
+ * 注意：这里只导出**类型**。Workbench 组件本身在
+ * `apps/micro-sites/shared/templates/site-workbench.tsx`，
+ * 由 `scripts/wire-workbench.mjs` 复制到各站 `src/components/`。
+ *
+ * 为什么不放进本包：本包没有 react / react-dom / @types/react 依赖
+ * （见 package.json），而 workbench 是 React 组件。若要放进来就得给
+ * 18 个站都多一层 peerDep 解析，且 `tsconfig.build.json` 只编译 src 下的 ts。
+ * 复制分发与本仓库既有的 `site-instrument.tsx`（18 份同源副本）一致。
+ * ========================================================================== */
+
+export type {
+  SiteIdentityLike,
+  RecordView,
+  EnvelopePayloadLike,
+  ConsumableEnvelope,
+  SdkBridge,
+  CsvTable,
+  SiteWorkbenchSpec,
+} from './ui/types.js';
+
+/* ==========================================================================
+ * 「记录型台账」业务规格工厂（2026-10-20 微站功能完备化）
+ *
+ * 18 个站的完工层语义同构，差异只在演示数据与投送字段。
+ * 各站 `src/lib/site-spec.ts` 只需给一个配置字面量：
+ *   export const siteSpec = createRowSpec({ exportName, seed, emit, accept });
+ * ========================================================================== */
+
+export { createRowSpec, defaultRowOfEnvelope, baselineAnchor, LEDGER_VERSION } from './ui/spec-factory.js';
+export type { LedgerRow, RowLedgerData, RowSeed, RowSpecConfig } from './ui/spec-factory.js';

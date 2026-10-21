@@ -1,33 +1,44 @@
 /**
- * ⚠️ 自动生成 · scripts/gen-site.mjs
+ * ⚠️ 由 scripts/wire-workbench.mjs 从 apps/micro-sites/shared/templates/ 分发，请勿直接修改本文件。
+ * 模板：apps/micro-sites/shared/templates/site-shell.tsx
+ * 作用：站点外壳（身份 / 元信息 / 仪器面板 / 状态行 / 虫洞接收器）
  * 站点：16 云衡 · 数字天平综测核算器
  * 轨道：轨道 6 · 云衡 · 域名：yunheng.matrixos.edu
- * 命名依据：docs/01-plan/00-adr-001-microsite-numbering.md（目录名与域名可不一致，刻意）
- * 重新生成：pnpm gen:site --id=16 --force
+ * 改法：改模板 → 跑 `node scripts/wire-workbench.mjs` 重新分发（18 站会一起更新）。
  */
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { SITE } from '../site.config';
 import { Bezel, bezelSource } from '../lib/instrument-facade';
 import { SiteInstrument } from './site-instrument';
 import {
   initSSO,
+  manifestAccepts,
+  manifestEmits,
   onWormholeDrop,
   sdkStatus,
+  type SdkStatus,
   type SessionState,
   type WormholeReceipt,
 } from '../lib/sdk-facade';
 
+/**
+ * 站点外壳：身份 → 元信息 → 仪器面板 → 状态行 → 虫洞接收器。
+ *
+ * 水合安全（踩过 React #418 才这么写）：
+ *   `sdkStatus()` 在服务端必然返回「未就位」（没有 window），在浏览器端才可能「已就位」。
+ *   若在渲染期直接调用，首帧文本两边不一致 → React 报 hydration mismatch。
+ *   所以这里先渲染一个**中性**占位（「检测中」），真实状态只在 effect 里回填。
+ */
 export function SiteShell() {
   const [embedded, setEmbedded] = useState(false);
+  const [status, setStatus] = useState<SdkStatus | null>(null);
   const [session, setSession] = useState<SessionState>({
     phase: 'booting',
-    detail: '正在初始化 MatrixID…',
+    detail: '正在检测宿主与 SDK…',
   });
   const [receipts, setReceipts] = useState<readonly WormholeReceipt[]>([]);
-
-  const status = useMemo(() => sdkStatus(), []);
 
   useEffect(() => {
     const isEmbedded = typeof window !== 'undefined' && window.parent !== window;
@@ -36,14 +47,10 @@ export function SiteShell() {
       document.body.dataset.embedded = isEmbedded ? 'true' : 'false';
     }
 
-    const sso = initSSO(
-      {
-        stationId: SITE.id,
-        audience: SITE.appId,
-        embedded: isEmbedded,
-      },
-      (next) => setSession(next),
-    );
+    setStatus(sdkStatus());
+
+    /* 只有真的在 hub iframe 内握手成功才会真发起鉴权（见 sdk-facade 文件头）。 */
+    const sso = initSSO((next) => setSession(next));
 
     const disposeDrop = onWormholeDrop((receipt) => {
       setReceipts((prev) => [receipt, ...prev].slice(0, 5));
@@ -59,11 +66,9 @@ export function SiteShell() {
     setSession((prev) => ({
       phase: prev.phase,
       uid: prev.uid,
-      detail:
-        '通道自检 · ' +
-        (status.available ? 'SDK 符号可用：' + status.symbols.join(' / ') : 'SDK 未就位'),
+      detail: '通道自检 · ' + sdkStatus().detail,
     }));
-  }, [status]);
+  }, []);
 
   const tone = session.phase === 'ready' ? 'ok' : session.phase === 'booting' ? 'warn' : 'off';
 
@@ -103,8 +108,14 @@ export function SiteShell() {
           <span className="chip" data-tone={bezelSource === 'instrument-ui' ? 'ok' : 'off'}>
             面板 · {bezelSource}
           </span>
-          <span className="chip" data-tone={status.available ? 'ok' : 'off'}>
-            SDK · {status.available ? '已就位' : '未就位'}
+          <span className="chip" data-tone={status === null ? 'warn' : status.available ? 'ok' : 'off'}>
+            SDK · {status === null ? '检测中' : status.available ? '已就位' : '未就位'}
+          </span>
+          <span className="chip" data-tone={manifestAccepts.length > 0 ? 'ok' : 'off'}>
+            accepts · {manifestAccepts.length} 类
+          </span>
+          <span className="chip" data-tone={manifestEmits.length > 0 ? 'ok' : 'off'}>
+            emits · {manifestEmits.length} 类
           </span>
           <button type="button" className="chip" onClick={handleManualProbe}>
             通道自检

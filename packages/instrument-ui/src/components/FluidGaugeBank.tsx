@@ -18,10 +18,21 @@ export interface GaugeColumn {
   /** 上限（预算额）。 */
   capacity: number;
   /**
-   * 红线阈值（占 capacity 的比例 0..1）。
-   * 例如劳务费必须 ≤ 20%，则 redline = 0.2。
+   * 红线阈值（0..1），含义由 `redlineBasis` 决定：
+   * - 缺省 / `'capacity'`：占**本柱 capacity** 的比例。例如「本科目预算用到 85% 就预警」。
+   * - `'total'`：占**全项目总额**（`FluidGaugeBankProps.totalBudget`）的比例。
+   *   用于「劳务费 ≤ 项目总额 20%」这类跨科目硬限位 —— 此时 capacity 只是本柱的
+   *   显示上限，红线换算成 `redline × 总额` 的金额，柱顶即红线。
    */
   redline?: number;
+  /**
+   * 红线阈值的分母基准，缺省 `'capacity'`。
+   *
+   * 为什么需要这个字段：高校财务的红线是**项目总额**的比例（劳务费 ≤ 20%），
+   * 而柱子的 capacity 是**本柱**的额度，两者不是一回事。把 redline 一律当
+   * 「占 capacity 的比例」会把 2500/20000 = 12.5% 的合规状态误判成 62.5% 超限。
+   */
+  redlineBasis?: 'capacity' | 'total';
   /** 单位，如 `¥`。 */
   unit?: string;
   /** 已冻结（不可再报销）。 */
@@ -49,6 +60,15 @@ export interface FluidGaugeBankProps {
   accent?: InstrumentAccent;
   /** 柱高（px），默认 200。 */
   height?: number;
+  /**
+   * 全项目总额（总览分母，也是 `redlineBasis: 'total'` 的换算基准）。
+   * 缺省 = Σ 各柱 capacity。
+   *
+   * 为什么需要单独传：各科目 capacity 之和常常 ≠ 项目总额（劳务费柱的 capacity
+   * 是「红线金额」而非「本科目预算」时尤其如此），拿 Σcapacity 当分母会让
+   * 总览显示 93.0% 这种「看起来没花完、其实正好花完」的假读数。
+   */
+  totalBudget?: number;
   /** 是否渲染等价数据表格（无障碍），默认 true。 */
   accessibleTable?: boolean;
   className?: string;
@@ -81,6 +101,7 @@ export function FluidGaugeBank({
   formatValue,
   accent,
   height = 200,
+  totalBudget,
   accessibleTable = true,
   className,
   style,
@@ -90,25 +111,61 @@ export function FluidGaugeBank({
   const reducedMotion = usePrefersReducedMotion();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
+  /** 总览分母：显式 totalBudget 优先，否则退化为各柱 capacity 之和。 */
+  const basisTotal = useMemo(() => {
+    if (totalBudget !== undefined && Number.isFinite(totalBudget) && totalBudget > 0) {
+      return totalBudget;
+    }
+    let capacity = 0;
+    for (const column of columns) capacity += column.capacity;
+    return capacity;
+  }, [columns, totalBudget]);
+
+  /**
+   * 红线的**金额**（不是比例）。跨科目硬限位（`redlineBasis: 'total'`）按项目总额
+   * 折算，本柱限位按本柱 capacity 折算 —— 两者都归一到「多少钱」，比较才不会串味。
+   */
+  const redlineAmountOf = useCallback(
+    (column: GaugeColumn): number | null => {
+      if (column.redline === undefined) return null;
+      return column.redlineBasis === 'total'
+        ? column.redline * basisTotal
+        : column.redline * column.capacity;
+    },
+    [basisTotal],
+  );
+
+  /** 已用金额相对「红线分母基准」的比例（用于算超出几个百分点）。 */
+  const basisFractionOf = useCallback(
+    (column: GaugeColumn): number => {
+      const denominator =
+        column.redlineBasis === 'total' ? basisTotal : column.capacity;
+      if (!Number.isFinite(denominator) || denominator <= 0) return 0;
+      return column.value / denominator;
+    },
+    [basisTotal],
+  );
+
+  const isBreachedOf = useCallback(
+    (column: GaugeColumn): boolean => {
+      const redlineAmount = redlineAmountOf(column);
+      if (redlineAmount === null) return false;
+      // 绝对金额比较，容差按红线金额的相对量级给，避免浮点尾数把「压线」判成超限
+      return column.value - redlineAmount > 1e-9 * Math.max(1, Math.abs(redlineAmount));
+    },
+    [redlineAmountOf],
+  );
+
   const breached = useMemo(
-    () =>
-      columns.filter((column) => {
-        const fraction = normalize(column.value, 0, column.capacity);
-        const redline = column.redline;
-        return redline !== undefined && fraction > redline + 1e-9;
-      }),
-    [columns],
+    () => columns.filter((column) => isBreachedOf(column)),
+    [columns, isBreachedOf],
   );
 
   const totals = useMemo(() => {
     let value = 0;
-    let capacity = 0;
-    for (const column of columns) {
-      value += column.value;
-      capacity += column.capacity;
-    }
-    return { value, capacity, fraction: normalize(value, 0, capacity) };
-  }, [columns]);
+    for (const column of columns) value += column.value;
+    return { value, capacity: basisTotal, fraction: normalize(value, 0, basisTotal) };
+  }, [columns, basisTotal]);
 
   const handleEnter = useCallback(
     (column: GaugeColumn) => {
@@ -172,7 +229,15 @@ export function FluidGaugeBank({
           {columns.map((column) => {
             const fraction = clamp(normalize(column.value, 0, column.capacity), 0, 1.08);
             const redline = column.redline;
-            const isBreached = redline !== undefined && fraction > redline + 1e-9;
+            const redlineAmount = redlineAmountOf(column);
+            const isBreached = isBreachedOf(column);
+            // 红线刻度在柱体上的位置：按「红线金额 / 本柱上限」换算成 0..1 的相对高度。
+            // 跨科目限位时红线金额可能超过本柱 capacity（如劳务 4000 vs 上限 4000 恰好贴顶），
+            // 此时夹到柱顶 —— 刻度依然可见，不会跑到柱体外面。
+            const redlineMark =
+              redlineAmount === null || column.capacity <= 0
+                ? null
+                : clamp(redlineAmount / column.capacity, 0, 1);
             const isHovered = hoveredId === column.id;
             const isLocked = column.locked || (isBreached && blockOnBreach);
             const interactive = Boolean(onColumnClick);
@@ -190,7 +255,7 @@ export function FluidGaugeBank({
                 style={
                   {
                     '--iu-gauge-fill': `${Math.min(fraction, 1) * 100}%`,
-                    '--iu-gauge-redline': `${(redline ?? 1) * 100}%`,
+                    '--iu-gauge-redline': `${(redlineMark ?? 1) * 100}%`,
                     '--iu-gauge-overflow': `${Math.max(0, fraction - 1) * 100}%`,
                     ...(columnAccent
                       ? {
@@ -207,9 +272,16 @@ export function FluidGaugeBank({
                 aria-label={`${column.label}：${display(column.value, column)} / ${display(
                   column.capacity,
                   column,
-                )}${redline !== undefined ? `，红线 ${roundTo(redline * 100, 0)}%` : ''}${
-                  isBreached ? '，已超红线并阻断' : ''
-                }`}
+                )}${
+                  redline === undefined
+                    ? ''
+                    : column.redlineBasis === 'total'
+                      ? `，红线为项目总额的 ${roundTo(redline * 100, 0)}%（${display(
+                          redlineAmount ?? 0,
+                          column,
+                        )}）`
+                      : `，红线 ${roundTo(redline * 100, 0)}%`
+                }${isBreached ? '，已超红线并阻断' : ''}`}
                 onMouseEnter={() => handleEnter(column)}
                 onMouseLeave={handleLeave}
                 onFocus={() => handleEnter(column)}
@@ -248,9 +320,15 @@ export function FluidGaugeBank({
                       className="iu-gauge__redline"
                       aria-hidden="true"
                       data-breached={isBreached ? 'true' : 'false'}
+                      data-basis={column.redlineBasis ?? 'capacity'}
                     >
                       <span className="iu-gauge__redline-label">
-                        红线 {roundTo(redline * 100, 0)}%
+                        {column.redlineBasis === 'total'
+                          ? `红线 项目${roundTo(redline * 100, 0)}% · ${display(
+                              redlineAmount ?? 0,
+                              column,
+                            )}`
+                          : `红线 ${roundTo(redline * 100, 0)}%`}
                       </span>
                     </div>
                   ) : null}
@@ -308,13 +386,15 @@ export function FluidGaugeBank({
             </span>
             <span className="iu-gauge__block-detail">
               {breached
-                .map(
-                  (c) =>
-                    `${c.label} 超出 ${formatFixed(
-                      (normalize(c.value, 0, c.capacity) - (c.redline ?? 1)) * 100,
-                      1,
-                    )} 个百分点`,
-                )
+                .map((c) => {
+                  const overPoints = (basisFractionOf(c) - (c.redline ?? 1)) * 100;
+                  const redlineAmount = redlineAmountOf(c);
+                  const amountNote =
+                    c.redlineBasis === 'total' && redlineAmount !== null
+                      ? `（红线金额 ${display(redlineAmount, c)}）`
+                      : '';
+                  return `${c.label} 超出 ${formatFixed(overPoints, 1)} 个百分点${amountNote}`;
+                })
                 .join(' · ')}
             </span>
           </div>
@@ -350,8 +430,8 @@ export function FluidGaugeBank({
           <tbody>
             {columns.map((column) => {
               const fraction = normalize(column.value, 0, column.capacity);
-              const isBreached =
-                column.redline !== undefined && fraction > column.redline + 1e-9;
+              const isBreached = isBreachedOf(column);
+              const redlineAmount = redlineAmountOf(column);
               return (
                 <tr key={column.id}>
                   <td>{column.label}</td>
@@ -360,7 +440,12 @@ export function FluidGaugeBank({
                   <td>{formatFixed(fraction * 100, 1)}%</td>
                   <td>
                     {column.redline !== undefined
-                      ? `${formatFixed(column.redline * 100, 0)}%`
+                      ? column.redlineBasis === 'total'
+                        ? `项目总额 ${formatFixed(column.redline * 100, 0)}% = ${formatFixed(
+                            redlineAmount ?? 0,
+                            0,
+                          )}`
+                        : `${formatFixed(column.redline * 100, 0)}%`
                       : '—'}
                   </td>
                   <td>{isBreached ? '超限阻断' : column.locked ? '已冻结' : '合规'}</td>

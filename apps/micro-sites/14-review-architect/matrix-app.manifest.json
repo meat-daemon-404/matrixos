@@ -9,12 +9,15 @@
     "paper_doi_bundle",
     "comparison_matrix_row"
   ],
-  "emits": [],
+  "emits": [
+    "paper_doi_bundle"
+  ],
   "permissions": [
     "matrix_id:read",
     "profile:read",
     "assets:read",
     "assets:write",
+    "wormhole:send",
     "wormhole:receive"
   ],
   "author": {

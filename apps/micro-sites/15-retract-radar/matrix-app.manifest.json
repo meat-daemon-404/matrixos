@@ -8,12 +8,15 @@
   "accepts": [
     "paper_doi_bundle"
   ],
-  "emits": [],
+  "emits": [
+    "paper_doi_bundle"
+  ],
   "permissions": [
     "matrix_id:read",
     "profile:read",
     "assets:read",
     "assets:write",
+    "wormhole:send",
     "wormhole:receive"
   ],
   "author": {

@@ -94,7 +94,18 @@ export function PrecisionBalance({
   const uid = useUid('iu-balance');
   const reducedMotion = usePrefersReducedMotion();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [displayTotal, setDisplayTotal] = useState(0);
+  /**
+   * 总分「里程表」的当前显示值。
+   *
+   * 初值必须是 **null**（而不是 0），否则服务端预渲染出 `0.0`、客户端首帧动画推进到
+   * 真值（如 `18.5`），两边文本不一致 → React #418（生产静态导出会严格校验，
+   * dev 模式只警告不抛，所以这个问题只在 `next build` 产物里显形）。
+   *
+   * null 语义 =「还没挂载」：SSR 与客户端首帧都渲染**终值**（cappedTotal），
+   * 两者文本完全一致；挂载后的 effect 才从 0 起步跑缓动。
+   * 视觉上仍然是「进页面数字从 0 跳到终值」，但不会牺牲水合一致性。
+   */
+  const [displayTotal, setDisplayTotal] = useState<number | null>(null);
   const rafRef = useRef<number | null>(null);
 
   const normalized = useMemo(() => pans.slice(0, 3), [pans]);
@@ -112,13 +123,23 @@ export function PrecisionBalance({
   // 总分「里程表」推进：只在 reducedMotion=false 且开启 animate 时跑，
   // 且用**单次 rAF 循环 + 缓动**推进 displayTotal，最多 480ms 即结束。
   // 注意：这不是常驻动画，跑完即断，不会引发持续重排。
+  //
+  // 首帧不动画（mountRef）：SSR 已经渲染了终值，若挂载后从 0 重跑一遍，
+  // 用户会看到「18.5 → 0 → 18.5」的闪跳。所以首轮直接对齐终值，
+  // 只有后续 target 变化（切换数据 / 补报加分）才跑缓动。
+  const mountedRef = useRef(false);
   useEffect(() => {
     const target = cappedTotal;
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      setDisplayTotal(target);
+      return;
+    }
     if (!animate || reducedMotion) {
       setDisplayTotal(target);
       return;
     }
-    const from = displayTotal;
+    const from = displayTotal ?? 0;
     if (Math.abs(target - from) < 0.005) {
       setDisplayTotal(target);
       return;
@@ -146,6 +167,11 @@ export function PrecisionBalance({
 
   const totalFraction = normalize(cappedTotal, 0, capTotal);
   const totalDecimals = cappedTotal % 1 === 0 ? 0 : 1;
+  /**
+   * 实际渲染的总分：未挂载（null）时直接给终值 —— 保证 SSR 文本 == 客户端首帧文本。
+   * 挂载后 displayTotal 被 rAF 推进，从 0 一路涨到终值。
+   */
+  const renderedTotal = displayTotal ?? cappedTotal;
 
   const handlePanEnter = useCallback(
     (pan: BalancePan) => {
@@ -287,7 +313,7 @@ export function PrecisionBalance({
               aria-hidden="true"
               data-animating={animate && !reducedMotion ? 'true' : 'false'}
             >
-              {formatFixed(displayTotal, totalDecimals)}
+              {formatFixed(renderedTotal, totalDecimals)}
             </span>
             <span className="iu-sr-only">
               {formatFixed(cappedTotal, totalDecimals)} / {formatFixed(capTotal, 0)}

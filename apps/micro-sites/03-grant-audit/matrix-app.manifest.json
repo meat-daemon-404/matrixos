@@ -5,13 +5,19 @@
   "entry_url": "https://grant-audit.matrixos.edu",
   "orbit_station": "spark",
   "accent_color": "#8b5cf6",
-  "accepts": [],
-  "emits": [],
+  "accepts": [
+    "paper_doi_bundle"
+  ],
+  "emits": [
+    "verified_cv_evidence"
+  ],
   "permissions": [
     "matrix_id:read",
     "profile:read",
     "assets:read",
-    "assets:write"
+    "assets:write",
+    "wormhole:send",
+    "wormhole:receive"
   ],
   "author": {
     "lab_name": "MatrixOS",

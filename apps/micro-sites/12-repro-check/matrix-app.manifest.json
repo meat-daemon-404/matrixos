@@ -9,12 +9,15 @@
     "paper_doi_bundle",
     "curve_fit_parameters"
   ],
-  "emits": [],
+  "emits": [
+    "paper_doi_bundle"
+  ],
   "permissions": [
     "matrix_id:read",
     "profile:read",
     "assets:read",
     "assets:write",
+    "wormhole:send",
     "wormhole:receive"
   ],
   "author": {

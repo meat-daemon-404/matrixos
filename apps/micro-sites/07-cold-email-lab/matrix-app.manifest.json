@@ -9,12 +9,15 @@
     "mentor_match_card",
     "curve_fit_parameters"
   ],
-  "emits": [],
+  "emits": [
+    "mentor_match_card"
+  ],
   "permissions": [
     "matrix_id:read",
     "profile:read",
     "assets:read",
     "assets:write",
+    "wormhole:send",
     "wormhole:receive"
   ],
   "author": {

@@ -71,9 +71,16 @@ import { fileURLToPath } from 'node:url';
 // 单一事实源让「新站脚手架」与「旧站补丁」产出逐字节一致，不再漂移。
 import { renderMetadataBlock } from './site-icons.mjs';
 
+// 完工层的两份单一事实源：虫洞契约 + 分发模板清单。
+// 与 scripts/wire-workbench.mjs 共用同一份，保证 `gen:site --force` 与分发器产出一致。
+import { CONTRACTS, PAYLOAD_TYPES, permissionsFor } from './lib/microsite-contracts.mjs';
+import { TEMPLATE_FILES, templateHeader } from './lib/microsite-templates.mjs';
+import { INSTRUMENT_CSS } from './lib/microsite-instrument-css.mjs';
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const ROSTER_PATH = join(ROOT, 'specs', 'microsites.json');
 const MICRO_ROOT = join(ROOT, 'apps', 'micro-sites');
+const TEMPLATES_DIR = join(MICRO_ROOT, 'shared', 'templates');
 const HUB_DIR = join(ROOT, 'apps', 'orbital-hub');
 const REGISTRY_PATH = join(HUB_DIR, 'src', 'lib', 'microsites.generated.ts');
 
@@ -120,47 +127,15 @@ const ORBIT_META = {
   7: { key: 'pre_job', label: '轨道 7 · 预职', accent: '#f43f5e' },
 };
 
-const PAYLOAD_TYPES = [
-  'paper_doi_bundle',
-  'comparison_matrix_row',
-  'curve_fit_parameters',
-  'mentor_match_card',
-  'verified_cv_evidence',
-];
-
-/**
- * 每站的虫洞钩子默认值（accepts / emits）。
- * 这是**脚手架默认值**，S3 做功能完备化时以站点实际能力为准改这里；
- * 枚举受 wormhole-envelope.schema.json 封闭约束，不得扩展。
- */
-const HOOKS = {
-  '01': { accepts: [], emits: [] },
-  '02': { accepts: ['verified_cv_evidence'], emits: [] },
-  '03': { accepts: [], emits: [] },
-  '04': { accepts: ['paper_doi_bundle'], emits: ['paper_doi_bundle'] },
-  '05': { accepts: ['paper_doi_bundle'], emits: ['paper_doi_bundle'] },
-  '06': { accepts: ['paper_doi_bundle', 'curve_fit_parameters'], emits: ['mentor_match_card'] },
-  '07': { accepts: ['mentor_match_card', 'curve_fit_parameters'], emits: [] },
-  '08': { accepts: ['mentor_match_card'], emits: [] },
-  '09': { accepts: ['paper_doi_bundle'], emits: ['comparison_matrix_row'] },
-  '10': { accepts: ['paper_doi_bundle'], emits: ['comparison_matrix_row'] },
-  '11': { accepts: ['comparison_matrix_row'], emits: ['curve_fit_parameters'] },
-  '12': { accepts: ['paper_doi_bundle', 'curve_fit_parameters'], emits: [] },
-  '13': { accepts: ['curve_fit_parameters', 'comparison_matrix_row'], emits: [] },
-  '14': { accepts: ['paper_doi_bundle', 'comparison_matrix_row'], emits: [] },
-  '15': { accepts: ['paper_doi_bundle'], emits: [] },
-  '16': { accepts: ['paper_doi_bundle', 'verified_cv_evidence'], emits: [] },
-  '17': {
-    accepts: [
-      'paper_doi_bundle',
-      'comparison_matrix_row',
-      'curve_fit_parameters',
-      'mentor_match_card',
-    ],
-    emits: ['verified_cv_evidence'],
-  },
-  '18': { accepts: ['verified_cv_evidence'], emits: [] },
-};
+// 虫洞契约（accepts / emits / 投送目标）的唯一事实源在 scripts/lib/microsite-contracts.mjs。
+// 这里只做派生 —— 曾经两处各持一份，生成器那份是骨架期旧值，
+// 跑一次 `pnpm gen:site --force` 就会把已完工站点的 manifest 打回 accepts: [] / emits: []。
+const HOOKS = Object.fromEntries(
+  Object.entries(CONTRACTS).map(([id, contract]) => [
+    id,
+    { accepts: [...contract.accepts], emits: [...contract.emits] },
+  ]),
+);
 
 /** 端口约定：orbital-hub 3000，微站 3010~3027（docs/02-engineering/01-dev-setup.md §四）。 */
 const MICRO_PORT_BASE = 3010;
@@ -471,6 +446,70 @@ function fileHeader(station, extra) {
     .join('\n');
 }
 
+/**
+ * 读 `apps/micro-sites/shared/templates/<name>`，加站点头后返回。
+ *
+ * 为什么生成器也走共享模板：这 6 个文件是 18 站同构的分发产物，真身在 shared/templates/。
+ * 生成器曾经各持一份模板字符串（sdk-facade 还在探测 6 个根本不存在的 SDK 顶层符号），
+ * 跑一次 `pnpm gen:site --force` 就把已完工站点打回骨架态。现在两边读同一份模板、
+ * 写同样的头，产出逐字节一致，`wire-workbench.mjs --check` 不会误报漂移。
+ */
+function renderSharedTemplate(station, templateName) {
+  const file = TEMPLATE_FILES.find((item) => item.from === templateName);
+  if (!file) throw new GenError('未知模板：' + templateName + '（不在 TEMPLATE_FILES 里）');
+  const body = readFileSync(join(TEMPLATES_DIR, templateName), 'utf8');
+  return templateHeader(station, file) + body;
+}
+
+/**
+ * 新站的 site-spec 起始骨架。
+ *
+ * site-spec 是**每站手写**的唯一业务文件，所以 `writeSite` 给它打了 neverOverwrite，
+ * 加 --force 也不会覆盖（否则重新生成骨架会抹掉整站业务数据）。
+ * 这里只保证「生成完就能编译、能跑通验收」，真实演示数据由人替换。
+ */
+function renderSiteSpecStarter(station) {
+  const contract = CONTRACTS[station.id] ?? {
+    exportName: 'records',
+    accepts: [],
+    emits: [],
+    emitTarget: '',
+  };
+  const emitType = contract.emits[0] ?? 'verified_cv_evidence';
+  const acceptType = contract.accepts[0] ?? emitType;
+  // 注意：这里不能拼 fileHeader(station) —— 它自带收尾的 */，再往后接「 * 业务规格…」
+  // 会把注释提前闭合，生成的 site-spec 直接语法错（TS1109 / TS1127）。
+  const header = [
+    '/**',
+    ' * ⚠️ 自动生成骨架 · 之后由人（或子代理）接管，scripts/gen-site.mjs 不再覆盖本文件',
+    ' * 站点：' + station.id + ' ' + station.name,
+    ' * 轨道：' + station.orbitName + ' · 域名：' + station.domain,
+    ' *',
+    ' * 业务规格 —— **本站唯一需要手写的文件**。',
+    ' *',
+    ' * 现在只是能编译的占位：把 seed 换成真实演示数据（数值从 @matrixos/microsite-data 算，不要手抄），',
+    ' * 再补 payloadOf / rowOfEnvelope，然后跑 node scripts/microsite-verify.mjs --site=<目录名> 验收。',
+    ' * 规范见 docs/02-engineering/08-microsite-workbench.md。',
+    ' */',
+  ].join('\n');
+  return `${header}
+import { createRowSpec, type RowSpecConfig } from '@matrixos/microsite-data';
+
+const config: RowSpecConfig = {
+  exportName: '${contract.exportName}',
+  seed: [
+    { title: '待补全记录 01', meta: '占位 · 请替换为真实演示数据', detail: '…' },
+    { title: '待补全记录 02', meta: '占位 · 请替换为真实演示数据', detail: '…' },
+    { title: '待补全记录 03', meta: '占位 · 请替换为真实演示数据', detail: '…' },
+  ],
+  emit: { targetApp: '${contract.emitTarget}', payloadType: '${emitType}' },
+  accept: { payloadType: '${acceptType}', description: '接收上游投递的记录，插入台账顶部。' },
+};
+
+export const siteSpec = createRowSpec(config);
+`;
+}
+
 function renderSiteConfig(station) {
   return `${fileHeader(station)}
 export interface SiteIdentity {
@@ -731,28 +770,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 }
 
 function renderPage(station) {
-  return `${fileHeader(station)}
-import { SiteShell } from '../components/site-shell';
-import { SITE } from '../site.config';
-
-/**
- * 微站入口页（骨架 / 占位）。
- *
- * 服务端只负责吐静态骨架；身份状态、iframe 握手、虫洞接收器都在
- * <SiteShell />（client component）里挂载。
- */
-export default function Page() {
-  return (
-    <main className="site-root">
-      <SiteShell />
-      <footer className="site-footer">
-        <span className="mono">{SITE.domain}</span>
-        <span>骨架由 scripts/gen-site.mjs 生成 · ADR-001</span>
-      </footer>
-    </main>
-  );
-}
-`;
+  return renderSharedTemplate(station, 'page.tsx');
 }
 
 function renderGlobalsCss(station) {
@@ -784,7 +802,11 @@ function renderGlobalsCss(station) {
   --color-text-strong: #ffffff;
   --color-text-secondary: #cbd5e1;
   --color-text-muted: #94a3b8;
-  --color-text-faint: #64748b;
+  /* V6 修正（visual-system §2.5）：slate-500 #64748b 在 #0f172a 上仅 3.75:1，
+   * 连 AA-large 都不达。换成 #7d8ba1（5.17:1 ✓ AA，与 instrument-ui
+   * tokens.css 的 --iu-text-faint 同值同步——两套 token 只允许一处权威差异，
+   * 对比度结论必须一致）。 */
+  --color-text-faint: #7d8ba1;
 
   /* Accent（六色取自 Tailwind 500 档） */
   --color-action: #6366f1;
@@ -814,18 +836,27 @@ function renderGlobalsCss(station) {
   --dur-slow: 500ms;
   --pulse-duration: 2.8s;
 
-  /* Typography —— V3 修正：补 CJK 回退 */
+  /* Typography —— V3 修正：补 CJK 回退；V8 修正（visual-system §3.2）：字号阶梯
+   * 接 calc 缩放，机制与 instrument-ui 的 --iu-type-scale 同构——默认 1×，
+   * 渲染逐像素不变；挂 [data-iu-density='presentation'] 即整体 1.25×。 */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
     'Microsoft YaHei', 'Noto Sans SC', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  --text-2xs: 10px;
-  --text-xs: 12px;
-  --text-sm: 14px;
-  --text-base: 16px;
-  --text-lg: 18px;
-  --text-xl: 20px;
-  --text-2xl: 24px;
+  --type-scale: 1;
+  --text-2xs: calc(10px * var(--type-scale));
+  --text-xs: calc(12px * var(--type-scale));
+  --text-sm: calc(14px * var(--type-scale));
+  --text-base: calc(16px * var(--type-scale));
+  --text-lg: calc(18px * var(--type-scale));
+  --text-xl: calc(20px * var(--type-scale));
+  --text-2xl: calc(24px * var(--type-scale));
 }
+
+/* V8 配套：答辩/投屏密度档开关。选择器与 instrument-ui tokens.css 的
+ * [data-iu-density='presentation'] 同名同值——挂在 <html>/<body>/任意容器上，
+ * 微站外壳（--text-*）与库组件（--iu-text-*）一起放大 1.25×，
+ * 136 处 <12px 小字（§十 V8）在投影场景全部升到 ≥12.5px。 */
+[data-iu-density='presentation'] { --type-scale: 1.25; }
 
 * { box-sizing: border-box; }
 
@@ -838,6 +869,9 @@ body {
   font-size: var(--text-sm);
   line-height: 1.65;
   min-height: 100vh;
+  /* 触屏：关掉系统默认灰色高亮闪层，让 :active 按压态（见 instrument 样式
+   * 尾部「触屏按压反馈与命中区」块）成为唯一反馈通道——否则两层反馈叠加。 */
+  -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -869,6 +903,23 @@ body[data-embedded='true'] { overflow: hidden; height: 100%; }
 }
 
 .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* ── 键盘可达性与选择态（V5 的 CSS 底座；组件级 aria 归 instrument-ui） ─────────
+ * 此前两处 CSS 源 :focus 样式 0 处——键盘 Tab 聚焦在深底上完全不可见。
+ * :focus-visible 只对键盘/AT 导航生效（鼠标点击不打扰）；描边用仪器青
+ * #22d3ee（对 #050814 实测 11.05:1，AAA），2px 环 + 2px 偏移。 */
+:focus-visible {
+  outline: 2px solid var(--color-instrument-bright);
+  outline-offset: 2px;
+}
+
+/* 文本选区与仪器强调色一致，替代浏览器默认蓝 */
+::selection { background: rgba(34, 211, 238, 0.30); }
+
+/* 低视力「提高对比度」系统偏好：弱化档升到说明档（#94a3b8，6.96:1） */
+@media (prefers-contrast: more) {
+  :root { --color-text-faint: var(--color-text-muted); }
+}
 
 /* ── 视觉签名 1：仪器面板（visual-system §5.2，三个细节都不能省） ───────────── */
 .instrument-bezel {
@@ -905,6 +956,18 @@ body[data-embedded='true'] { overflow: hidden; height: 100%; }
   padding: 20px 20px 0;
   max-width: 1100px;
   margin: 0 auto;
+}
+
+/* V13 修正（visual-system §7.4）：原设计 0 处 xl 断点，大屏 4 仪器布局留白浪费。
+ * ≥1440px 视口放宽容器到 1320px、补 48px 边距 —— 1100px 容器在 2K/4K 屏上
+ * 两侧各留 25%+ 纯黑，仪器网格（auto-fit minmax）自动多吃两列。
+ * 只动容器宽度不动内网格：仪器布局全部是 auto-fit/1fr 自适应，无需逐类改。 */
+@media (min-width: 1440px) {
+  .site-root {
+    max-width: 1320px;
+    padding-left: 48px;
+    padding-right: 48px;
+  }
 }
 
 /* iframe 内降级模式（ADR-08）：hub 嵌入式挂载时隐藏大标题/页脚，只留仪器本体 */
@@ -1026,6 +1089,24 @@ body[data-embedded='true'] .site-footer { display: none; }
 .chip[data-tone='warn'] { color: var(--color-warning); border-color: rgba(245, 158, 11, 0.4); }
 .chip[data-tone='off'] { color: var(--color-text-faint); }
 
+/* ── 可点 chip（如「通道自检」）与静态状态 chip 的区分 ─────────────────────
+ * 缺陷：status-row 里六个 chip 中五个是只读状态标签，第六个是 <button>，
+ * 此前两者样式完全相同 → 用户看不出哪个能点。此处只给 button 型 chip
+ * 加交互线索；状态 chip 保持纯展示语义（不加 cursor、无 hover）。 */
+button.chip {
+  cursor: pointer;
+  transition: color var(--dur-fast) ease, border-color var(--dur-fast) ease,
+    background var(--dur-fast) ease;
+}
+button.chip:hover {
+  color: var(--color-instrument-bright);
+  border-color: rgba(34, 211, 238, 0.5);
+  background: rgba(6, 182, 212, 0.12);
+}
+button.chip:active {
+  background: rgba(6, 182, 212, 0.2);
+}
+
 .receipt-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
 .receipt-list li {
   font-family: var(--font-mono);
@@ -1049,6 +1130,8 @@ body[data-embedded='true'] .site-footer { display: none; }
   border-top: 1px solid var(--color-border);
 }
 
+${INSTRUMENT_CSS}
+
 /* ── V4 修正：原设计缺 prefers-reduced-motion（存在无限循环动画） ─────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -1057,198 +1140,130 @@ body[data-embedded='true'] .site-footer { display: none; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ── 打印样式（原管线 0 处 @media print；实测是硬缺陷不是润色） ─────────────
+ * 实测证据：print 媒体下 body 仍是深底 #050814 + 浅字 #f1f5f9，但浏览器
+ * 默认不打印背景色 → 浅字落在白纸上，正文对比度 **1.10:1**、标题 **1.00:1**
+ * （完全不可见）。微站的答辩材料、综测申报附件都要走打印/导出 PDF，
+ * 所以这里必须把配色**反转为浅底深字**，而不是靠"记得勾选背景图形"。
+ *
+ * 三条原则：
+ *   1. 反色：纸=白底黑字，对比度回到 AAA，不依赖用户勾任何选项；
+ *   2. 去装饰：辉光/渐变/玻璃拟态/动效在纸上无意义且耗墨，一律压平；
+ *   3. 保结构：边框保留（改成浅灰实线）以便表格与卡片仍可分辨。 */
+@media print {
+  :root {
+    --color-bg: #ffffff;
+    --color-bg-panel: #ffffff;
+    --color-bg-panel-end: #ffffff;
+    --color-bg-sunken: #ffffff;
+    --color-bg-raised: #ffffff;
+    --color-glass: #ffffff;
+    --color-border: #cbd5e1;
+    --color-border-strong: #94a3b8;
+    --color-text: #0f172a;
+    --color-text-strong: #000000;
+    --color-text-secondary: #1e293b;
+    --color-text-muted: #334155;
+    /* 打印用深灰而非原 #7d8ba1（对白纸仅 2.9:1）；#475569 对白纸 7.5:1 ✓ */
+    --color-text-faint: #475569;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  /* 去装饰 */
+  .instrument-bezel {
+    background: #ffffff !important;
+    border: 1px solid var(--color-border-strong) !important;
+    box-shadow: none !important;
+  }
+  .glass-panel {
+    background: #ffffff !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  *, *::before, *::after {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    animation: none !important;
+    transition: none !important;
+  }
+
+  /* 卡片/条目：白底 + 可见细边，避免整页糊成一片 */
+  .meta-card, .pat-item, .cluster-card, .path-card, .cv-entry,
+  .check-item, .email-pane, .sniper-pane, .gpa-stat, .gpa-course,
+  .prob-item, .pat-detail, .cluster-claim, .formula-block, .formula-code {
+    background: #ffffff !important;
+    border: 1px solid var(--color-border) !important;
+  }
+
+  /* 站点外壳：打印时隐藏纯交互元素（对纸质材料无意义） */
+  .status-row,
+  .site-footer,
+  button { display: none !important; }
+
+  /* 表格分页不撕裂：表头每页重复 */
+  table { break-inside: auto; }
+  tr, .meta-card, .pat-item, .cv-entry, .check-item {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  thead { display: table-header-group; }
+  h1, h2, h3 { break-after: avoid; }
+
+  /* 窄边距，A4 一页尽量多内容 */
+  @page { margin: 14mm 12mm; }
+
+  /* 链接展开为可读文本（纸质无法点击） */
+  a[href^='http']::after {
+    content: ' (' attr(href) ')';
+    font-size: 0.85em;
+    color: #475569;
+  }
+
+  /* ── 彩色底块在纸上不打印背景 → 白字白纸（逐元素实测 1.00:1） ──────────
+   * 受影响的都是"彩色底 + 反白字"的元素。纸上给它们改回白底 + 深字 +
+   * 可见边框：既保留"这是个标记"的语义，又不依赖背景是否被打印。 */
+  .site-id {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 1px solid var(--color-border-strong);
+    font-weight: 700;
+  }
+
+  /* 仪器标题/强调文字用的是青色系（#22d3ee 对白纸仅 1.81:1）——
+   * 纸上统一压成深色，靠字重与字号维持层级，不靠颜色。 */
+  .instrument-head h2,
+  .instrument-slot h2,
+  .cv-role,
+  .mentor-dim-fill,
+  .site-orbit,
+  td.accent,
+  .gpa-value.accent,
+  .prob-val {
+    color: #0f172a !important;
+  }
+  /* 进度条填充在纸上变成深灰实心（浅渐变打不出来） */
+  .mentor-dim-fill,
+  .skill-fill,
+  .path-fill {
+    background: #475569 !important;
+  }
+  .mentor-dim-bar,
+  .skill-track,
+  .path-bar {
+    background: #e2e8f0 !important;
+    border: 1px solid var(--color-border);
+  }
+}
 `;
 }
 
-function renderSdkFacade(station, deps) {
-  return `${fileHeader(station)}
-import * as MatrixSDK from ${JSON.stringify(deps.sdk)};
-
-/**
- * SDK 适配层（本站**唯一**允许 import \`${deps.sdk}\` 的地方）
- * ==========================================================================
- * 为什么要有这一层：
- *  1. SDK 与本站并行开发 —— 这里做**可选解析**，包没就位或缺符号时 UI 显式说
- *     「未就位」，绝不伪造登录态，也不假装虫洞投递成功。
- *  2. 未来 SDK 改签名，只改这一个文件。
- *
- * 与 SDK owner 对齐的接口（2026-10-20 定稿）：
- *   initSSO(options): Promise<SSOSession>     —— 异步；双通道（Cookie / mx_idt 交换）
- *   onWormholeDrop(handler): () => void       —— 返回取消订阅函数
- *   emitAsset(asset): Promise<AssetNode>      —— → POST /v1/assets
- *   useHostBridge(): HostBridge               —— 框架无关（不是 React hook）
- *   sendWormhole(...) / getManifest() / createMatrixSDK(...)
- *   注意：SDK **不含** WormholeDropRing —— 环体视觉归 instrument-ui。
- */
-type AnyFn = (...args: unknown[]) => unknown;
-
-const rawSdk = MatrixSDK as unknown as Record<string, unknown>;
-
-/** shim 模块会导出这个标记；真实 SDK 不会。 */
-export const sdkIsShim = rawSdk.__matrixosShim === true;
-
-function pick(name: string): AnyFn | null {
-  const candidate = rawSdk[name];
-  return typeof candidate === 'function' ? (candidate as AnyFn) : null;
-}
-
-const TRACKED_SYMBOLS = [
-  'initSSO',
-  'onWormholeDrop',
-  'emitAsset',
-  'useHostBridge',
-  'sendWormhole',
-  'getManifest',
-] as const;
-
-export interface SdkStatus {
-  readonly available: boolean;
-  readonly shim: boolean;
-  readonly symbols: readonly string[];
-}
-
-export function sdkStatus(): SdkStatus {
-  const symbols = TRACKED_SYMBOLS.filter((n) => pick(n) !== null);
-  return {
-    available: !sdkIsShim && symbols.length > 0,
-    shim: sdkIsShim,
-    symbols,
-  };
-}
-
-export type SessionPhase = 'booting' | 'ready' | 'offline';
-
-export interface SessionState {
-  readonly phase: SessionPhase;
-  readonly uid?: string;
-  readonly detail: string;
-}
-
-export interface InitSSOOptions {
-  /** 站点编号，如 '07' */
-  readonly stationId: string;
-  /** 微站对外标识（域名前缀），作为 /v1/auth/introspect 的 audience */
-  readonly audience: string;
-  /** 是否运行在 orbital-hub 的 iframe 内 —— 决定走 Cookie 还是 mx_idt 交换（架构 §4.4） */
-  readonly embedded: boolean;
-}
-
-function describe(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  return String(err);
-}
-
-/**
- * 初始化 SSO。SDK 的 initSSO 是**异步**的，这里返回一个带 \`dispose\` 的句柄。
- *
- * 注意：调用方拿到的永远是同步句柄，但 ready/offline 状态经 onStateChange 异步回填 ——
- * 这样 React 组件不会因为 "忘记 await" 而卡在 booting。
- */
-export interface SsoHandle {
-  dispose(): void;
-}
-
-export function initSSO(
-  options: InitSSOOptions,
-  onStateChange: (state: SessionState) => void,
-): SsoHandle {
-  const fn = pick('initSSO');
-  if (!fn) {
-    onStateChange({
-      phase: 'offline',
-      detail: 'MatrixID 未接入：SDK 未就位（骨架态，不伪造登录）',
-    });
-    return { dispose: () => {} };
-  }
-
-  let cancelled = false;
-  let disposeFromSdk: (() => void) | undefined;
-
-  const promise = (async () => {
-    const result = await (fn({
-      stationId: options.stationId,
-      audience: options.audience,
-      embedded: options.embedded,
-    }) as Promise<unknown>);
-    if (cancelled) return;
-
-    const session = (result ?? {}) as Record<string, unknown>;
-    // SDK 未定时可能返回 { matrix_uid } / { uid } / { session: {...} }
-    const uid = String(session.matrix_uid ?? session.uid ?? '') || undefined;
-    onStateChange({
-      phase: 'ready',
-      ...(uid ? { uid } : {}),
-      detail:
-        (options.embedded ? 'iframe 通道' : 'Cookie 通道') +
-        ' · MatrixID 已就绪' +
-        (uid ? ' · ' + uid : ''),
-    });
-
-    const maybeDispose = (session.dispose ?? session.close) as unknown;
-    if (typeof maybeDispose === 'function') disposeFromSdk = maybeDispose as () => void;
-  })();
-
-  promise.catch((err: unknown) => {
-    if (cancelled) return;
-    onStateChange({ phase: 'offline', detail: 'MatrixID 初始化失败：' + describe(err) });
-  });
-
-  return {
-    dispose: () => {
-      cancelled = true;
-      disposeFromSdk?.();
-    },
-  };
-}
-
-export interface WormholeReceipt {
-  readonly traceId: string;
-  readonly payloadType: string;
-  readonly evidenceCount: number;
-  readonly receivedAt: string;
-  readonly sourceApp: string;
-  /** 真投递时由 hub 下发的一次性凭证（120s）；shim/骨架态为 undefined */
-  readonly receiptId?: string;
-}
-
-/**
- * 注册虫洞接收器。契约见 specs/contracts/wormhole-envelope.schema.json：
- * payload.evidence_anchors 至少 1 条，且每条必须带 source_doi_or_url + verification_level。
- */
-export function onWormholeDrop(
-  handler: (receipt: WormholeReceipt) => void,
-): (() => void) | undefined {
-  const fn = pick('onWormholeDrop');
-  if (!fn) return undefined;
-
-  const wrapped = (envelope: unknown) => {
-    handler(toReceipt(envelope));
-  };
-
-  try {
-    const result = fn(wrapped);
-    return typeof result === 'function' ? (result as () => void) : () => {};
-  } catch {
-    return undefined;
-  }
-}
-
-/** 把任意 envelope 归一成展示用收据；字段缺失也不抛错（骨架期要能容错）。 */
-export function toReceipt(envelope: unknown): WormholeReceipt {
-  const env = (envelope ?? {}) as Record<string, unknown>;
-  const payload = (env.payload ?? {}) as Record<string, unknown>;
-  const anchors = Array.isArray(payload.evidence_anchors) ? payload.evidence_anchors : [];
-  const receiptId = env.receipt_id;
-  return {
-    traceId: String(env.trace_id ?? 'unknown'),
-    payloadType: String(env.payload_type ?? 'unknown'),
-    evidenceCount: anchors.length,
-    receivedAt: new Date().toISOString(),
-    sourceApp: String(env.source_app ?? 'unknown'),
-    ...(typeof receiptId === 'string' ? { receiptId } : {}),
-  };
-}
-`;
+function renderSdkFacade(station) {
+  return renderSharedTemplate(station, 'sdk-facade.ts');
 }
 
 function renderInstrumentFacade(station, deps) {
@@ -1306,18 +1321,8 @@ export const bezelSource: 'instrument-ui' | 'local' = LibraryBezel ? 'instrument
 `;
 }
 
-function renderSdkShim(station, deps) {
-  return `${fileHeader(station)}
-/**
- * 本地 shim：仅在 ${deps.sdk} 尚未发布/未安装时被 next.config.ts 别名到这里。
- * 它**不实现任何真实能力**（不登录、不投递），只让骨架能编译能跑，
- * 并把「未就位」这个事实通过 __matrixosShim 标记暴露给 facade。
- */
-export const __matrixosShim = true;
-
-export const SDK_SHIM_REASON =
-  'workspace 包 ' + ${JSON.stringify(deps.sdk)} + ' 尚未就位：本 shim 不提供 SSO、不提供虫洞投递。';
-`;
+function renderSdkShim(station) {
+  return renderSharedTemplate(station, 'matrix-sdk.shim.ts');
 }
 
 function renderInstrumentShim(station, deps) {
@@ -1359,7 +1364,8 @@ function renderInstrumentStylesShim(station) {
   --iu-text-strong: #ffffff;
   --iu-text-secondary: #cbd5e1;
   --iu-text-muted: #94a3b8;
-  --iu-text-faint: #64748b;
+  /* 与 globals.css 的 --color-text-faint 同步（V6 修正，见 renderGlobalsCss 注释） */
+  --iu-text-faint: #7d8ba1;
 
   --iu-action: #6366f1;
   --iu-instrument: #06b6d4;
@@ -1382,6 +1388,17 @@ function renderInstrumentStylesShim(station) {
     'Microsoft YaHei', 'Noto Sans SC', sans-serif;
   --iu-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
+  /* 密度档（与真实 tokens.css 同机制同值）：默认 1×，答辩/投屏 1.25× */
+  --iu-type-scale: 1;
+  --iu-text-2xs: calc(10px * var(--iu-type-scale));
+  --iu-text-xs: calc(12px * var(--iu-type-scale));
+  --iu-text-sm: calc(14px * var(--iu-type-scale));
+  --iu-text-base: calc(16px * var(--iu-type-scale));
+  --iu-text-lg: calc(18px * var(--iu-type-scale));
+  --iu-text-xl: calc(20px * var(--iu-type-scale));
+  --iu-text-2xl: calc(24px * var(--iu-type-scale));
+  --iu-text-3xl: calc(30px * var(--iu-type-scale));
+
   --iu-dur-fast: 150ms;
   --iu-dur-base: 300ms;
   --iu-dur-slow: 500ms;
@@ -1390,153 +1407,19 @@ function renderInstrumentStylesShim(station) {
   /* 语义缩放标尺（StarOrbit 用；1.0 → 10.0） */
   --iu-zoom: 2.5;
 }
+
+/* 答辩/投屏密度档开关（与 globals.css 的 --type-scale 开关同名同效，
+ * 真实库就位后由 tokens.css 的同名规则接管，行为不变） */
+[data-iu-density='presentation'] { --iu-type-scale: 1.25; }
 `;
 }
 
 function renderSiteShell(station) {
-  return `${fileHeader(station)}
-'use client';
-
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { SITE } from '../site.config';
-import { Bezel, bezelSource } from '../lib/instrument-facade';
-import {
-  initSSO,
-  onWormholeDrop,
-  sdkStatus,
-  type SessionState,
-  type WormholeReceipt,
-} from '../lib/sdk-facade';
-
-/** 占位仪器的柱状高度：确定性序列（不用随机数，避免 SSR/CSR 不一致）。 */
-const GAUGE_HEIGHTS = [38, 62, 47, 81, 55, 70, 44, 92, 66, 51];
-
-export function SiteShell() {
-  const [embedded, setEmbedded] = useState(false);
-  const [session, setSession] = useState<SessionState>({
-    phase: 'booting',
-    detail: '正在初始化 MatrixID…',
-  });
-  const [receipts, setReceipts] = useState<readonly WormholeReceipt[]>([]);
-
-  const status = useMemo(() => sdkStatus(), []);
-
-  useEffect(() => {
-    const isEmbedded = typeof window !== 'undefined' && window.parent !== window;
-    setEmbedded(isEmbedded);
-    if (typeof document !== 'undefined') {
-      document.body.dataset.embedded = isEmbedded ? 'true' : 'false';
-    }
-
-    const sso = initSSO(
-      {
-        stationId: SITE.id,
-        audience: SITE.appId,
-        embedded: isEmbedded,
-      },
-      (next) => setSession(next),
-    );
-
-    const disposeDrop = onWormholeDrop((receipt) => {
-      setReceipts((prev) => [receipt, ...prev].slice(0, 5));
-    });
-
-    return () => {
-      sso.dispose();
-      disposeDrop?.();
-    };
-  }, []);
-
-  const handleManualProbe = useCallback(() => {
-    setSession((prev) => ({
-      phase: prev.phase,
-      uid: prev.uid,
-      detail:
-        '通道自检 · ' +
-        (status.available ? 'SDK 符号可用：' + status.symbols.join(' / ') : 'SDK 未就位'),
-    }));
-  }, [status]);
-
-  const tone = session.phase === 'ready' ? 'ok' : session.phase === 'booting' ? 'warn' : 'off';
-
-  return (
-    <>
-      <header className="site-header site-chrome">
-        <span className="site-id">{SITE.id}</span>
-        <h1 className="site-title">{SITE.name}</h1>
-        <span className="site-orbit">{SITE.orbitName}</span>
-        <span className="site-domain mono">{SITE.domain}</span>
-      </header>
-
-      <dl className="meta-grid">
-        <div className="meta-card">
-          <dt>UI 形态</dt>
-          <dd>{SITE.uiStyle}</dd>
-        </div>
-        <div className="meta-card">
-          <dt>独立台账</dt>
-          <dd>{SITE.ledger}</dd>
-        </div>
-        <div className="meta-card">
-          <dt>原型来源</dt>
-          <dd>{SITE.source}</dd>
-        </div>
-      </dl>
-
-      <Bezel className="instrument-slot">
-        <h2>{SITE.uiStyle} · 占位仪器</h2>
-        <p>{SITE.desc}</p>
-        <div className="placeholder-gauges" role="img" aria-label="占位仪器示数">
-          {GAUGE_HEIGHTS.map((height, index) => (
-            <span className="placeholder-gauge" key={index} style={{ height: height + '%' }} />
-          ))}
-        </div>
-        <div className="status-row">
-          <span className="chip" data-tone={tone}>
-            MatrixID · {session.phase}
-          </span>
-          <span className="chip" data-tone={embedded ? 'warn' : 'off'}>
-            {embedded ? 'iframe 内嵌' : '独立窗口'}
-          </span>
-          <span className="chip" data-tone={bezelSource === 'instrument-ui' ? 'ok' : 'off'}>
-            面板 · {bezelSource}
-          </span>
-          <span className="chip" data-tone={status.available ? 'ok' : 'off'}>
-            SDK · {status.available ? '已就位' : '未就位'}
-          </span>
-          <button type="button" className="chip" onClick={handleManualProbe}>
-            通道自检
-          </button>
-        </div>
-        <p className="mono" style={{ fontSize: 'var(--text-2xs)' }}>
-          {session.detail}
-        </p>
-        {receipts.length > 0 ? (
-          <ul className="receipt-list custom-scrollbar">
-            {receipts.map((receipt) => (
-              <li key={receipt.traceId + receipt.receivedAt}>
-                ← {receipt.sourceApp} · {receipt.payloadType} · 证据锚点 {receipt.evidenceCount} 条 ·
-                trace {receipt.traceId.slice(0, 8)}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p style={{ fontSize: 'var(--text-2xs)', color: 'var(--color-text-faint)' }}>
-            虫洞接收器已挂载：等待 hub 投送（当前 0 条收据）。
-          </p>
-        )}
-      </Bezel>
-    </>
-  );
-}
-`;
+  return renderSharedTemplate(station, 'site-shell.tsx');
 }
 
 function renderManifest(station) {
-  const permissions = ['matrix_id:read', 'profile:read', 'assets:read', 'assets:write'];
-  if (station.emits.length > 0) permissions.push('wormhole:send');
-  if (station.accepts.length > 0) permissions.push('wormhole:receive');
-
+  const contract = CONTRACTS[station.id] ?? { accepts: [], emits: [] };
   const manifest = {
     manifest_version: '1.0',
     app_id: station.appId,
@@ -1544,9 +1427,9 @@ function renderManifest(station) {
     entry_url: 'https://' + station.domain,
     orbit_station: station.orbitKey,
     accent_color: station.accent,
-    accepts: station.accepts,
-    emits: station.emits,
-    permissions,
+    accepts: [...contract.accepts],
+    emits: [...contract.emits],
+    permissions: permissionsFor(contract),
     author: { lab_name: 'MatrixOS', university: 'MatrixOS' },
   };
   return JSON.stringify(manifest, null, 2) + '\n';
@@ -1570,6 +1453,19 @@ NEXT_PUBLIC_FORCE_STANDALONE=false
 }
 
 function renderReadme(station) {
+  const contract = CONTRACTS[station.id] ?? {
+    exportName: 'records',
+    accepts: [],
+    emits: [],
+    emitTarget: '',
+    acceptFrom: '',
+    acceptNote: '',
+  };
+  const code = (types) =>
+    types.length ? types.map((t) => '`' + t + '`').join('、') : '（无）';
+  const peer = (appId) => (appId ? 'https://' + appId + '.matrixos.edu' : '（无）');
+  const ledgerKey = 'mx.' + station.appId + '.' + contract.exportName;
+
   return `# ${station.id} · ${station.name}
 
 > MatrixOS 微站 · ${station.orbitName} · \`${station.domain}\` · 目录 \`apps/micro-sites/${station.dirName}/\`
@@ -1585,8 +1481,8 @@ function renderReadme(station) {
 | 独立台账 | ${station.ledger} |
 | 原型来源 | ${station.source} |
 | 开发端口 | \`${station.devPort}\` |
-| 虫洞接收 | ${station.accepts.length ? station.accepts.map((t) => '\`' + t + '\`').join('、') : '（当前不接收）'} |
-| 虫洞投送 | ${station.emits.length ? station.emits.map((t) => '\`' + t + '\`').join('、') : '（当前不投送）'} |
+| 虫洞接收 | ${code(contract.accepts)} ← ${peer(contract.acceptFrom)} |
+| 虫洞投送 | ${code(contract.emits)} → ${peer(contract.emitTarget)} |
 
 ${station.desc}
 
@@ -1595,33 +1491,60 @@ ${station.desc}
 \`\`\`bash
 pnpm --filter ${station.pkgName} dev     # http://localhost:${station.devPort}
 pnpm --filter ${station.pkgName} build
+pnpm --filter ${station.pkgName} typecheck
 \`\`\`
 
-## 这个骨架包含什么
+## 数据模型
 
-- Next.js 15 App Router + React 19，零 Tailwind、零外部 CDN（内网可用）
-- \`src/site.config.ts\`：站点身份，来源是 \`specs/microsites.json\`，不要手改
-- \`src/lib/sdk-facade.ts\`：**唯一** import \`@matrixos/sdk\` 的地方（SSO + 虫洞接收器）
-- \`src/lib/instrument-facade.tsx\`：**唯一** import \`@matrixos/instrument-ui\` 的地方（面板容器）
-- \`matrix-app.manifest.json\`：符合 \`specs/contracts/matrix-app-manifest.schema.json\`，供 hub 星轨注册
-- iframe 内降级模式：被 hub 嵌入时自动隐藏站内标题/页脚（ADR-08 的强制能力）
+台账落在浏览器 \`localStorage\`，key 是 \`${ledgerKey}\`，值是**版本化信封**：
 
-### 两个 package 还没发布也能跑
+\`\`\`json
+{
+  "version": 1,
+  "updatedAt": "2026-01-01T00:00:00.000Z",
+  "data": { "rows": [] }
+}
+\`\`\`
 
-\`next.config.ts\` 在加载时探测 \`@matrixos/sdk\` / \`@matrixos/instrument-ui\` 能否 resolve，
-**解析不到就把 specifier 别名到 \`src/lib/shims/\`**。于是：
+- 每行 \`{ id, title, meta, detail, updatedAt, edits?, anchor? }\`，\`anchor\` 是证据锚点
+  （\`source_doi_or_url\` / \`verification_level\` / 可选 \`pdf_page\`、\`bbox\`，**不允许别的字段**）
+- 版本不符且没有迁移函数时**回落到默认值但不覆盖原盘** —— 不静默销毁用户数据
+- 「导出 JSON」导出完整信封；「导出 CSV」导出 5 列：id / 标题 / 摘要 / 详情 / 最后修改
 
-- import 已经按最终形态写好（不用等包）
-- \`pnpm dev\` 立刻能跑
-- 包一旦就位，别名自动失效，源码一行都不用改
+业务演示数据在 \`src/lib/site-spec.ts\`（**本站唯一手写的业务文件**）。
 
-界面会**显式**标注「SDK 未就位」「面板 · local」——不伪造登录态，不假装虫洞通了。
+## 虫洞契约
 
-## 下一步（S3 功能完备化）
+**接收** ${code(contract.accepts)}，来自 ${peer(contract.acceptFrom)}：
+${contract.acceptNote}
 
-1. 用 \`@matrixos/instrument-ui\` 的仪器族替换占位仪器（旋钮族/图表族/雷达族/天平族）
-2. 按台账 \`${station.ledger}\` 落 \`/v1/assets\` 读写
-3. 虫洞契约按 \`specs/contracts/wormhole-envelope.schema.json\` 接实现（证据锚点非空是红线）
+**投送** ${code(contract.emits)}，目标 ${peer(contract.emitTarget)}。
+信封必须满足 \`specs/contracts/wormhole-envelope.schema.json\`：\`payload.evidence_anchors\`
+**至少 1 条**（契约红线）。台账为空时退化到站级基线锚点
+\`https://${station.domain}/\` + \`Level_B_Preprint\`，并在反馈条里**明示**这是退化锚点。
+
+只有真正嵌在 orbital-hub iframe 里、\`useHostBridge().connected === true\` 时才发起真实投送；
+独立窗口里点「虫洞投送」只会显示「本地演示 · 未实际投送」，**不伪造成功**。
+
+## 验收
+
+\`\`\`bash
+node scripts/microsite-verify.mjs --site=${station.dirName}
+\`\`\`
+
+9 项断言：正文长度 / 6 个 testid 齐全 / 新增后计数 +1 / 刷新后保持 / 导出 JSON 有内容 /
+清空后归 0 且刷新仍 0 / 投送后反馈非空 / console 与请求零错误 / 390×844 无横向溢出。
+
+## 结构说明
+
+以下文件是**分发产物**，改它们会被覆盖 —— 要改请改模板再跑
+\`node scripts/wire-workbench.mjs\`：
+
+- \`src/lib/sdk-facade.ts\`、\`src/lib/shims/matrix-sdk.shim.ts\`
+- \`src/components/site-shell.tsx\`、\`src/components/workbench-impl.tsx\`、\`src/components/site-workbench.tsx\`
+- \`src/app/page.tsx\`
+
+手写文件只有 \`src/lib/site-spec.ts\` 与 \`README.md\`。
 
 ---
 
@@ -1649,13 +1572,16 @@ function siteFiles(station, deps) {
     { rel: 'next-env.d.ts', content: renderNextEnvDts() },
     { rel: 'matrix-app.manifest.json', content: renderManifest(station) },
     { rel: '.env.example', content: renderEnvExample(station) },
-    { rel: 'README.md', content: renderReadme(station) },
+    { rel: 'README.md', content: renderReadme(station), neverOverwrite: true },
     { rel: 'src/site.config.ts', content: renderSiteConfig(station) },
     { rel: 'src/app/layout.tsx', content: renderLayout(station, deps) },
     { rel: 'src/app/page.tsx', content: renderPage(station) },
     { rel: 'src/app/globals.css', content: renderGlobalsCss(station) },
     { rel: 'src/components/site-shell.tsx', content: renderSiteShell(station) },
+    { rel: 'src/components/workbench-impl.tsx', content: renderSharedTemplate(station, 'workbench-impl.tsx') },
+    { rel: 'src/components/site-workbench.tsx', content: renderSharedTemplate(station, 'site-workbench-wrapper.tsx') },
     { rel: 'src/lib/sdk-facade.ts', content: renderSdkFacade(station, deps) },
+    { rel: 'src/lib/site-spec.ts', content: renderSiteSpecStarter(station), neverOverwrite: true },
     { rel: 'src/lib/instrument-facade.tsx', content: renderInstrumentFacade(station, deps) },
     { rel: 'src/lib/shims/matrix-sdk.shim.ts', content: renderSdkShim(station, deps) },
     { rel: 'src/lib/shims/instrument-ui.shim.tsx', content: renderInstrumentShim(station, deps) },
@@ -1674,14 +1600,15 @@ function writeSite(station, deps, opts) {
 
   for (const file of files) {
     const abs = join(dir, file.rel);
-    if (existsSync(abs) && !opts.force) {
-      // 已存在且未加 --force：跳过（保护手改过的业务代码）
-      if (readFileSync(abs, 'utf8') !== file.content) skipped.push(file.rel);
+    // neverOverwrite：手写文件（README / site-spec）即便加 --force 也不覆盖，
+    // 否则「重新生成骨架」会顺手抹掉一整站的业务数据与说明。
+    if (existsSync(abs) && (file.neverOverwrite || !opts.force)) {
+      if (readFileSync(abs, "utf8") !== file.content) skipped.push(file.rel);
       continue;
     }
     if (!opts.dryRun) {
       mkdirSync(dirname(abs), { recursive: true });
-      writeFileSync(abs, file.content, 'utf8');
+      writeFileSync(abs, file.content, "utf8");
     }
     written.push(file.rel);
   }
