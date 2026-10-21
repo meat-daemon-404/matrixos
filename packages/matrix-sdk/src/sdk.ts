@@ -27,6 +27,7 @@
 
 import { MatrixError } from './errors.ts';
 import { MatrixHttpClient } from './http/client.ts';
+import { DEFAULT_API_BASE_URL } from './http/client.ts';
 import { AssetClientImpl } from './assets/client.ts';
 import { SSOClientImpl, issueIdtForTenant } from './auth/sso.ts';
 import { IdtExchanger } from './auth/idt.ts';
@@ -190,7 +191,20 @@ function buildInternals(options: MatrixSDKOptions): SDKInternals {
 
   const http = new MatrixHttpClient({
     ...options.http,
-    baseUrl: options.http?.baseUrl ?? options.apiBaseUrl ?? 'https://api.matrixos.edu',
+    /*
+     * 后端基址。优先级：显式 http.baseUrl > options.apiBaseUrl > 默认常量。
+     *
+     * 默认值走 `http/client.ts` 的 `DEFAULT_API_BASE_URL`（唯一事实源，
+     * 支持构建期 `NEXT_PUBLIC_MATRIXOS_API_BASE_URL` 注入）。
+     *
+     * ⚠️ 2026-10-21 修：此前这里是硬编码字面量 `'https://api.matrixos.edu'`，
+     * 与 client.ts 的构造函数默认值构成**两处独立硬编码**。结果：只改 client.ts
+     * 的默认值时，微站走的这条路径（经 `getMatrixSDK`）仍然打到旧域名 ——
+     * 表现为 `AUTH_SERVICE_UNAVAILABLE: POST https://api.matrixos.edu/v1/auth/exchange — Failed to fetch`，
+     * 而 hub 侧的注入已经生效，非常难定位。
+     * 教训：同一个语义的默认值散落多处时，改一处等于没改。
+     */
+    baseUrl: options.http?.baseUrl ?? options.apiBaseUrl ?? DEFAULT_API_BASE_URL,
     // CSRF 从 Cookie 读（`mx_csrf` 必须是非 HttpOnly 的双提交令牌，架构 §4.4.1）。
     getCsrfToken: options.http?.getCsrfToken ?? (() => readCookie(env.doc, CSRF_COOKIE)),
     // iframe 通道下令牌在内存/sessionStorage；Cookie 通道下返回 null，

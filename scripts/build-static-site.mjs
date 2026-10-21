@@ -18,7 +18,15 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync, existsSync, rmSync, readdirSync } from 'node:fs';
+import {
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  rmSync,
+  readdirSync,
+  mkdirSync,
+  unlinkSync,
+} from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -52,6 +60,125 @@ if (!existsSync(TEMPLATE)) {
 }
 
 const templateSrc = readFileSync(TEMPLATE, 'utf8');
+
+// ─────────────────────────── 构建互斥锁 ───────────────────────────
+//
+// 为什么需要：本脚本对每个站做一套「读原 config → 备份 → 覆盖成 export 模板 →
+// next build → finally 恢复」的读改写。这套状态机**没有跨进程互斥**，两个实例
+// 并发跑时必然互相踩：
+//
+//   A 读到干净 config，备份；B 在 A 覆盖后读到 **export 版**，把它备份成 .deploybak；
+//   B 结束时用自己的 .deploybak（export 版）恢复 → 污染被**持久化**，
+//   且 A 的 finally 恢复会被 B 的覆盖写回。
+//
+// 实测症状（2026-10-21）：污染在站点间轮转，09 → 10 → 12 → 04 …，每修好一个
+// 另一个被抢；`assert-config-restored.mjs` 反复报 `仍是 output:'export' 模板` +
+// `.deploybak` 残留 + `out/index.html` 缺失，看起来像"构建不稳定"，实际是互斥缺失。
+//
+// 这与 `scripts/safe-build.mjs` 解决的是同一类问题（那边是 turbo 并发写坏 .next）。
+// 这里复用它同一把锁 `.turbo/build.lock`，于是「safe-build 串行化」与
+// 「静态导出串行化」共享同一条队列 —— 两者也会互相抢 .next，必须同锁。
+//
+// 陈旧锁（持有者进程已死 / 超过 30 分钟）会被自动清理，不会卡死。
+const LOCK_DIR = join(ROOT, '.turbo');
+const LOCK = join(LOCK_DIR, 'build.lock');
+const LOCK_MAX_WAIT_S = Number(
+  (process.argv.find((a) => a.startsWith('--wait=')) ?? '--wait=1800').split('=')[1],
+);
+
+function isAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return e.code === 'EPERM'; // 存在但无权限信号 = 还活着
+  }
+}
+
+function readLock() {
+  try {
+    const [pid, startedAt, host] = readFileSync(LOCK, 'utf8').trim().split('|');
+    return { pid: Number(pid), startedAt: Number(startedAt), host };
+  } catch {
+    return null;
+  }
+}
+
+function tryAcquire() {
+  if (existsSync(LOCK)) {
+    const info = readLock();
+    if (info && Number.isFinite(info.pid)) {
+      const stale = !isAlive(info.pid);
+      const ageS = Number.isFinite(info.startedAt) ? (Date.now() - info.startedAt) / 1000 : 0;
+      if (stale || ageS > 1800) {
+        console.log(`  清理陈旧构建锁（pid=${info.pid}, 已存活 ${Math.round(ageS)}s）`);
+        try {
+          unlinkSync(LOCK);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }
+  try {
+    writeFileSync(LOCK, `${process.pid}|${Date.now()}|${process.platform}`, { flag: 'wx' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function releaseLock() {
+  const info = readLock();
+  if (info && info.pid === process.pid) {
+    try {
+      unlinkSync(LOCK);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+mkdirSync(LOCK_DIR, { recursive: true });
+
+{
+  const deadline = Date.now() + LOCK_MAX_WAIT_S * 1000;
+  let announced = false;
+  while (!tryAcquire()) {
+    if (Date.now() > deadline) {
+      const info = readLock();
+      console.error(`\n✗ 等待构建锁超时（${LOCK_MAX_WAIT_S}s）`);
+      if (info) console.error(`  当前持有者: pid=${info.pid}（疑似卡死可手动删除 ${LOCK}）`);
+      process.exit(1);
+    }
+    if (!announced) {
+      console.log(`⏳ 另一构建进程正在持有锁（pid=${readLock()?.pid ?? '?'}），排队等待...`);
+      announced = true;
+    }
+    // 同步 sleep：本脚本是短命 CLI，不需要事件循环
+    try {
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 500);
+    } catch {
+      /* 不支持 SharedArrayBuffer 时退化为忙等 */
+    }
+  }
+}
+
+// 无论正常结束、异常、还是被信号打断，都要释放锁
+process.on('exit', releaseLock);
+process.on('SIGINT', () => {
+  releaseLock();
+  process.exit(130);
+});
+process.on('SIGTERM', () => {
+  releaseLock();
+  process.exit(143);
+});
+process.on('uncaughtException', (e) => {
+  releaseLock();
+  console.error(e);
+  process.exit(1);
+});
 
 /**
  * 把「宿主来源清单」注入构建环境。

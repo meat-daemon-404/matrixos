@@ -60,6 +60,18 @@ import { CopilotWaveDock, type WaveDockState } from './CopilotWaveDock';
 import { WormholeRing, DraggableCard, type WormholeTarget } from './WormholeRing';
 import { PerformanceProbePanel } from './PerformanceProbePanel';
 import { HubOnboarding, readOnboarded } from './HubOnboarding';
+// MatrixID 登录态胶囊：hub 必须自己登录，才能为微站签发 mx_idt（见组件文件头说明）
+import { HubAuthChip } from '../lib/use-hub-auth';
+// 字号密度档位：答辩投影时整体放大（visual-system §3.2 的诉求）
+import {
+  DENSITY_LABEL,
+  applyDensity,
+  nextDensity,
+  normalizeDensity,
+  readDensity,
+  saveDensity,
+  type DensityMode,
+} from '../lib/density';
 
 /** 星轨推到这一档视为"全屏入站"（与语义缩放 tier 4 对齐） */
 const ZOOM_FULLSCREEN_AT = 8.5;
@@ -171,6 +183,16 @@ export function OrbitalHub() {
    */
   const [deviceTier, setDeviceTier] = useState<DeviceTier>('mid');
 
+  /**
+   * 字号密度档位。
+   *
+   * 初值恒为 `'normal'`：`readDensity()` 读 localStorage，服务端没有它。
+   * 若直接在 useState 初值里读，SSR 拿到 normal、客户端拿到 large，
+   * 首帧文本/尺寸就不一致 —— 而 density 是**全局字号**，差异会非常明显
+   * （比之前的 React #418 更容易看出来）。真实偏好在 effect 里回填。
+   */
+  const [density, setDensity] = useState<DensityMode>('normal');
+
   // ── Toast ─────────────────────────────────────────────────────────────────
   const [toasts, setToasts] = useState<readonly ToastItem[]>([]);
   const toastSeq = useRef(0);
@@ -193,6 +215,18 @@ export function OrbitalHub() {
     }
     setRestored(true);
     setDeviceTier(detectDeviceTier());
+
+    /*
+     * 恢复字号密度偏好，并立刻应用。
+     *
+     * 为什么放在 effect 而不是初值里读：见 `density` state 的注释（水合一致性）。
+     * 这一帧的延迟只影响字号，不影响布局结构，用户看不见跳变。
+     * `applyDensity` 写的是 `<html data-density>`，CSS 变量随即重算，
+     * 整站 token（含 22 处从 px 收敛来的 --text-3xs/4xs）一起放大。
+     */
+    const savedDensity = normalizeDensity(readDensity());
+    setDensity(savedDensity);
+    applyDensity(savedDensity);
 
     // 首访才弹引导；老用户（已标记 done）静默跳过
     if (!readOnboarded()) setOnboardingOpen(true);
@@ -574,7 +608,35 @@ export function OrbitalHub() {
         <span className="hub-stat" title="开发期 iframe 指向">
           源 <b>{config.usePlaceholder ? '占位页' : config.localMode ? '本地 dev' : '真实域名'}</b>
         </span>
+        {/*
+          MatrixID 登录态。
+          为什么放在顶部栏：`POST /v1/auth/idt`（hub 为微站签发 mx_idt）要求
+          hub 自己是登录态，否则 401 —— 这曾让内嵌态 SSO 永远 offline。
+          没有这个入口时，hub 的 matrixUid 是硬编码演示值。
+        */}
+        <HubAuthChip apiBase={config.apiBase} />
         <span className="hub-topbar-spacer" />
+        {/*
+          字号密度开关（答辩投影用）。
+          正文字号多为 8–12px，桌面看没问题，投影到后排就是一片模糊
+          （`docs/00-analysis/04-visual-system.md:202` 明确记了这个诉求）。
+          点一下进一档：标准 → 1.25× → 1.5× → 标准，选择会被记住。
+        */}
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
+            const next = nextDensity(density);
+            setDensity(next);
+            applyDensity(next);
+            saveDensity(next);
+            pushToast('字号已切到「' + DENSITY_LABEL[next] + '」', 'ok');
+          }}
+          title={'切换字号密度（当前：' + DENSITY_LABEL[density] + '）—— 答辩投影时放大'}
+          aria-label={'切换字号密度，当前 ' + DENSITY_LABEL[density]}
+        >
+          A<sup style={{ fontSize: '0.7em' }}>±</sup>
+        </button>
         {/* 「?」= 随时重看引导。引导本身可跳过，但没有这个入口的话，
             用户跳过之后就再也找不回来了（localStorage 里是 done）。 */}
         <button
@@ -583,6 +645,17 @@ export function OrbitalHub() {
           onClick={() => setOnboardingOpen(true)}
           title="重看使用引导"
           aria-label="重看使用引导"
+          /*
+           * 引导关闭后焦点回到这里。
+           *
+           * 引导是首访自动弹出的，**没有触发按钮**；若把焦点"还原"到打开前的
+           * `activeElement`（那时是 `<body>`），键盘用户等于丢失位置（WCAG 2.4.3）。
+           * 这个 `?` 正是引导的对应入口，落在这里语义连贯 —— 按完还能再开一次。
+           *
+           * 用属性而非 ref：`HubOnboarding` 是 `OrbitalHub` 的子组件，
+           * 拿不到这里的 ref，用 `data-*` 选择器耦合更松。
+           */
+          data-onboard-reopen=""
         >
           ?
         </button>

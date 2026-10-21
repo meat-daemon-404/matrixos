@@ -27,6 +27,7 @@
 
 import { AuthExpiredError, IdtExchangeError, MatrixError } from '../errors.ts';
 import type { MatrixHttpClient } from '../http/client.ts';
+import { DEFAULT_API_BASE_URL } from '../http/client.ts';
 import type { IdtExchanger } from './idt.ts';
 import type { HostBridge } from '../types.ts';
 import type { OriginAllowList } from '../security/origin.ts';
@@ -158,7 +159,9 @@ export class SSOClientImpl implements SSOClient {
   }
 
   buildAuthorizeUrl(extra: Record<string, string> = {}): string {
-    const base = this.#options.apiBaseUrl ?? 'https://api.matrixos.edu';
+    // 默认值走 `http/client.ts` 的 DEFAULT_API_BASE_URL（唯一事实源，
+    // 支持构建期 NEXT_PUBLIC_MATRIXOS_API_BASE_URL 注入）。
+    const base = this.#options.apiBaseUrl ?? DEFAULT_API_BASE_URL;
     const redirectUri = this.#options.redirectUri ?? this.#env.href;
     const params = new URLSearchParams({
       client: this.#options.appId,

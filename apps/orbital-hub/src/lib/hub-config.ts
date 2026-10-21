@@ -27,6 +27,18 @@ export interface HubRuntimeConfig {
   readonly localMode: boolean;
   /** 未就位的微站用占位页代替（开发期默认 true） */
   readonly usePlaceholder: boolean;
+  /**
+   * 后端（matrix-core）基址。
+   *
+   * 为什么单独暴露：`matrixos.edu` 域名不可解析（NXDOMAIN），后端实际可能部署在
+   * 别的地址（例如 Cloudflare Tunnel）。hub 的登录（`/v1/auth/login`）与微站
+   * mx_idt 签发（`/v1/auth/idt`）**必须打到同一个地址**，否则「登录打到 A、
+   * 签发打到 B」会 401。这里作为单一事实源供两处消费。
+   *
+   * 取值优先级与 `use-sso-idt.ts` 的 `defaultApiBase()` 保持一致：
+   *   NEXT_PUBLIC_MATRIX_API_BASE → NEXT_PUBLIC_API_BASE → 默认
+   */
+  readonly apiBase: string;
   /** 性能探针阈值（R-T03 / S2-01e） */
   readonly probe: {
     readonly fpsFloor: number;
@@ -83,6 +95,14 @@ export function readHubConfig(): HubRuntimeConfig {
     originTemplate: template,
     localMode,
     usePlaceholder: readPublicEnv(process.env.NEXT_PUBLIC_MICROSITE_PLACEHOLDER, 'true') !== 'false',
+    // 与 use-sso-idt.ts 的 defaultApiBase() 同序：MATRIX_API_BASE → API_BASE → 默认
+    apiBase: (() => {
+      const primary = (process.env.NEXT_PUBLIC_MATRIX_API_BASE ?? '').trim();
+      if (primary.length > 0) return primary;
+      const legacy = (process.env.NEXT_PUBLIC_API_BASE ?? '').trim();
+      if (legacy.length > 0) return legacy;
+      return 'https://api.matrixos.edu';
+    })(),
     probe: {
       fpsFloor: num(process.env.NEXT_PUBLIC_HUB_FPS_FLOOR, fpsFloorDefault),
       memoryCeilingMB: num(process.env.NEXT_PUBLIC_HUB_MEM_CEILING_MB, 800),

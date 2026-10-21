@@ -37,6 +37,41 @@ import type {
 
 const DEFAULT_TIMEOUT_MS = 15_000;
 
+/**
+ * 默认 API 主机。
+ *
+ * 为什么要有这个常量 + 构建期覆盖：
+ * 之前是裸字面量 `'https://api.matrixos.edu'` 写在构造函数里，导致
+ * **后端地址被硬编码进产物**——一旦后端不在这个域名（当前它 NXDOMAIN，
+ * 后端实际部署在别处/tunnel），前端就完全无法指向它，只能改 SDK 源码重发版。
+ *
+ * 现在允许构建期用 `MATRIXOS_API_BASE_URL` 注入。取值顺序：
+ *   1. 显式传参 `init.baseUrl`（最高优先，测试与定制场景）
+ *   2. 构建期环境变量 `NEXT_PUBLIC_MATRIXOS_API_BASE_URL`（Next 会在构建期静态替换）
+ *   3. 默认 `https://api.matrixos.edu`（生产正式域名，保持不变）
+ *
+ * ⚠️ Next 的 DefinePlugin 只对**完整成员表达式**做静态替换，
+ * 所以这里必须写 `process.env.NEXT_PUBLIC_MATRIXOS_API_BASE_URL` 字面量，
+ * 不能写 `process.env[name]` 这类动态取值（会拿到 undefined）。
+ */
+function resolveDefaultApiBase(): string {
+  try {
+    const injected = process.env.NEXT_PUBLIC_MATRIXOS_API_BASE_URL;
+    if (typeof injected === 'string' && injected.length > 0) return injected;
+  } catch {
+    /* 非 Next 打包环境（单测直接 import）里可能没有 process，忽略 */
+  }
+  return 'https://api.matrixos.edu';
+}
+
+const DEFAULT_API_BASE_URL = resolveDefaultApiBase();
+
+/**
+ * 供 SDK 其它模块（如 `auth/sso.ts` 的 `buildAuthorizeUrl`）复用的默认 API 主机。
+ * 导出的目的是让「后端地址」**只有一处事实源**，避免各处硬编码字面量漂移。
+ */
+export { DEFAULT_API_BASE_URL };
+
 const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const NON_IDEMPOTENT_METHODS = new Set(['POST']);
 
@@ -157,7 +192,7 @@ export class MatrixHttpClient {
   readonly #listeners = new Set<(trace: RequestTrace) => void>();
 
   constructor(init: MatrixHttpClientInit = {}) {
-    this.#baseUrl = trimTrailingSlash(init.baseUrl ?? 'https://api.matrixos.edu');
+    this.#baseUrl = trimTrailingSlash(init.baseUrl ?? DEFAULT_API_BASE_URL);
     this.#timeoutMs = init.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.#retry = { ...DEFAULT_RETRY, ...init.retry };
     this.#breaker = new CircuitBreaker(

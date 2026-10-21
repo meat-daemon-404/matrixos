@@ -138,6 +138,31 @@ interface HubOrigins {
 let hubOriginsCache: HubOrigins | null = null;
 
 /**
+ * 从构建期注入的环境变量读后端 API 基址。
+ *
+ * 为什么微站要自己读一次（而不是交给 SDK 内部读）：
+ *   SDK 以 `dist/` 预编译产物引入，Next 的 DefinePlugin **不会**替换 dist 里的
+ *   `process.env.NEXT_PUBLIC_*` —— 浏览器端读到的是 undefined，SDK 就退回
+ *   `https://api.matrixos.edu`（该域名当前 NXDOMAIN）。微站的
+ *   `/v1/auth/exchange` 因此打到一个不存在的主机，报
+ *   `AUTH_SERVICE_UNAVAILABLE: ... Failed to fetch`，看起来像网络问题，很难定位。
+ *
+ * 在**参与编译的源码**里写完整的 `process.env.NEXT_PUBLIC_MATRIXOS_API_BASE_URL`
+ * 才能被 Next 静态内联。
+ *
+ * @returns 注入值；未注入或为空时返回 null（让 SDK 用它的默认值）
+ */
+export function readApiBaseFromEnv(): string | null {
+  try {
+    const injected = process.env.NEXT_PUBLIC_MATRIXOS_API_BASE_URL;
+    if (typeof injected === 'string' && injected.trim().length > 0) return injected.trim();
+  } catch {
+    /* 非 Next 打包环境（单测）里可能没有 process */
+  }
+  return null;
+}
+
+/**
  * 计算宿主白名单。语义只有一个方向：**这些对端 origin 我信，我也只投给它们**。
  * 微站自己是 tenant，本站 origin **绝不能**出现在这里（那会让白名单名不副实）。
  */
@@ -199,11 +224,24 @@ function resolveSdk(): MatrixSdkLike | null {
   try {
     // 显式放宽类型：manifest JSON 的字面量类型与 SDK 的枚举类型不直接兼容，
     // 真正的校验由 SDK 内部的 validateManifest 在 load() 前完成（这里给了 manifest 就不会 load）。
+    const apiBase = readApiBaseFromEnv();
     const options = {
       appId: SITE.appId,
       manifest: siteManifest,
       // 不传这一项，SDK 就退回 `*.matrixos.edu` 默认值 → 线上 `*.pages.dev` 双向被拒（见文件头约束 2）。
       allowedOrigins: resolveAllowedHubOrigins(),
+      /*
+       * 后端 API 基址 —— 必须在**微站源码里**读，不能指望 SDK 内部读。
+       *
+       * 为什么：SDK 是以 `dist/` 预编译产物引入的（package.json exports → ./dist/index.js），
+       * 而 Next 的 DefinePlugin **只替换参与编译的源码**里的 `process.env.NEXT_PUBLIC_*`。
+       * dist 里那句 `process.env.NEXT_PUBLIC_MATRIXOS_API_BASE_URL` 会原样保留，
+       * 浏览器里读到 undefined → 永远退回 `https://api.matrixos.edu`。
+       *
+       * 实测证据：构建产物 JS 里该变量名**未被替换**，仍是字面量字符串。
+       * 这才是「微站已注入 env 却仍打旧域名」的真因。
+       */
+      ...(apiBase !== null ? { apiBaseUrl: apiBase } : {}),
     } as unknown as Record<string, unknown>;
     cachedSdk = (factory as AnyFn)(options) as MatrixSdkLike;
     failureReason = null;

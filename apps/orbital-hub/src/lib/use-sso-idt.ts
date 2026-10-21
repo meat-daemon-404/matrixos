@@ -53,6 +53,7 @@ import { issueIdtForTenant, MatrixHttpClient } from '@matrixos/sdk';
 import type { RequestTrace } from '@matrixos/sdk';
 import { STATION_BY_ID, STATIONS } from './microsites.generated';
 import type { HostBridgeHandle } from './use-host-bridge';
+import { readHubAccessToken } from './use-hub-auth';
 
 /** 后端 `/v1/auth/idt` 的路径（唯一需要改写的请求）。 */
 const IDT_PATH = '/v1/auth/idt';
@@ -148,7 +149,26 @@ function createHubHttpClient(debug: boolean): MatrixHttpClient {
     fetchImpl: async (input, init) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
       const next = rewriteIdtBody(url, init ?? {});
-      return fetch(input, next);
+      /*
+       * 带上 hub 自身的登录态。
+       *
+       * 为什么必须在这里加：`POST /v1/auth/idt` 要求调用方自己是登录态
+       * （后端 `IdentityDep` 取 `Authorization: Bearer` 或 `mx_at` Cookie），
+       * 未登录直接 401 `auth.login_required`。
+       *
+       * hub 与 matrix-core **跨源**（hub 在 *.pages.dev，后端在别的域名/tunnel），
+       * 所以浏览器即使有 `mx_at` Cookie 也不会跨站带上（SameSite 限制）。
+       * 因此必须显式用 `Authorization: Bearer` —— token 从 `useHubAuth` 的
+       * sessionStorage 读（`readHubAccessToken`）。
+       *
+       * ⚠️ 只在**没有**显式 Authorization 时注入，避免覆盖 SDK 自己设的头。
+       */
+      const headers = new Headers(next.headers ?? undefined);
+      if (!headers.has('authorization')) {
+        const token = readHubAccessToken();
+        if (token !== null) headers.set('authorization', `Bearer ${token}`);
+      }
+      return fetch(input, { ...next, headers, credentials: 'omit' });
     },
   });
 }
