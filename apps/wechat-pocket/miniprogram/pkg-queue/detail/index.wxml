@@ -1,5 +1,5 @@
 <view class="dt-head">
-  <data-origin-badge origin="{{origin}}" ageMs="{{0}}" />
+  <data-origin-badge origin="{{origin}}" ageMs="{{ageMs}}" />
 </view>
 
 <panel-state

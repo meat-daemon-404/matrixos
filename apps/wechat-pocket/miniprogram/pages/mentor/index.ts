@@ -11,6 +11,7 @@
 import { mentorApi } from '../../api/index';
 import type { MentorBoard, MentorReminder, VerificationLevel } from '../../api/types';
 import { toApiError } from '../../core/errors';
+import { reportFirstPaint } from '../../core/logger';
 import { sync } from '../../core/sync';
 
 type AnchorView = { ref: string; level: VerificationLevel; levelText: string; pageText: string };
@@ -113,6 +114,11 @@ Page<MentorData, MentorMethods>({
       if (event.type === 'mentor.stage') void this.load(true);
     });
     this.startTicker();
+  },
+
+  /** 首屏可交互时打点，度量冷启动是否在 COLD_START_BUDGET_MS 预算内。 */
+  onReady() {
+    reportFirstPaint('pages/mentor/index');
   },
 
   onHide() {

@@ -11,7 +11,7 @@
 import { queueApi } from '../../api/index';
 import type { QueueItem, QueueSnapshot } from '../../api/types';
 import { toApiError } from '../../core/errors';
-import { log } from '../../core/logger';
+import { log, reportFirstPaint } from '../../core/logger';
 import { sync } from '../../core/sync';
 
 type ItemView = {
@@ -103,6 +103,11 @@ Page<QueueData, QueueMethods>({
         void this.load(true);
       }
     });
+  },
+
+  /** 首屏可交互时打点，度量冷启动是否在 COLD_START_BUDGET_MS 预算内。 */
+  onReady() {
+    reportFirstPaint('pkg-queue/queue/index');
   },
 
   onHide() {

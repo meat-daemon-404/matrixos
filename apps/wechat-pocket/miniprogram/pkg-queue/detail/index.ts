@@ -9,6 +9,7 @@
 import { queueApi } from '../../api/index';
 import type { QueueItem, VerificationLevel } from '../../api/types';
 import { toApiError } from '../../core/errors';
+import { reportFirstPaint } from '../../core/logger';
 
 type AnchorView = {
   key: string;
@@ -23,6 +24,8 @@ type DetailData = {
   state: 'ready' | 'loading' | 'empty' | 'error';
   errorText: string;
   origin: 'live' | 'mock' | 'cache' | 'local';
+  /** 缓存年龄（ms）；origin==='cache' 时角标显示「N 分钟前」。 */
+  ageMs: number;
   title: string;
   note: string;
   stationLabel: string;
@@ -41,7 +44,7 @@ type DetailData = {
 type DetailMethods = {
   id: string;
   load(): Promise<void>;
-  fill(item: QueueItem, origin: DetailData['origin']): void;
+  fill(item: QueueItem, origin: DetailData['origin'], ageMs: number): void;
   toAnchors(item: QueueItem): AnchorView[];
   fmtTime(iso: string): string;
   onCopy(e: WechatMiniprogram.TapEventParam): void;
@@ -71,6 +74,7 @@ Page<DetailData, DetailMethods>({
     state: 'loading',
     errorText: '',
     origin: 'live',
+    ageMs: 0,
     title: '',
     note: '',
     stationLabel: '',
@@ -93,6 +97,11 @@ Page<DetailData, DetailMethods>({
     void this.load();
   },
 
+  /** 首屏可交互时打点，度量冷启动是否在 COLD_START_BUDGET_MS 预算内。 */
+  onReady() {
+    reportFirstPaint('pkg-queue/detail/index');
+  },
+
   onPullDownRefresh() {
     void this.load().then(() => wx.stopPullDownRefresh());
   },
@@ -109,16 +118,17 @@ Page<DetailData, DetailMethods>({
         this.setData({ state: 'empty', errorText: '这条待办可能已被移除' });
         return;
       }
-      this.fill(item, loaded.origin);
+      this.fill(item, loaded.origin, loaded.ageMs);
     } catch (e) {
       this.setData({ state: 'error', errorText: toApiError(e).userMessage || '加载失败' });
     }
   },
 
-  fill(item, origin) {
+  fill(item, origin, ageMs) {
     this.setData({
       state: 'ready',
       origin,
+      ageMs,
       title: item.title,
       note: item.note,
       stationLabel: item.targetStation.split('.')[0],
