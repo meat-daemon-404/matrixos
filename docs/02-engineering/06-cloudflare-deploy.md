@@ -796,4 +796,41 @@ node .tmp/verify-new-account.mjs
   UI 如实写「本地演示 · 未实际投送」，**没有伪造投递成功**。
 - 台账存在浏览器 `localStorage`，换设备需用导出文件搬运（UI 上有说明）。
 
+### 10.5 hub 的 `out/` 是独立产物，重部署微站不会带上它（2026-10-21 15:20 补）
 
+`node scripts/deploy-new-account.mjs --all` 部署的是各目录下**已经构建好的 `out/`**，
+它不跑构建。而 `npx turbo run build` 只产出 `.next/`，**不产出 `out/`** ——
+hub 的静态导出必须单独跑 `node scripts/build-hub-static.mjs --production`。
+
+本轮的真实后果：18 个微站在 15:00 重新部署后，hub 的 `out/` 还停在 13:32
+（早于域名收口提交 `ef3ce68`），于是线上 `https://matrixos.cc.cd/` 的 18 个站点按钮
+`title` 里仍是 `gpa.matrixos.edu` 这类 NXDOMAIN 域名，共 37 处。
+**光看 18 个微站全绿会漏掉这一层。**
+
+修法（重建 + 只部署 hub）：
+
+```bash
+node scripts/build-hub-static.mjs --production   # 必须带 --production
+node scripts/deploy-new-account.mjs --hub-only
+```
+
+`--production` 不是可选项：并行会话的 shell 里残留过
+`NEXT_PUBLIC_MICROSITE_LOCAL_MODE=true`，它会被 DefinePlugin 静态替换进产物，
+线上 iframe 的 src 就变成 `http://127.0.0.1:3010`，用户浏览器连不到（见脚本头部注释）。
+
+重建后实测：`apps/orbital-hub/out/index.html` 里 `matrixos.cc.cd` 40 处、
+`matrixos.edu` 仅剩 1 处（演示账号邮箱 `student@matrixos.edu`，不是域名）。
+
+线上真浏览器复验（Playwright，1600×1000）：点第一个站点按钮后，
+iframe 真的挂载到 `https://mx-gpa.matrixos.cc.cd/`，框内正文 1070 字，
+含「台账」「导出」—— 即微站的完工层在 hub 内嵌态下可用。
+
+#### 已知遗留（属 hub 侧，非微站）
+
+线上 hub 每次加载会打两条失败请求：
+`https://api.matrixos.edu/v1/pocket/queue` → `net::ERR_CONNECTION_CLOSED`。
+`api.matrixos.edu` 是 NXDOMAIN，`api.matrixos.cc.cd` 也还没有 DNS 记录（见 §10.4）。
+`QueueReceiver.tsx` 的 `defaultApiBase()` 在未配置 `NEXT_PUBLIC_MATRIX_API_BASE` 时
+就回落到这个死域名。`isBackendConfigured()` 已能让 UI 如实显示「后端未部署」，
+但它仍会**先发一次请求**再判定失败 —— 体验上留下两条 console error。
+属于 hub 的队列接收器（另一条工作线），本轮未改；记录在此以免被误当成微站缺陷。
