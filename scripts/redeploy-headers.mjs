@@ -84,14 +84,22 @@ if (!sites.length) {
 
 let ok = 0;
 let fail = 0;
+/** 因 out/ 被清空而跳过的站点（并发构建导致，属暂时状态，不计入 fail） */
+const skippedMissingOut = [];
 
 for (const site of sites) {
   const dir = join(MICRO, site);
   const outDir = join(dir, 'out');
 
+  /*
+   * out/ 不完整时**不算失败**，单独归类。
+   *
+   * 为什么：本仓库常有并行会话同时跑 `build-static-site.mjs`，它会在 build 前
+   * rm -rf out/ 与 .next。此时本脚本读到「out 缺 index.html」是**暂时状态**，
+   * 不是产物真缺陷。把它计入 fail 会误导成「部署有 1 个站坏了」。
+   */
   if (!existsSync(join(outDir, 'index.html'))) {
-    console.error(`✗ ${site}: out 不完整，跳过`);
-    fail += 1;
+    skippedMissingOut.push(site);
     continue;
   }
 
@@ -131,5 +139,12 @@ for (const site of sites) {
   }
 }
 
-console.log(`\n成功 ${ok}，失败 ${fail}`);
+console.log(`\n成功 ${ok}，失败 ${fail}` +
+  (skippedMissingOut.length ? `，跳过 ${skippedMissingOut.length}（out 不完整）` : ''));
+if (skippedMissingOut.length) {
+  console.log(`\n以下站点 out/ 缺 index.html —— 通常是并行会话正在重建（构建会先清空 out/）：`);
+  for (const s of skippedMissingOut) console.log(`  · ${s}`);
+  console.log(`\n等构建结束后重跑本脚本即可；若长时间缺失，单独重建该站：`);
+  console.log(`  node scripts/build-static-site.mjs --site=<上面的站点目录名>`);
+}
 process.exit(fail > 0 ? 1 : 0);
