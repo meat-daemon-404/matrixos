@@ -25,6 +25,7 @@
     "verify:microsites:list": "node scripts/verify-microsites.mjs --list",
     "verify:prod": "node scripts/verify-prod.mjs",
     "verify:prod:json": "node scripts/verify-prod.mjs --json",
+    "verify:online": "node scripts/verify-online.mjs",
     "deploy": "node scripts/deploy-new-account.mjs --all",
     "deploy:hub": "node scripts/deploy-hub.mjs",
     "deploy:domains": "node scripts/bind-microsite-domains.mjs --all",

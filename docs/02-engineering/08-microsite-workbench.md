@@ -269,14 +269,21 @@ const visibleRecords = hydrated ? records : hydrationRecords;
 共享层（ledger / spec-factory / 7 个模板 / 仪器样式表）已全部就位，18 站完工层逐字节一致
 （`node scripts/wire-workbench.mjs --check` 全绿）。
 
-最近一次全量结果（2026-10-21 14:48，域名口径收口 + 演示数据换成真实 DOI 之后）：
+最近一次全量结果（2026-10-21 15:48，线上重新部署 + 验收脚本固化之后）：
 
-- `node scripts/microsite-verify.mjs --all` → **18/18 通过**（全部首轮，无一次水合重试）
+- `node scripts/microsite-verify.mjs --all` → **18/18 通过**（03 站第 1 轮命中 React #418，重试 1 次后通过；其余 17 站首轮）
+- `node scripts/verify-online.mjs`（线上真浏览器，点真按钮）→ **18/18 通过**，本轮 0 次水合重试
 - `node .tmp/tsc-all.mjs`（逐站 `tsc --noEmit`）→ **18/18 通过**
 - `node --test apps/micro-sites/shared/test/*.test.ts` → **26/26 通过**
 - `node scripts/verify-pat-hot-dois.mjs` → **6/6 个 DOI 经 Crossref 可核验**
 - `node scripts/wire-workbench.mjs --check` → 完工层 18/18 与模板一致 + 虫洞契约自检通过
 - `pnpm typecheck` → 27/27；`turbo run build --filter="./apps/micro-sites/*" --filter="./apps/orbital-hub"` → 22/22
+- `node scripts/verify-prod.mjs` → 8 项全过（19/19 HTTP、canonical 19/19、CSP 18/18、trust 白名单 18/18）
+
+> 两轮线上验收的对照值得记一笔：15:00 部署后那一轮，18 站里有 16 站命中过 1 次 React #418
+> 需要重试；15:39 复跑这一轮，18 站全部首轮通过。**同一份产物、同一个脚本，命中率从 16/18
+> 变成 0/18** —— 这正是 §8.12 把它定性为「概率性调度抖动」而不是产品缺陷的直接证据。
+> 也说明本地验收里 03 站偶发需要重试，不该被当成回归。
 
 ## 8. 完工过程中修掉的共享层缺陷
 
