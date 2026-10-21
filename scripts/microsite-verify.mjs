@@ -211,6 +211,21 @@ async function verifySite(browser, site, options) {
     return { site, ok: false, issues, warnings, evidence };
   }
 
+  /* ── 产物完整性前置检查 ──
+   * 只查 index.html 会把「构建被中断留下的半成品」当成品验证：
+   * 缺 icon.svg → 页面起一个 404（被记成「控制台错误」），
+   * 缺 index.txt → 移动端断言可能读到旧产物。
+   * 这属于构建残留、不是产品缺陷，必须单独报清楚，否则会被误判成站点 bug。 */
+  const REQUIRED_OUTPUTS = ['index.html', 'icon.svg', 'index.txt', '_headers'];
+  const missingOutputs = REQUIRED_OUTPUTS.filter((name) => !existsSync(join(outDir, name)));
+  if (missingOutputs.length > 0) {
+    issues.push(
+      `out/ 产物不完整（缺 ${missingOutputs.join(' / ')}）—— 这是构建残留，不是产品缺陷；` +
+        '请重跑不带 --skip-build 的验收',
+    );
+    return { site, ok: false, issues, warnings, evidence };
+  }
+
   const { server, url } = await startStaticServer(outDir);
   const context = await browser.newContext({
     viewport: { width: 1440, height: 900 },
