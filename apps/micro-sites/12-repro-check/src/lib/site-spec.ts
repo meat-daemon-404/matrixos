@@ -87,7 +87,7 @@ function anchorOf(paper: PaperRow): WormholeEvidenceAnchor {
 /** 站内新建、尚未绑定 DOI 的清单用站内页兜底（Level B，绝不冒充 Level A）。 */
 function checklistAnchor(slug: string): WormholeEvidenceAnchor {
   return {
-    source_doi_or_url: `https://repro-check.matrixos.edu/checklists/${slug}`,
+    source_doi_or_url: `https://repro-check.matrixos.cc.cd/checklists/${slug}`,
     verification_level: 'Level_B_Preprint',
   };
 }
@@ -185,7 +185,7 @@ export const siteSpec = createRowSpec({
       venue: '待填',
       strategy: '待填',
       keyMetric: '—',
-      sourceDoi: `https://repro-check.matrixos.edu/checklists/draft-${next}`,
+      sourceDoi: `https://repro-check.matrixos.cc.cd/checklists/draft-${next}`,
       verificationLevel: 'Level_B_Preprint',
       passCount: 0,
       warnCount: 0,

@@ -2,7 +2,7 @@
   "name": "@matrixos/microsite-03-grant-audit",
   "version": "0.1.0",
   "private": true,
-  "description": "MatrixOS 微站 03 · 大创五科目经费液位仪（轨道 2 · 星火 · grant-audit.matrixos.edu）",
+  "description": "MatrixOS 微站 03 · 大创五科目经费液位仪（轨道 2 · 星火 · grant-audit.matrixos.cc.cd）",
   "scripts": {
     "dev": "next dev -p 3012",
     "build": "next build",

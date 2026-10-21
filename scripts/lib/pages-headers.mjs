@@ -166,4 +166,4 @@ export function pagesHeaders(station) {
 `;
 }
 
-export { FRAME_ANCESTORS, HUB_ORIGINS_FOR_SDK };
+export { FRAME_ANCESTORS, HUB_ORIGINS, HUB_ORIGINS_FOR_SDK };

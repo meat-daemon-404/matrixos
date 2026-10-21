@@ -2,7 +2,7 @@
   "name": "@matrixos/microsite-01-gpa-sandbox",
   "version": "0.1.0",
   "private": true,
-  "description": "MatrixOS 微站 01 · 学分绩点动态配重台（轨道 1 · 学阶 · gpa.matrixos.edu）",
+  "description": "MatrixOS 微站 01 · 学分绩点动态配重台（轨道 1 · 学阶 · gpa.matrixos.cc.cd）",
   "scripts": {
     "dev": "next dev -p 3010",
     "build": "next build",

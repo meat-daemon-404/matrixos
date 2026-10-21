@@ -65,6 +65,27 @@ MatrixOS 的 04 站 appId 恰好也叫 `pat-hot`。**直接部署会覆盖既有
 
 所以统一加前缀：Pages 项目名 = `mx-<appId>`，通过 `MATRIXOS_PAGES_PREFIX` 环境变量可改。
 
+### 2.1 两个域名口径：逻辑域 vs 部署域（2026-10-21 收口）
+
+同一个站有两个域名，**用途不同、不能互换**，这是本轮把全仓口径统一后定下的规则：
+
+| 口径 | 值 | 用在哪 | 为什么 |
+| :--- | :--- | :--- | :--- |
+| **逻辑域** | `<appId>.matrixos.cc.cd` | 花名册 `specs/microsites.json`、`manifest.entry_url`、`SITE.domain`（UI 展示 / `sitePath()`）、README、证据锚点 URL | SDK 的 `validateManifest()` 强制 `entry_url` 主机首段 == `app_id`，写 `mx-gpa` 会直接报 `entryUrlHostMismatch` error |
+| **部署域** | `mx-<appId>.matrixos.cc.cd` | 真实 HTTP 入口、`layout.tsx` 的 `SITE_ORIGIN`（canonical / og:url / metadataBase）、CSP `frame-ancestors`、hub 的 iframe src | DNS 只通配 `mx-*.matrixos.cc.cd`；逻辑域实测无 A 记录（返回 apex 的 SOA） |
+
+验证方式（两条都要过）：
+
+```bash
+# 逻辑域不该有 A 记录（有记录反而说明配错了）
+Resolve-DnsName -Type A -DnsOnly gpa.matrixos.cc.cd      # 期望：返回 SOA，无 A
+# 部署域必须 200 且标题含站点名
+curl -s https://mx-gpa.matrixos.cc.cd/ | grep -o '<title>[^<]*'
+```
+
+**踩过的坑**：这两个口径曾经五处各写一套 —— 花名册/README 是无前缀 `.cc.cd`、`site.config.ts` 与 manifest 还停在 `.edu`、只有 `layout.tsx` 是对的。
+现在由 `scripts/gen-site.mjs` 一处派生（花名册 → 逻辑域 → 各产物），`scripts/validate-specs.mjs` 兜底禁止回退到 `.matrixos.edu`。
+
 ---
 
 ## 三、部署流程（迁移后的新流程）

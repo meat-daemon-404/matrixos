@@ -1,7 +1,7 @@
 /**
  * ⚠️ 自动生成 · scripts/gen-site.mjs
  * 站点：15 撤稿深海声呐与伦理合规仪
- * 轨道：轨道 5 · 工坊 · 域名：retract-radar.matrixos.edu
+ * 轨道：轨道 5 · 工坊 · 域名：retract-radar.matrixos.cc.cd
  * 命名依据：docs/01-plan/00-adr-001-microsite-numbering.md（目录名与域名可不一致，刻意）
  * 重新生成：pnpm gen:site --id=15 --force
  */
@@ -28,7 +28,7 @@ export interface SiteIdentity {
 export const SITE: SiteIdentity = {
   id: "15",
   name: "撤稿深海声呐与伦理合规仪",
-  domain: "retract-radar.matrixos.edu",
+  domain: "retract-radar.matrixos.cc.cd",
   appId: "retract-radar",
   dirName: "15-retract-radar",
   orbitIndex: 5,

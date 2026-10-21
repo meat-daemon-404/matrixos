@@ -1,6 +1,6 @@
 # 03 · 大创五科目经费液位仪
 
-> MatrixOS 微站 · 轨道 2 · 星火 · `grant-audit.matrixos.edu` · 目录 `apps/micro-sites/03-grant-audit/`
+> MatrixOS 微站 · 轨道 2 · 星火 · `grant-audit.matrixos.cc.cd` · 目录 `apps/micro-sites/03-grant-audit/`
 >
 > 目录名由 [ADR-001](../../../docs/01-plan/00-adr-001-microsite-numbering.md) 裁决：
 > **编号与站点归属取花名册，目录词根取描述性命名**。所以目录名与域名可以不一致
@@ -46,7 +46,7 @@ pnpm --filter @matrixos/microsite-03-grant-audit typecheck
         "updatedAt": "1970-01-01T00:00:00.000Z",
         "edits": 0,                             // 编辑次数，标题会追加「· 已编辑 N 次」
         "anchor": {                             // 可选：该条凭据的证据锚点，投送时聚合进信封
-          "source_doi_or_url": "https://grant-audit.matrixos.edu/receipts/compute",
+          "source_doi_or_url": "https://grant-audit.matrixos.cc.cd/receipts/compute",
           "verification_level": "Level_B_Preprint"
         },
         "columnId": "compute",                  // 以下为本站自定义字段
@@ -145,11 +145,11 @@ const LABOR_COMPLIANT = LABOR_USED <= LABOR_CAP;            // 「≤」是闭�
 ```
 
 证据锚点取自每条凭据的 `anchor` 字段：普通科目用
-`https://grant-audit.matrixos.edu/receipts/<columnId>` + `Level_B_Preprint`（站内自存档、
-未经第三方双验）；劳务红线用 `https://grant-audit.matrixos.edu/redlines/labor-20pct` +
+`https://grant-audit.matrixos.cc.cd/receipts/<columnId>` + `Level_B_Preprint`（站内自存档、
+未经第三方双验）；劳务红线用 `https://grant-audit.matrixos.cc.cd/redlines/labor-20pct` +
 `Level_A_Verified`（财务制度条款有明文文件、可双验，够得上 A 级）。
 
-**台账为空时**投送会退化为站级基线锚点（`https://grant-audit.matrixos.edu/`），
+**台账为空时**投送会退化为站级基线锚点（`https://grant-audit.matrixos.cc.cd/`），
 因为虫洞契约的红线是 `evidence_anchors` 至少 1 条 —— 宁可退化，也不发一个非法信封。
 
 只有真嵌在 orbital-hub iframe 内且握手完成（`useHostBridge().connected === true`）才真投送；

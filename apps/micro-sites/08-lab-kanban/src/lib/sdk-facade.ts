@@ -3,7 +3,7 @@
  * 模板：apps/micro-sites/shared/templates/sdk-facade.ts
  * 作用：SDK 适配层（本站唯一 import @matrixos/sdk 的地方）
  * 站点：08 太空任务式进组跟进台账
- * 轨道：轨道 4 · 星门 · 域名：lab-kanban.matrixos.edu
+ * 轨道：轨道 4 · 星门 · 域名：lab-kanban.matrixos.cc.cd
  * 改法：改模板 → 跑 `node scripts/wire-workbench.mjs` 重新分发（18 站会一起更新）。
  */
 /**
@@ -131,8 +131,18 @@ function readInjectedHubOrigins(): string {
  * 所以兜底清单自己得把 `localhost:3000` / `127.0.0.1:3000` 写全。
  */
 const DEFAULT_HUB_ORIGINS: readonly string[] = [
-  /* 生产宿主由构建期注入（pages-headers.mjs 单一事实源）；
-     这里只放开发期 loopback。原写死的 orbital.matrixos.edu 实测 NXDOMAIN，已移除。*/
+  /*
+   * 这里只放**开发期**宿主。
+   *
+   * 生产宿主由 scripts/build-static-site.mjs 从 scripts/lib/pages-headers.mjs
+   * 的单一事实源注入（NEXT_PUBLIC_MATRIXOS_HUB_ORIGINS），不该在此重复维护 ——
+   * 重复维护就会漂移：本文件原来固定写死 'https://orbital.matrixos.edu'，
+   * 而该域名实测 NXDOMAIN（已废弃的愿景域名），且 2026-10-21 迁移后
+   * 生产入口早已是 https://matrixos.cc.cd。
+   *
+   * 契约：兜底清单里的每一条都必须是**当前真的属于本项目**的 origin。
+   * 放开一个解析不到的主机没有收益，将来该域被他人注册时反而成为现实风险。
+   */
   'http://localhost:3000',
   'http://127.0.0.1:3000',
 ];

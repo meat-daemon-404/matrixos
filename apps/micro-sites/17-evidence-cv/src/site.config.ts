@@ -1,7 +1,7 @@
 /**
  * ⚠️ 自动生成 · scripts/gen-site.mjs
  * 站点：17 区块链级学术证据简历工坊
- * 轨道：轨道 7 · 预职 · 域名：evidence-cv.matrixos.edu
+ * 轨道：轨道 7 · 预职 · 域名：evidence-cv.matrixos.cc.cd
  * 命名依据：docs/01-plan/00-adr-001-microsite-numbering.md（目录名与域名可不一致，刻意）
  * 重新生成：pnpm gen:site --id=17 --force
  */
@@ -28,7 +28,7 @@ export interface SiteIdentity {
 export const SITE: SiteIdentity = {
   id: "17",
   name: "区块链级学术证据简历工坊",
-  domain: "evidence-cv.matrixos.edu",
+  domain: "evidence-cv.matrixos.cc.cd",
   appId: "evidence-cv",
   dirName: "17-evidence-cv",
   orbitIndex: 7,

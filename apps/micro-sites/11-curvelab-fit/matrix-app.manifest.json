@@ -2,7 +2,7 @@
   "manifest_version": "1.0",
   "app_id": "curvelab",
   "name": "CurveLab 非线性拟合示波器",
-  "entry_url": "https://curvelab.matrixos.edu",
+  "entry_url": "https://curvelab.matrixos.cc.cd",
   "orbit_station": "workshop",
   "accent_color": "#10b981",
   "accepts": [

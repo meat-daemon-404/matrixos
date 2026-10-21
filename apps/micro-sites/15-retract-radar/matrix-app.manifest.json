@@ -2,7 +2,7 @@
   "manifest_version": "1.0",
   "app_id": "retract-radar",
   "name": "撤稿深海声呐与伦理合规仪",
-  "entry_url": "https://retract-radar.matrixos.edu",
+  "entry_url": "https://retract-radar.matrixos.cc.cd",
   "orbit_station": "workshop",
   "accent_color": "#10b981",
   "accepts": [

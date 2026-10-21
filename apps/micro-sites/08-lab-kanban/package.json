@@ -2,7 +2,7 @@
   "name": "@matrixos/microsite-08-lab-kanban",
   "version": "0.1.0",
   "private": true,
-  "description": "MatrixOS 微站 08 · 太空任务式进组跟进台账（轨道 4 · 星门 · lab-kanban.matrixos.edu）",
+  "description": "MatrixOS 微站 08 · 太空任务式进组跟进台账（轨道 4 · 星门 · lab-kanban.matrixos.cc.cd）",
   "scripts": {
     "dev": "next dev -p 3017",
     "build": "next build",

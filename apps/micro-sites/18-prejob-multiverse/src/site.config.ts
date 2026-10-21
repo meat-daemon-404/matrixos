@@ -1,7 +1,7 @@
 /**
  * ⚠️ 自动生成 · scripts/gen-site.mjs
  * 站点：18 生涯多重宇宙期望决策树
- * 轨道：轨道 7 · 预职 · 域名：prejob.matrixos.edu
+ * 轨道：轨道 7 · 预职 · 域名：prejob.matrixos.cc.cd
  * 命名依据：docs/01-plan/00-adr-001-microsite-numbering.md（目录名与域名可不一致，刻意）
  * 重新生成：pnpm gen:site --id=18 --force
  */
@@ -28,7 +28,7 @@ export interface SiteIdentity {
 export const SITE: SiteIdentity = {
   id: "18",
   name: "生涯多重宇宙期望决策树",
-  domain: "prejob.matrixos.edu",
+  domain: "prejob.matrixos.cc.cd",
   appId: "prejob",
   dirName: "18-prejob-multiverse",
   orbitIndex: 7,

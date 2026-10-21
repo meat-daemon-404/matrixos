@@ -2,7 +2,7 @@
   "name": "@matrixos/microsite-16-yunheng-scale",
   "version": "0.1.0",
   "private": true,
-  "description": "MatrixOS 微站 16 · 云衡 · 数字天平综测核算器（轨道 6 · 云衡 · yunheng.matrixos.edu）",
+  "description": "MatrixOS 微站 16 · 云衡 · 数字天平综测核算器（轨道 6 · 云衡 · yunheng.matrixos.cc.cd）",
   "scripts": {
     "dev": "next dev -p 3025",
     "build": "next build",

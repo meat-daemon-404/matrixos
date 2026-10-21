@@ -1,6 +1,6 @@
 # 13 · Nature 级出版图表熔炉
 
-> MatrixOS 微站 · 轨道 5 · 工坊 · `chart-foundry.matrixos.edu` · 目录 `apps/micro-sites/13-chart-foundry/`
+> MatrixOS 微站 · 轨道 5 · 工坊 · `chart-foundry.matrixos.cc.cd` · 目录 `apps/micro-sites/13-chart-foundry/`
 >
 > 目录名由 [ADR-001](../../../docs/01-plan/00-adr-001-microsite-numbering.md) 裁决：
 > **编号与站点归属取花名册，目录词根取描述性命名**。所以目录名与域名可以不一致
@@ -52,7 +52,7 @@ pnpm --filter @matrixos/microsite-13-chart-foundry typecheck  # npx tsc --noEmit
         "updatedAt": "1970-01-01T00:00:00.000Z",
         "edits": 0,                            // 编辑次数，标题会追加「· 已编辑 N 次」
         "anchor": {                            // 站内脚本页锚点（Level_B，不冒充 Level A）
-          "source_doi_or_url": "https://chart-foundry.matrixos.edu/scripts/fig-01-nature",
+          "source_doi_or_url": "https://chart-foundry.matrixos.cc.cd/scripts/fig-01-nature",
           "verification_level": "Level_B_Preprint"
         },
         "styleId": "nature",                   // 以下均为本站自定义字段
@@ -116,7 +116,7 @@ pnpm --filter @matrixos/microsite-13-chart-foundry typecheck  # npx tsc --noEmit
   "boundCount": 0,
   "rows": [
     { "figureId": "fig-01-nature", "styleName": "Nature 双栏", "journal": "Nature / Nature Photonics",
-      "conclusion": "待绑定数据", "sourceDoi": "https://chart-foundry.matrixos.edu/scripts/fig-01-nature",
+      "conclusion": "待绑定数据", "sourceDoi": "https://chart-foundry.matrixos.cc.cd/scripts/fig-01-nature",
       "boundModel": "", "boundR2": null, "palette": ["#0C2C4D", "…"] }
   ]
 }
@@ -125,11 +125,11 @@ pnpm --filter @matrixos/microsite-13-chart-foundry typecheck  # npx tsc --noEmit
 **投送语义**：「图-数据-结论」三元组 —— 综述写作舱按 `figureId` + `sourceDoi`
 把图号绑到段落上，所以每条脚本都必须带 figureId 与结论位（未出结论就明写待绑定）。
 
-证据锚点用站内脚本页 `https://chart-foundry.matrixos.edu/scripts/<figureId>` +
+证据锚点用站内脚本页 `https://chart-foundry.matrixos.cc.cd/scripts/<figureId>` +
 `Level_B_Preprint`（站内自存档、未经第三方复核，绝不冒充 Level A；**snake_case 四字段**，
 锚点层 `additionalProperties: false`，多一个字段整个信封作废）。
 
-**台账为空时**投送会退化为站级基线锚点（`https://chart-foundry.matrixos.edu/`），
+**台账为空时**投送会退化为站级基线锚点（`https://chart-foundry.matrixos.cc.cd/`），
 因为虫洞契约的红线是 `evidence_anchors` 至少 1 条 —— 宁可退化，也不发一个非法信封。
 
 只有真嵌在 orbital-hub iframe 内且握手完成（`useHostBridge().connected === true`）才真投送；

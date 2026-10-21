@@ -2,7 +2,7 @@
   "name": "@matrixos/microsite-13-chart-foundry",
   "version": "0.1.0",
   "private": true,
-  "description": "MatrixOS 微站 13 · Nature 级出版图表熔炉（轨道 5 · 工坊 · chart-foundry.matrixos.edu）",
+  "description": "MatrixOS 微站 13 · Nature 级出版图表熔炉（轨道 5 · 工坊 · chart-foundry.matrixos.cc.cd）",
   "scripts": {
     "dev": "next dev -p 3022",
     "build": "next build",

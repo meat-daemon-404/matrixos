@@ -2,7 +2,7 @@
   "name": "@matrixos/microsite-18-prejob-multiverse",
   "version": "0.1.0",
   "private": true,
-  "description": "MatrixOS 微站 18 · 生涯多重宇宙期望决策树（轨道 7 · 预职 · prejob.matrixos.edu）",
+  "description": "MatrixOS 微站 18 · 生涯多重宇宙期望决策树（轨道 7 · 预职 · prejob.matrixos.cc.cd）",
   "scripts": {
     "dev": "next dev -p 3027",
     "build": "next build",

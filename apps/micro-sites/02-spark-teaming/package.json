@@ -2,7 +2,7 @@
   "name": "@matrixos/microsite-02-spark-teaming",
   "version": "0.1.0",
   "private": true,
-  "description": "MatrixOS 微站 02 · 双创互补组队雷达（轨道 2 · 星火 · spark.matrixos.edu）",
+  "description": "MatrixOS 微站 02 · 双创互补组队雷达（轨道 2 · 星火 · spark.matrixos.cc.cd）",
   "scripts": {
     "dev": "next dev -p 3011",
     "build": "next build",

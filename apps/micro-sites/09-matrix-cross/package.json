@@ -2,7 +2,7 @@
   "name": "@matrixos/microsite-09-matrix-cross",
   "version": "0.1.0",
   "private": true,
-  "description": "MatrixOS 微站 09 · Matrix-Cross 跨论文对比矩阵（轨道 5 · 工坊 · matrix-cross.matrixos.edu）",
+  "description": "MatrixOS 微站 09 · Matrix-Cross 跨论文对比矩阵（轨道 5 · 工坊 · matrix-cross.matrixos.cc.cd）",
   "scripts": {
     "dev": "next dev -p 3018",
     "build": "next build",

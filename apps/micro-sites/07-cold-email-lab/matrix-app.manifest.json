@@ -2,7 +2,7 @@
   "manifest_version": "1.0",
   "app_id": "cold-email",
   "name": "证据内嵌式套磁信推演器",
-  "entry_url": "https://cold-email.matrixos.edu",
+  "entry_url": "https://cold-email.matrixos.cc.cd",
   "orbit_station": "xingmen",
   "accent_color": "#06b6d4",
   "accepts": [

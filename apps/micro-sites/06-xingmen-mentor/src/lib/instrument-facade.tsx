@@ -1,7 +1,7 @@
 /**
  * ⚠️ 自动生成 · scripts/gen-site.mjs
  * 站点：06 星门 · 导师五维星象仪
- * 轨道：轨道 4 · 星门 · 域名：mentor.matrixos.edu
+ * 轨道：轨道 4 · 星门 · 域名：mentor.matrixos.cc.cd
  * 命名依据：docs/01-plan/00-adr-001-microsite-numbering.md（目录名与域名可不一致，刻意）
  * 重新生成：pnpm gen:site --id=06 --force
  */

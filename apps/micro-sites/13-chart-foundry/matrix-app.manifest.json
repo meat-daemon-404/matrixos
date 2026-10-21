@@ -2,7 +2,7 @@
   "manifest_version": "1.0",
   "app_id": "chart-foundry",
   "name": "Nature 级出版图表熔炉",
-  "entry_url": "https://chart-foundry.matrixos.edu",
+  "entry_url": "https://chart-foundry.matrixos.cc.cd",
   "orbit_station": "workshop",
   "accent_color": "#10b981",
   "accepts": [

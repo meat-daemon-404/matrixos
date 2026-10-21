@@ -3,7 +3,7 @@
  * 模板：apps/micro-sites/shared/templates/site-shell.tsx
  * 作用：站点外壳（身份 / 元信息 / 仪器面板 / 状态行 / 虫洞接收器）
  * 站点：15 撤稿深海声呐与伦理合规仪
- * 轨道：轨道 5 · 工坊 · 域名：retract-radar.matrixos.edu
+ * 轨道：轨道 5 · 工坊 · 域名：retract-radar.matrixos.cc.cd
  * 改法：改模板 → 跑 `node scripts/wire-workbench.mjs` 重新分发（18 站会一起更新）。
  */
 'use client';
@@ -16,6 +16,7 @@ import {
   initSSO,
   manifestAccepts,
   manifestEmits,
+  onHostDensity,
   onWormholeDrop,
   sdkStatus,
   type SdkStatus,
@@ -56,9 +57,22 @@ export function SiteShell() {
       setReceipts((prev) => [receipt, ...prev].slice(0, 5));
     });
 
+    /*
+     * 宿主字号密度下发（答辩投影）。
+     *
+     * hub 顶栏的「A±」开关只作用于 hub 自己的 DOM —— iframe 是独立文档，
+     * CSS 变量不会继承进来。而答辩时要看的恰恰是仪器里的公式与读数（8–10px）。
+     * 这条订阅把它们接上：宿主切档 → 桥下发 → 本站挂 `data-iu-density`，
+     * 组件库的 `--iu-type-scale` 随即生效，整套仪器等比放大。
+     *
+     * 独立窗口下 `onHostDensity` 直接返回 undefined（没有宿主），不会误放大。
+     */
+    const disposeDensity = onHostDensity();
+
     return () => {
       sso.dispose();
       disposeDrop?.();
+      disposeDensity?.();
     };
   }, []);
 

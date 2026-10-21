@@ -5,7 +5,7 @@
  * 检查项：
  *  1. 所有 *.schema.json 是合法 JSON，且带 $schema / title / type
  *  2. microsites.json 恰好 18 条，id 连续 01..18
- *  3. 域名唯一，且都以 .matrixos.edu 结尾
+ *  3. 域名唯一，且都以生产域 .matrixos.cc.cd 结尾
  *  4. 每条必须有 orbit / orbitName / name / domain / source / uiStyle / ledger / desc
  *  5. 轨道值必须落在 1-2 / 3-4 / 5 / 6-7 之内
  *  6. matrix-app-manifest / wormhole / dispatch 三个契约里的 orbit_station 枚举一致
@@ -83,7 +83,15 @@ if (!existsSync(microPath)) {
       if (m.domain) {
         if (seenDomains.has(m.domain)) fail(`${label} 域名重复: ${m.domain}`);
         seenDomains.add(m.domain);
-        if (!m.domain.endsWith('.matrixos.edu')) fail(`${label} 域名应以 .matrixos.edu 结尾: ${m.domain}`);
+        // 2026-10-21 起：*.matrixos.edu 是永不落地的愿景域（.edu 需美国教育部
+        // 认可机构资质，个人无法注册），花名册已切到真实在用的生产域。
+        if (!m.domain.endsWith('.matrixos.cc.cd')) {
+          fail(`${label} 域名应以 .matrixos.cc.cd 结尾: ${m.domain}`);
+        }
+        // 防回退：愿景域不得再出现在花名册里（见 docs/02-engineering/06-cloudflare-deploy.md）
+        if (m.domain.endsWith('.matrixos.edu')) {
+          fail(`${label} 仍在使用愿景域名 .matrixos.edu（该域不存在）: ${m.domain}`);
+        }
       }
       if (m.orbit && !VALID_ORBITS.has(m.orbit)) fail(`${label} orbit 值非法: ${m.orbit}`);
     });

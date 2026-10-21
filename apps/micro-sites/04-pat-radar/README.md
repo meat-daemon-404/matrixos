@@ -1,6 +1,6 @@
 # 04 · PAT-HOT 学科脉冲雷达
 
-> MatrixOS 微站 · 轨道 3 · 情报 · `pat-hot.matrixos.edu` · 目录 `apps/micro-sites/04-pat-radar/`
+> MatrixOS 微站 · 轨道 3 · 情报 · `pat-hot.matrixos.cc.cd` · 目录 `apps/micro-sites/04-pat-radar/`
 >
 > 目录名由 [ADR-001](../../../docs/01-plan/00-adr-001-microsite-numbering.md) 裁决：
 > **编号与站点归属取花名册，目录词根取描述性命名**。所以目录名与域名可以不一致
@@ -41,32 +41,32 @@ pnpm --filter @matrixos/microsite-04-pat-radar typecheck
     "rows": [
       {
         "id": "seed-01",                       // seed-NN（演示数据）或 r-<时间戳>-<序号>-<随机>（新增）
-        "title": "钙钛矿光伏 · 界面钝化 · 钙钛矿 AND (钝化 OR 界面)",  // 方向 + 检索式
-        "meta": "命中 1 篇 · 峰值热度 98.4 · 均热 98.4 · DOI 1 条 · 在订",
+        "title": "钙钛矿光伏 · 界面钝化 · 钙钛矿 AND (钝化 OR 界面) AND SnO2",  // 方向 + 检索式
+        "meta": "命中 1 篇 · 峰值热度 92.6 · 均热 92.6 · DOI 1 条 · 在订",
         "detail": "订阅方向 钙钛矿光伏 · 界面钝化，推送频率 每日 07:30；早报头条：……",
         "updatedAt": "1970-01-01T00:00:00.000Z",
         "edits": 0,                             // 编辑次数，标题会追加「· 已编辑 N 次」
         "anchor": {                             // 可选：该条订阅的证据锚点，投送时聚合进信封
-          "source_doi_or_url": "https://doi.org/10.1038/s41566-025-01234-5",
+          "source_doi_or_url": "https://doi.org/10.1002/solr.202500241",
           "verification_level": "Level_B_Preprint"
         },
-        "keyword": "钙钛矿 AND (钝化 OR 界面)",  // 以下为本站自定义字段
+        "keyword": "钙钛矿 AND (钝化 OR 界面) AND SnO2",  // 以下为本站自定义字段
         "direction": "钙钛矿光伏 · 界面钝化",
         "cadence": "每日 07:30",
         "status": "在订",
         "itemIds": ["p1"],
         "itemCount": 1,
-        "maxHeat": 98.4,
-        "avgHeat": 98.4,
-        "tags": ["钙钛矿", "界面工程"],
-        "dois": ["10.1038/s41566-025-01234-5"],
+        "maxHeat": 92.6,
+        "avgHeat": 92.6,
+        "tags": ["钙钛矿", "界面工程", "SnO2"],
+        "dois": ["10.1002/solr.202500241"],
         "doiCount": 1,
-        "topItemTitle": "钙钛矿太阳能电池界面钝化的准二维策略",
-        "topVenue": "Nature Photonics",
-        "topHeat": 98.4,
-        "topSummary": "PEAI 准二维钝化将界面缺陷密度降低两个数量级，峰值 EQE 达 28.4%。",
-        "digest": "早报头条：Nature Photonics《……》热度 98.4 —— ……",
-        "note": "主攻方向。准二维钝化这条线三个月内出了两篇高热度工作，早报保持日更。"
+        "topItemTitle": "SnO₂/钙钛矿界面双向钝化剂：n–i–p 器件效率提升路径",
+        "topVenue": "Solar RRL",
+        "topHeat": 92.6,
+        "topSummary": "综述 n–i–p 结构 SnO₂/钙钛矿界面的双向钝化剂，分无机盐、酸根盐、氨基有机物三类；该结构认证效率已达约 27%。",
+        "digest": "早报头条：Solar RRL《……》热度 92.6 —— ……",
+        "note": "主攻方向。n–i–p 结构认证效率已到约 27%，界面钝化是当前最密集的改进路线，保持日更。"
       }
     ]
   }
@@ -74,19 +74,27 @@ pnpm --filter @matrixos/microsite-04-pat-radar typecheck
 ```
 
 **热度与 DOI 全部现算，不手抄。** 站点从 `@matrixos/microsite-data` 读
-`PAT_HOT_ITEMS`（4 条 24h 前沿条目，含 `heat` / `doi` / `summary` / `tags`），
+`PAT_HOT_ITEMS`（4 条前沿条目，含 `heat` / `doi` / `summary` / `tags`），
 每条订阅记录按 `itemIds` 聚合出命中篇数、峰值热度、平均热度、标签并集与 DOI 列表。
+
+> **DOI 是真实且可核验的。** 4 条条目的 DOI 均经 Crossref `/works/{doi}` 逐条确认存在，
+> 摘要中的事实数值（SP≈60%、认证效率约 27%、空穴迁移率约三倍）取自原文 abstract。
+> 运行 `node scripts/verify-pat-hot-dois.mjs` 复核。此前这批 DOI 是构造的
+> （如 `10.1038/s41566-025-01234-5`，Crossref 404），已全部替换——因为 04 站把 DOI
+> 作为 `evidence_anchors` 投送给 05 站，「证据」不能是编的。
 
 当前演示数据是四个订阅方向，覆盖全部 4 条前沿条目：
 
 | 订阅方向 | 检索式 | 频率 | 命中 | 峰值热度 |
 | :--- | :--- | :--- | ---: | ---: |
-| 钙钛矿光伏 · 界面钝化 | `钙钛矿 AND (钝化 OR 界面)` | 每日 07:30 | 1 篇 | 98.4 |
-| 自旋电子学 · 手性传输 | `手性钙钛矿 OR CISS` | 每周一 07:30 | 1 篇 | 91.2 |
-| 超快光学 · 拓扑量子 | `(超快 OR 飞秒) AND (拓扑 OR 表面态)` | 每日 07:30 | 1 篇 | 85.7 |
-| 微纳光学 · 动态全息 | `超表面 AND (全息 OR 等离激元)` | 每三日 07:30 | 1 篇 | 79.3 |
+| 钙钛矿光伏 · 界面钝化 | `钙钛矿 AND (钝化 OR 界面) AND SnO2` | 每日 07:30 | 1 篇 | 92.6 |
+| 自旋电子学 · CISS 表征 | `手性 AND (CISS OR 自旋) AND 钙钛矿` | 每周一 07:30 | 1 篇 | 88.1 |
+| 自旋电子学 · 手性材料 | `(手性 OR chirality) AND (空穴传输 OR HTM)` | 每周一 07:30 | 1 篇 | 84.3 |
+| 超快光学 · 相干控制 | `(相干控制 OR 相位整形) AND (双光子 OR 单分子)` | 每三日 07:30 | 1 篇 | 77.9 |
 
 上表是当前演示数据的实际值，改共享数据后表会随之变化。
+**换数据时记得同步 `SUBSCRIPTION_PLANS` 的检索式**——关键词与条目内容错配，
+会出现「订阅超表面全息却挂着相干控制论文」这类自相矛盾。
 
 信封是**版本化**的：`version` 与 `LEDGER_VERSION` 不符且没有迁移函数时，读盘会回落默认值
 但**不覆盖**原数据（保护用户已存内容）。坏 JSON、形状不符同样处理。
@@ -128,7 +136,7 @@ pnpm --filter @matrixos/microsite-04-pat-radar typecheck
 证据锚点取自每条订阅的 `anchor` 字段，形如
 `https://doi.org/<doi>` + `Level_B_Preprint`。为什么不用 `Level_A_Verified`：
 早报是自动抓取的题录与摘要，没做过「PDF 原文 + 第二来源」的双验，不能冒充已验真证据。
-**台账为空时**投送会退化为站级基线锚点（`https://pat-hot.matrixos.edu/`），
+**台账为空时**投送会退化为站级基线锚点（`https://pat-hot.matrixos.cc.cd/`），
 因为虫洞契约的红线是 `evidence_anchors` 至少 1 条 —— 宁可退化，也不发一个非法信封。
 
 只有真嵌在 orbital-hub iframe 内且握手完成（`useHostBridge().connected === true`）才真投送；

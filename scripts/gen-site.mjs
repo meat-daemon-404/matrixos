@@ -76,6 +76,7 @@ import { renderMetadataBlock } from './site-icons.mjs';
 import { CONTRACTS, PAYLOAD_TYPES, permissionsFor } from './lib/microsite-contracts.mjs';
 import { TEMPLATE_FILES, templateHeader } from './lib/microsite-templates.mjs';
 import { INSTRUMENT_CSS } from './lib/microsite-instrument-css.mjs';
+import { FRAME_ANCESTORS } from './lib/pages-headers.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const ROSTER_PATH = join(ROOT, 'specs', 'microsites.json');
@@ -125,6 +126,22 @@ const ORBIT_META = {
   5: { key: 'workshop', label: '轨道 5 · 工坊', accent: '#10b981' },
   6: { key: 'cloud_balance', label: '轨道 6 · 云衡', accent: '#22d3ee' },
   7: { key: 'pre_job', label: '轨道 7 · 预职', accent: '#f43f5e' },
+};
+
+/**
+ * 强调色的「文字档」降级表（只列不达 AA 正文线的色）。
+ *
+ * 为什么需要：--site-accent 既做描边/填充（图形场景，3:1 即可），
+ * 也被当文字色用在 .site-orbit / .gpa-value.accent / td.accent 三处
+ * 小字号上（需 4.5:1）。visual-system §2.5 实测 indigo-500 4.00:1、
+ * violet-500 4.22:1 双双不达标，故在文字场景降级到 400 档。
+ *
+ * 未列出的色（amber 8.31 / cyan 7.35 / emerald 7.04 / sky 9.88 / rose 4.86）
+ * 本身已过 4.5:1，文字场景原样沿用，不需要双份 token。
+ */
+const ACCENT_TEXT_FALLBACK = {
+  '#6366f1': '#818cf8', // indigo-500 4.00 → indigo-400 5.98
+  '#8b5cf6': '#a78bfa', // violet-500 4.22 → violet-400 6.56
 };
 
 // 虫洞契约（accepts / emits / 投送目标）的唯一事实源在 scripts/lib/microsite-contracts.mjs。
@@ -314,11 +331,14 @@ function loadStations() {
       );
     }
 
+    // 逻辑域：<appId>.matrixos.cc.cd（身份 / manifest.entry_url / UI 展示）。
+    // 部署域是 mx-<appId>.matrixos.cc.cd，由 layout.tsx 的 SITE_ORIGIN 拼出，不在花名册里。
+    // 为什么不是 .matrixos.edu：该域从未存在（NXDOMAIN），见 docs/02-engineering/09-backend-deploy.md。
     const domain = String(raw.domain ?? '');
-    if (!/^[a-z0-9-]+\.matrixos\.edu$/.test(domain)) {
-      problems.push(`id=${id} 域名不合规：${domain}`);
+    if (!/^[a-z0-9-]+\.matrixos\.cc\.cd$/.test(domain)) {
+      problems.push(`id=${id} 域名不合规（应为 <appId>.matrixos.cc.cd）：${domain}`);
     }
-    const appId = domain.replace(/\.matrixos\.edu$/, '');
+    const appId = domain.replace(/\.matrixos\.cc\.cd$/, '');
     if (ADR_001_DIR_TABLE[id] && !appId) problems.push(`id=${id} 域名为空`);
 
     const hooks = HOOKS[id] ?? { accepts: [], emits: [] };
@@ -338,6 +358,11 @@ function loadStations() {
       orbitName: String(raw.orbitName).trim(),
       orbitGroup: String(raw.orbit ?? ''),
       accent: meta.accent,
+      /* 文字专用强调色：原色对最差表面 #0f172a 若 < 4.5:1 则降级到 400 档。
+       * 实测（visual-system §2.5）：indigo-500 4.00、violet-500 4.22 不达标
+       * → 分别用 indigo-400 #818cf8（5.98）与 violet-400 #a78bfa（6.56）；
+       * 其余五色本身已达 AA/AAA，原样沿用。 */
+      accentText: ACCENT_TEXT_FALLBACK[meta.accent] ?? meta.accent,
       source: String(raw.source ?? ''),
       uiStyle: String(raw.uiStyle ?? ''),
       ledger: String(raw.ledger ?? ''),
@@ -405,7 +430,7 @@ function selectStations(stations, opts) {
       .toLowerCase()
       .replace(/^https?:\/\//, '')
       .replace(/\/.*$/, '');
-    const givenAppId = given.replace(/\.matrixos\.edu$/, '');
+    const givenAppId = given.replace(/\.matrixos\.cc\.cd$/, '');
     const owner = stations.find((s) => s.appId === givenAppId);
     const target = picked[0];
 
@@ -705,15 +730,14 @@ const nextConfig: NextConfig = {
   /**
    * 微站必须能被 orbital-hub 以 iframe 嵌入（架构 A4 / ADR-08）。
    * 不要设 X-Frame-Options: DENY；用 CSP frame-ancestors 精确放行主控台。
-   * 开发期放行 localhost:${HUB_PORT}（hub 端口约定见 docs/02-engineering/01-dev-setup.md）。
+   *
+   * 白名单**不在这里手写**：直接取 scripts/lib/pages-headers.mjs 的 FRAME_ANCESTORS，
+   * 与 Cloudflare Pages 的 _headers 同源。曾经这里写死 'https://orbital.matrixos.edu'
+   * （NXDOMAIN 愿景域），而 _headers 里早已换成真实宿主 —— 两份清单漂移，
+   * 静态导出产物（无 next 运行时，headers() 不生效）与线上行为不一致。
    */
   async headers() {
-    const frameAncestors = [
-      "'self'",
-      'https://orbital.matrixos.edu',
-      'http://localhost:${HUB_PORT}',
-      'http://127.0.0.1:${HUB_PORT}',
-    ].join(' ');
+    const frameAncestors = ${JSON.stringify(FRAME_ANCESTORS)};
     return [
       {
         source: '/:path*',
@@ -821,6 +845,14 @@ function renderGlobalsCss(station) {
 
   /* 本站强调色（来自花名册轨道） */
   --site-accent: ${station.accent};
+  /* 文字专用强调色 —— 实测缺陷修复（visual-system §2.5）：
+   * indigo-500 #6366f1 对深底仅 4.00:1、violet-500 #8b5cf6 仅 4.22:1，
+   * 都低于 AA 正文线 4.5:1。而 --site-accent 被当作**文字色**用在
+   * .site-orbit / .gpa-value.accent / td.accent 三处小字号上。
+   * 处置：品牌色不动（描边/填充/选中态继续用它），只给文字场景派生一档
+   * 提亮的 accent-text —— 与 instrument-ui 的 --iu-*-text 分层同一思路。
+   * 规则：原色对 #0f172a 是否 ≥4.5:1，不达标则用 400 档，达标则原样。 */
+  --site-accent-text: ${station.accentText};
 
   /* Glow / Radius / Motion */
   --glow-spread: 0 0 28px -5px;
@@ -852,11 +884,17 @@ function renderGlobalsCss(station) {
   --text-2xl: calc(24px * var(--type-scale));
 }
 
-/* V8 配套：答辩/投屏密度档开关。选择器与 instrument-ui tokens.css 的
- * [data-iu-density='presentation'] 同名同值——挂在 <html>/<body>/任意容器上，
- * 微站外壳（--text-*）与库组件（--iu-text-*）一起放大 1.25×，
- * 136 处 <12px 小字（§十 V8）在投影场景全部升到 ≥12.5px。 */
-[data-iu-density='presentation'] { --type-scale: 1.25; }
+/* V8 配套：答辩/投屏密度档开关。
+ *
+ * ⚠️ 2026-10-21 修正：原来这里写死 --type-scale: 1.25，导致**只能 1.25 一档**。
+ * hub 下发 xlarge（1.5）时，实测微站外壳文字仍停在 12.5px（= 10 × 1.25）——
+ * 因为这条规则把内联设置的更高倍数覆盖掉了。
+ *
+ * 改成**引用 --iu-type-scale**：那是组件库的档位变量（tokens.css 的
+ * [data-iu-density='presentation'] 设它，hub 也可以在 html 上内联覆盖它）。
+ * 这样微站外壳（--text-*）与库组件（--iu-text-*）**共用同一个倍数**，
+ * 无论 1.25 还是 1.5 都一致 —— 单一事实源，不会再出现「库放大了、外壳没放大」。 */
+[data-iu-density='presentation'] { --type-scale: var(--iu-type-scale, 1.25); }
 
 * { box-sizing: border-box; }
 
@@ -1010,7 +1048,7 @@ body[data-embedded='true'] .site-footer { display: none; }
 }
 
 .site-title { font-size: var(--text-xl); font-weight: 600; margin: 0; color: var(--color-text-strong); }
-.site-orbit { color: var(--site-accent); font-size: var(--text-xs); }
+.site-orbit { color: var(--site-accent-text); font-size: var(--text-xs); }
 .site-domain { color: var(--color-text-muted); font-size: var(--text-xs); }
 
 .meta-grid {
@@ -1092,9 +1130,12 @@ body[data-embedded='true'] .site-footer { display: none; }
 /* ── 可点 chip（如「通道自检」）与静态状态 chip 的区分 ─────────────────────
  * 缺陷：status-row 里六个 chip 中五个是只读状态标签，第六个是 <button>，
  * 此前两者样式完全相同 → 用户看不出哪个能点。此处只给 button 型 chip
- * 加交互线索；状态 chip 保持纯展示语义（不加 cursor、无 hover）。 */
+ * 加交互线索；状态 chip 保持纯展示语义（不加 cursor、无 hover）。
+ * 命中区：静态 chip 是标签，19px 高无妨；可点 chip 必须过 WCAG 2.5.8 的
+ * 24×24，故单独给 button 型补 min-height（实测原 19px）。 */
 button.chip {
   cursor: pointer;
+  min-height: 24px;
   transition: color var(--dur-fast) ease, border-color var(--dur-fast) ease,
     background var(--dur-fast) ease;
 }
@@ -1463,7 +1504,9 @@ function renderReadme(station) {
   };
   const code = (types) =>
     types.length ? types.map((t) => '`' + t + '`').join('、') : '（无）';
-  const peer = (appId) => (appId ? 'https://' + appId + '.matrixos.edu' : '（无）');
+  // 虫洞对端链接用**逻辑域**（<appId>.matrixos.cc.cd）：SDK 的 isSameApp() 按主机首段
+  // 归一化比较，逻辑域与部署域（mx- 前缀）都能对上；但展示给用户看身份时用逻辑域更干净。
+  const peer = (appId) => (appId ? 'https://' + appId + '.matrixos.cc.cd' : '（无）');
   const ledgerKey = 'mx.' + station.appId + '.' + contract.exportName;
 
   return `# ${station.id} · ${station.name}

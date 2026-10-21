@@ -2,7 +2,7 @@
   "name": "@matrixos/microsite-17-evidence-cv",
   "version": "0.1.0",
   "private": true,
-  "description": "MatrixOS 微站 17 · 区块链级学术证据简历工坊（轨道 7 · 预职 · evidence-cv.matrixos.edu）",
+  "description": "MatrixOS 微站 17 · 区块链级学术证据简历工坊（轨道 7 · 预职 · evidence-cv.matrixos.cc.cd）",
   "scripts": {
     "dev": "next dev -p 3026",
     "build": "next build",

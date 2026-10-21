@@ -2,7 +2,7 @@
   "manifest_version": "1.0",
   "app_id": "gpa",
   "name": "学分绩点动态配重台",
-  "entry_url": "https://gpa.matrixos.edu",
+  "entry_url": "https://gpa.matrixos.cc.cd",
   "orbit_station": "study",
   "accent_color": "#6366f1",
   "accepts": [

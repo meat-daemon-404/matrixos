@@ -26,7 +26,11 @@
   --color-text-strong: #ffffff;
   --color-text-secondary: #cbd5e1;
   --color-text-muted: #94a3b8;
-  --color-text-faint: #7d8ba1; /* V6 修正：3.75:1 → 5.17:1 ✓ AA，与 instrument-ui --iu-text-faint 同步 */
+  /* V6 修正（visual-system §2.5）：slate-500 #64748b 在 #0f172a 上仅 3.75:1，
+   * 连 AA-large 都不达。换成 #7d8ba1（5.17:1 ✓ AA，与 instrument-ui
+   * tokens.css 的 --iu-text-faint 同值同步——两套 token 只允许一处权威差异，
+   * 对比度结论必须一致）。 */
+  --color-text-faint: #7d8ba1;
 
   /* Accent（六色取自 Tailwind 500 档） */
   --color-action: #6366f1;
@@ -41,6 +45,14 @@
 
   /* 本站强调色（来自花名册轨道） */
   --site-accent: #f59e0b;
+  /* 文字专用强调色 —— 实测缺陷修复（visual-system §2.5）：
+   * indigo-500 #6366f1 对深底仅 4.00:1、violet-500 #8b5cf6 仅 4.22:1，
+   * 都低于 AA 正文线 4.5:1。而 --site-accent 被当作**文字色**用在
+   * .site-orbit / .gpa-value.accent / td.accent 三处小字号上。
+   * 处置：品牌色不动（描边/填充/选中态继续用它），只给文字场景派生一档
+   * 提亮的 accent-text —— 与 instrument-ui 的 --iu-*-text 分层同一思路。
+   * 规则：原色对 #0f172a 是否 ≥4.5:1，不达标则用 400 档，达标则原样。 */
+  --site-accent-text: #f59e0b;
 
   /* Glow / Radius / Motion */
   --glow-spread: 0 0 28px -5px;
@@ -72,11 +84,17 @@
   --text-2xl: calc(24px * var(--type-scale));
 }
 
-/* V8 配套：答辩/投屏密度档开关。选择器与 instrument-ui tokens.css 的
- * [data-iu-density='presentation'] 同名同值——挂在 <html>/<body>/任意容器上，
- * 微站外壳（--text-*）与库组件（--iu-text-*）一起放大 1.25×，
- * 136 处 <12px 小字（§十 V8）在投影场景全部升到 ≥12.5px。 */
-[data-iu-density='presentation'] { --type-scale: 1.25; }
+/* V8 配套：答辩/投屏密度档开关。
+ *
+ * ⚠️ 2026-10-21 修正：原来这里写死 --type-scale: 1.25，导致**只能 1.25 一档**。
+ * hub 下发 xlarge（1.5）时，实测微站外壳文字仍停在 12.5px（= 10 × 1.25）——
+ * 因为这条规则把内联设置的更高倍数覆盖掉了。
+ *
+ * 改成**引用 --iu-type-scale**：那是组件库的档位变量（tokens.css 的
+ * [data-iu-density='presentation'] 设它，hub 也可以在 html 上内联覆盖它）。
+ * 这样微站外壳（--text-*）与库组件（--iu-text-*）**共用同一个倍数**，
+ * 无论 1.25 还是 1.5 都一致 —— 单一事实源，不会再出现「库放大了、外壳没放大」。 */
+[data-iu-density='presentation'] { --type-scale: var(--iu-type-scale, 1.25); }
 
 * { box-sizing: border-box; }
 
@@ -175,15 +193,19 @@ body[data-embedded='true'] { overflow: hidden; height: 100%; }
   gap: 16px;
   padding: 20px 20px 0;
   max-width: 1100px;
-/* V13 修正（visual-system §7.4）：≥1440px 放宽容器到 1320px + 48px 边距，消除大屏留白浪费 */
+  margin: 0 auto;
+}
+
+/* V13 修正（visual-system §7.4）：原设计 0 处 xl 断点，大屏 4 仪器布局留白浪费。
+ * ≥1440px 视口放宽容器到 1320px、补 48px 边距 —— 1100px 容器在 2K/4K 屏上
+ * 两侧各留 25%+ 纯黑，仪器网格（auto-fit minmax）自动多吃两列。
+ * 只动容器宽度不动内网格：仪器布局全部是 auto-fit/1fr 自适应，无需逐类改。 */
 @media (min-width: 1440px) {
   .site-root {
     max-width: 1320px;
     padding-left: 48px;
     padding-right: 48px;
   }
-}
-  margin: 0 auto;
 }
 
 /* iframe 内降级模式（ADR-08）：hub 嵌入式挂载时隐藏大标题/页脚，只留仪器本体 */
@@ -226,7 +248,7 @@ body[data-embedded='true'] .site-footer { display: none; }
 }
 
 .site-title { font-size: var(--text-xl); font-weight: 600; margin: 0; color: var(--color-text-strong); }
-.site-orbit { color: var(--site-accent); font-size: var(--text-xs); }
+.site-orbit { color: var(--site-accent-text); font-size: var(--text-xs); }
 .site-domain { color: var(--color-text-muted); font-size: var(--text-xs); }
 
 .meta-grid {
@@ -308,9 +330,12 @@ body[data-embedded='true'] .site-footer { display: none; }
 /* ── 可点 chip（如「通道自检」）与静态状态 chip 的区分 ─────────────────────
  * 缺陷：status-row 里六个 chip 中五个是只读状态标签，第六个是 <button>，
  * 此前两者样式完全相同 → 用户看不出哪个能点。此处只给 button 型 chip
- * 加交互线索；状态 chip 保持纯展示语义（不加 cursor、无 hover）。 */
+ * 加交互线索；状态 chip 保持纯展示语义（不加 cursor、无 hover）。
+ * 命中区：静态 chip 是标签，19px 高无妨；可点 chip 必须过 WCAG 2.5.8 的
+ * 24×24，故单独给 button 型补 min-height（实测原 19px）。 */
 button.chip {
   cursor: pointer;
+  min-height: 24px;
   transition: color var(--dur-fast) ease, border-color var(--dur-fast) ease,
     background var(--dur-fast) ease;
 }
@@ -424,7 +449,7 @@ button.chip:active {
   color: var(--color-text-strong);
   line-height: 1.2;
 }
-.gpa-value.accent { color: var(--site-accent); }
+.gpa-value.accent { color: var(--site-accent-text); }
 
 .gpa-course-list {
   margin: 0;
@@ -646,7 +671,7 @@ button.chip:active {
 .cross-table tbody tr:hover { background: rgba(148, 163, 184, 0.06); }
 .cross-table tbody tr.active { background: rgba(6, 182, 212, 0.08); }
 .cross-table td.accent {
-  color: var(--site-accent);
+  color: var(--site-accent-text);
   font-weight: 600;
 }
 
@@ -1209,9 +1234,9 @@ button.chip:active {
 
 /* ── 触屏按压反馈与命中区（V 系列收尾） ──────────────────────────────────
  * 盘点结论：全管线 :active 为 0 处——触屏点按无任何视觉响应，且 hover 态
- * 在 (hover: none) 设备上不可达。此处给可点元素补按压态（桌面鼠标按下同样受益）；
- * 按压态刻意用中性色（border-strong + 微亮底），与选中态（--site-accent）
- * 严格区分，避免「按了一下=被选中」的误读。 */
+ * 在 (hover: none) 设备上不可达。此处给六族可点元素补按压态（桌面鼠标
+ * 按下同样受益）；按压态刻意用中性色（border-strong + 微亮底），与选中态
+ * （--site-accent）严格区分，避免「按了一下=被选中」的误读。 */
 .pat-item:active,
 .cluster-card:active,
 .path-card:active {
@@ -1225,11 +1250,12 @@ button.chip:active {
 .cross-table tbody tr:active { background: rgba(148, 163, 184, 0.12); }
 
 /* ≤480px：mentor-tab 原 padding 5px 10px + 10px 字号 ≈ 24px 高，低于
- * WCAG 2.5.8 (AA) 24×24 舒适线、远低于 44px 推荐命中区——放大到 ≈ 36px。
+ * WCAG 2.5.8 (AA) 24×24 的舒适线、远低于 44px 推荐命中区——放大到 ≈ 36px。
  * 桌面尺寸不变（media 块限定）。 */
 @media (max-width: 480px) {
   .mentor-tab { padding: 9px 14px; }
 }
+
 
 /* ── V4 修正：原设计缺 prefers-reduced-motion（存在无限循环动画） ─────────── */
 @media (prefers-reduced-motion: reduce) {
@@ -1338,6 +1364,7 @@ button.chip:active {
   .instrument-head h2,
   .instrument-slot h2,
   .cv-role,
+  .mentor-dim-fill,
   .site-orbit,
   td.accent,
   .gpa-value.accent,

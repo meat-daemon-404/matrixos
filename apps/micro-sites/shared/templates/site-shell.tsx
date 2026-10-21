@@ -8,6 +8,7 @@ import {
   initSSO,
   manifestAccepts,
   manifestEmits,
+  onHostDensity,
   onWormholeDrop,
   sdkStatus,
   type SdkStatus,
@@ -48,9 +49,22 @@ export function SiteShell() {
       setReceipts((prev) => [receipt, ...prev].slice(0, 5));
     });
 
+    /*
+     * 宿主字号密度下发（答辩投影）。
+     *
+     * hub 顶栏的「A±」开关只作用于 hub 自己的 DOM —— iframe 是独立文档，
+     * CSS 变量不会继承进来。而答辩时要看的恰恰是仪器里的公式与读数（8–10px）。
+     * 这条订阅把它们接上：宿主切档 → 桥下发 → 本站挂 `data-iu-density`，
+     * 组件库的 `--iu-type-scale` 随即生效，整套仪器等比放大。
+     *
+     * 独立窗口下 `onHostDensity` 直接返回 undefined（没有宿主），不会误放大。
+     */
+    const disposeDensity = onHostDensity();
+
     return () => {
       sso.dispose();
       disposeDrop?.();
+      disposeDensity?.();
     };
   }, []);
 

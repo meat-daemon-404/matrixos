@@ -2,7 +2,7 @@
   "manifest_version": "1.0",
   "app_id": "mentor",
   "name": "星门 · 导师五维星象仪",
-  "entry_url": "https://mentor.matrixos.edu",
+  "entry_url": "https://mentor.matrixos.cc.cd",
   "orbit_station": "xingmen",
   "accent_color": "#06b6d4",
   "accepts": [

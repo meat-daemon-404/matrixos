@@ -5,8 +5,16 @@
  * 所以这里把「微站地址」收敛成一个模板函数，由环境变量决定指向哪里。
  */
 
-/** 真实域名模板。生产：https://{appId}.matrixos.edu */
-const DEFAULT_ORIGIN_TEMPLATE = 'https://{appId}.matrixos.edu';
+/**
+ * 真实域名模板。生产：https://mx-{appId}.matrixos.cc.cd
+ *
+ * ⚠️ 必须带 `mx-` 前缀：DNS 只通配 `mx-*.matrixos.cc.cd`
+ * （`<appId>.matrixos.cc.cd` 实测无 A 记录，返回 apex 的 SOA）。
+ * 逻辑域（不带 mx-）只用于身份/契约（manifest.entry_url、SDK isSameApp），
+ * 不是 HTTP 入口。生产构建时 `scripts/build-hub-static.mjs` 会用
+ * MATRIXOS_MICROSITE_TEMPLATE 覆盖成本模板，二者必须同值。
+ */
+const DEFAULT_ORIGIN_TEMPLATE = 'https://mx-{appId}.matrixos.cc.cd';
 
 /** 开发期本地 dev server 模板。端口约定 = 3010 + (id - 1)，见 docs/02-engineering/01-dev-setup.md */
 const LOCAL_ORIGIN_TEMPLATE = 'http://localhost:{port}';

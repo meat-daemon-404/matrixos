@@ -2,7 +2,7 @@
   "name": "@matrixos/microsite-07-cold-email-lab",
   "version": "0.1.0",
   "private": true,
-  "description": "MatrixOS 微站 07 · 证据内嵌式套磁信推演器（轨道 4 · 星门 · cold-email.matrixos.edu）",
+  "description": "MatrixOS 微站 07 · 证据内嵌式套磁信推演器（轨道 4 · 星门 · cold-email.matrixos.cc.cd）",
   "scripts": {
     "dev": "next dev -p 3016",
     "build": "next build",

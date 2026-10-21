@@ -1,7 +1,7 @@
 /**
  * ⚠️ 自动生成 · scripts/gen-site.mjs
  * 站点：07 证据内嵌式套磁信推演器
- * 轨道：轨道 4 · 星门 · 域名：cold-email.matrixos.edu
+ * 轨道：轨道 4 · 星门 · 域名：cold-email.matrixos.cc.cd
  * 命名依据：docs/01-plan/00-adr-001-microsite-numbering.md（目录名与域名可不一致，刻意）
  * 重新生成：pnpm gen:site --id=07 --force
  */

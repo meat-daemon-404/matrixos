@@ -3,7 +3,7 @@
  * 模板：apps/micro-sites/shared/templates/workbench-impl.tsx
  * 作用：完工台实现（台账增删改 / 导出 / 虫洞投送接收），18 站共用
  * 站点：07 证据内嵌式套磁信推演器
- * 轨道：轨道 4 · 星门 · 域名：cold-email.matrixos.edu
+ * 轨道：轨道 4 · 星门 · 域名：cold-email.matrixos.cc.cd
  * 改法：改模板 → 跑 `node scripts/wire-workbench.mjs` 重新分发（18 站会一起更新）。
  */
 'use client';

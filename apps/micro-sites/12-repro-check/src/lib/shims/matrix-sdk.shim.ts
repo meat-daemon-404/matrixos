@@ -3,7 +3,7 @@
  * 模板：apps/micro-sites/shared/templates/matrix-sdk.shim.ts
  * 作用：SDK 未就位时的编译占位（不提供任何真实能力）
  * 站点：12 顶刊代码复现核验舱
- * 轨道：轨道 5 · 工坊 · 域名：repro-check.matrixos.edu
+ * 轨道：轨道 5 · 工坊 · 域名：repro-check.matrixos.cc.cd
  * 改法：改模板 → 跑 `node scripts/wire-workbench.mjs` 重新分发（18 站会一起更新）。
  */
 /**

@@ -28,7 +28,7 @@ import {
 
 /* ───────────────────────────── 共享数据的派生量 ───────────────────────────── */
 
-const DOMAIN = 'spark.matrixos.edu';
+const DOMAIN = 'spark.matrixos.cc.cd';
 
 /** 五维技能。顺序即 UI 上的展示顺序（硬件 / 算法 / 商业 / 实验 / 写作）。 */
 const SKILL_KEYS = ['hardware', 'algorithm', 'business', 'experiment', 'writing'] as const;

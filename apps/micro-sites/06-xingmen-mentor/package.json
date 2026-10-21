@@ -2,7 +2,7 @@
   "name": "@matrixos/microsite-06-xingmen-mentor",
   "version": "0.1.0",
   "private": true,
-  "description": "MatrixOS 微站 06 · 星门 · 导师五维星象仪（轨道 4 · 星门 · mentor.matrixos.edu）",
+  "description": "MatrixOS 微站 06 · 星门 · 导师五维星象仪（轨道 4 · 星门 · mentor.matrixos.cc.cd）",
   "scripts": {
     "dev": "next dev -p 3015",
     "build": "next build",

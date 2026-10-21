@@ -2,7 +2,7 @@
   "name": "@matrixos/microsite-04-pat-radar",
   "version": "0.1.0",
   "private": true,
-  "description": "MatrixOS 微站 04 · PAT-HOT 学科脉冲雷达（轨道 3 · 情报 · pat-hot.matrixos.edu）",
+  "description": "MatrixOS 微站 04 · PAT-HOT 学科脉冲雷达（轨道 3 · 情报 · pat-hot.matrixos.cc.cd）",
   "scripts": {
     "dev": "next dev -p 3013",
     "build": "next build",

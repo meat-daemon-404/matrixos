@@ -100,7 +100,7 @@ function paragraphAnchor(doi: string): WormholeEvidenceAnchor {
 /** 章节级锚点：跨流派汇总章节没有单篇原文，用大纲页面地址承载（仍是合法锚点）。 */
 function outlineAnchor(nodeId: string): WormholeEvidenceAnchor {
   return {
-    source_doi_or_url: `https://review-lab.matrixos.edu/outlines/${nodeId}`,
+    source_doi_or_url: `https://review-lab.matrixos.cc.cd/outlines/${nodeId}`,
     verification_level: 'Level_B_Preprint',
   };
 }

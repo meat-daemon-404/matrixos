@@ -2,7 +2,7 @@
   "manifest_version": "1.0",
   "app_id": "matrix-cross",
   "name": "Matrix-Cross 跨论文对比矩阵",
-  "entry_url": "https://matrix-cross.matrixos.edu",
+  "entry_url": "https://matrix-cross.matrixos.cc.cd",
   "orbit_station": "workshop",
   "accent_color": "#10b981",
   "accepts": [

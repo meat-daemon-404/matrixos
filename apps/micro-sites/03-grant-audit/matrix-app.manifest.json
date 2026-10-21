@@ -2,7 +2,7 @@
   "manifest_version": "1.0",
   "app_id": "grant-audit",
   "name": "大创五科目经费液位仪",
-  "entry_url": "https://grant-audit.matrixos.edu",
+  "entry_url": "https://grant-audit.matrixos.cc.cd",
   "orbit_station": "spark",
   "accent_color": "#8b5cf6",
   "accepts": [

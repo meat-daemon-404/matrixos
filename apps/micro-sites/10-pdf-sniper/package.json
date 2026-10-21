@@ -2,7 +2,7 @@
   "name": "@matrixos/microsite-10-pdf-sniper",
   "version": "0.1.0",
   "private": true,
-  "description": "MatrixOS 微站 10 · PDF 公式与参量狙击镜（轨道 5 · 工坊 · pdf-sniper.matrixos.edu）",
+  "description": "MatrixOS 微站 10 · PDF 公式与参量狙击镜（轨道 5 · 工坊 · pdf-sniper.matrixos.cc.cd）",
   "scripts": {
     "dev": "next dev -p 3019",
     "build": "next build",

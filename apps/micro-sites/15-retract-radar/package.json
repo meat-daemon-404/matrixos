@@ -2,7 +2,7 @@
   "name": "@matrixos/microsite-15-retract-radar",
   "version": "0.1.0",
   "private": true,
-  "description": "MatrixOS 微站 15 · 撤稿深海声呐与伦理合规仪（轨道 5 · 工坊 · retract-radar.matrixos.edu）",
+  "description": "MatrixOS 微站 15 · 撤稿深海声呐与伦理合规仪（轨道 5 · 工坊 · retract-radar.matrixos.cc.cd）",
   "scripts": {
     "dev": "next dev -p 3024",
     "build": "next build",

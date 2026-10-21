@@ -78,7 +78,7 @@ function anchorOf(paper: PaperRow): WormholeEvidenceAnchor {
 /** 站内新建、尚未绑定 DOI 的数据集用数据集页兜底（Level B，绝不冒充 Level A）。 */
 function datasetAnchor(slug: string): WormholeEvidenceAnchor {
   return {
-    source_doi_or_url: `https://curvelab.matrixos.edu/datasets/${slug}`,
+    source_doi_or_url: `https://curvelab.matrixos.cc.cd/datasets/${slug}`,
     verification_level: 'Level_B_Preprint',
   };
 }

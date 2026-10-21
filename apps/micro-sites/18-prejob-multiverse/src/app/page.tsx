@@ -3,7 +3,7 @@
  * 模板：apps/micro-sites/shared/templates/page.tsx
  * 作用：页面装配（外壳 + 完工台 + 页脚）
  * 站点：18 生涯多重宇宙期望决策树
- * 轨道：轨道 7 · 预职 · 域名：prejob.matrixos.edu
+ * 轨道：轨道 7 · 预职 · 域名：prejob.matrixos.cc.cd
  * 改法：改模板 → 跑 `node scripts/wire-workbench.mjs` 重新分发（18 站会一起更新）。
  */
 import { SiteShell } from '../components/site-shell';

@@ -26,7 +26,7 @@ const CORE = GPA_COURSES.filter((course) => course.core).length;
 
 function planAnchor(slug: string) {
   return {
-    source_doi_or_url: `https://gpa.matrixos.edu/plans/${slug}`,
+    source_doi_or_url: `https://gpa.matrixos.cc.cd/plans/${slug}`,
     verification_level: 'Level_B_Preprint' as const,
   };
 }

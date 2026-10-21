@@ -1,7 +1,7 @@
 /**
  * ⚠️ 自动生成 · scripts/gen-site.mjs
  * 站点：10 PDF 公式与参量狙击镜
- * 轨道：轨道 5 · 工坊 · 域名：pdf-sniper.matrixos.edu
+ * 轨道：轨道 5 · 工坊 · 域名：pdf-sniper.matrixos.cc.cd
  * 命名依据：docs/01-plan/00-adr-001-microsite-numbering.md（目录名与域名可不一致，刻意）
  * 重新生成：pnpm gen:site --id=10 --force
  */
@@ -28,7 +28,7 @@ export interface SiteIdentity {
 export const SITE: SiteIdentity = {
   id: "10",
   name: "PDF 公式与参量狙击镜",
-  domain: "pdf-sniper.matrixos.edu",
+  domain: "pdf-sniper.matrixos.cc.cd",
   appId: "pdf-sniper",
   dirName: "10-pdf-sniper",
   orbitIndex: 5,

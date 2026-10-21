@@ -37,7 +37,7 @@ function fmtHeat(value: number): string {
   return (Math.round(value * 10) / 10).toFixed(1);
 }
 
-const DOMAIN = 'pat-hot.matrixos.edu';
+const DOMAIN = 'pat-hot.matrixos.cc.cd';
 
 /* ───────────────────────────── 订阅方向（业务划分） ───────────────────────────── */
 
@@ -52,41 +52,46 @@ interface SubscriptionPlan {
 }
 
 /**
- * 三个订阅方向把 4 条前沿条目切成「光伏钙钛矿 → 自旋钙钛矿 → 超快拓扑 → 微纳全息」
- * 三条线索，其中钙钛矿一条横跨两篇（p1 界面钝化 / p2 手性自旋），
- * 这样每条 seed 的命中篇数、峰值热度、DOI 数量都不同，覆盖真实业务场景。
+ * 四个订阅方向对应 4 条真实前沿条目（DOI 均经 Crossref 核验）。
+ *
+ * 线索划分：p1 SnO₂ 界面钝化（器件路线）→ p2 CISS 空间成像 + p3 手性空穴传输
+ * （同一「手性-自旋」主题的两条不同切口）→ p4 室温相干控制（方法与测量路线）。
+ * 每条 seed 的命中篇数、峰值热度、DOI 数量都不同，覆盖真实业务场景。
+ *
+ * ⚠️ 关键词是**检索式**，必须与对应条目的真实标题/摘要用词相容 ——
+ * 换数据时这里要同步改，否则会出现「订阅超表面全息却挂着相干控制论文」的错配。
  */
 const SUBSCRIPTION_PLANS: readonly SubscriptionPlan[] = [
   {
-    keyword: '钙钛矿 AND (钝化 OR 界面)',
+    keyword: '钙钛矿 AND (钝化 OR 界面) AND SnO2',
     direction: '钙钛矿光伏 · 界面钝化',
     cadence: '每日 07:30',
     status: '在订',
-    note: '主攻方向。准二维钝化这条线三个月内出了两篇高热度工作，早报保持日更。',
+    note: '主攻方向。n–i–p 结构认证效率已到约 27%，界面钝化是当前最密集的改进路线，保持日更。',
     itemIds: ['p1'],
   },
   {
-    keyword: '手性钙钛矿 OR CISS',
-    direction: '自旋电子学 · 手性传输',
+    keyword: '手性 AND (CISS OR 自旋) AND 钙钛矿',
+    direction: '自旋电子学 · CISS 表征',
     cadence: '每周一 07:30',
     status: '在订',
-    note: '交叉方向，更新频率低但单篇冲击力强，订阅频率降到周更避免噪声。',
+    note: '与 p3 同一主题的不同切口：p2 给出 CISS 的空间不均匀性证据，p3 给出材料层面的手性-自旋极性对应。',
     itemIds: ['p2'],
   },
   {
-    keyword: '(超快 OR 飞秒) AND (拓扑 OR 表面态)',
-    direction: '超快光学 · 拓扑量子',
-    cadence: '每日 07:30',
+    keyword: '(手性 OR chirality) AND (空穴传输 OR HTM)',
+    direction: '自旋电子学 · 手性材料',
+    cadence: '每周一 07:30',
     status: '在订',
-    note: '与课题组的泵浦-探测平台直接相关，早报里的方法学细节会转给实验组。',
+    note: '关心「同手性薄膜空穴迁移率约为外消旋三倍」这类可复用的材料结论，能否迁移到课题组的器件上。',
     itemIds: ['p3'],
   },
   {
-    keyword: '超表面 AND (全息 OR 等离激元)',
-    direction: '微纳光学 · 动态全息',
+    keyword: '(相干控制 OR 相位整形) AND (双光子 OR 单分子)',
+    direction: '超快光学 · 相干控制',
     cadence: '每三日 07:30',
     status: '观察中',
-    note: '观察期方向：只留摘要不入夹，等出现可复现的器件工艺再升级为在订。',
+    note: '观察期方向：室温凝聚相的单分子相干控制与我们的泵浦-探测平台同源，但方法尚未在本组复现，先不入夹。',
     itemIds: ['p4'],
   },
 ];

@@ -2,7 +2,7 @@
   "manifest_version": "1.0",
   "app_id": "review-lab",
   "name": "综述拓扑推演与写作舱",
-  "entry_url": "https://review-lab.matrixos.edu",
+  "entry_url": "https://review-lab.matrixos.cc.cd",
   "orbit_station": "workshop",
   "accent_color": "#10b981",
   "accepts": [

@@ -108,7 +108,7 @@ function paperAnchor(doi: string): WormholeEvidenceAnchor {
 /** 教务 / 团委系统直出的电子证明，用系统条目地址承载锚点。 */
 function materialAnchor(path: string, level: WormholeEvidenceAnchor['verification_level']) {
   return {
-    source_doi_or_url: `https://yunheng.matrixos.edu/materials/${path}`,
+    source_doi_or_url: `https://yunheng.matrixos.cc.cd/materials/${path}`,
     verification_level: level,
   };
 }
@@ -152,8 +152,8 @@ const seed: readonly RowSeed[] = [
   {
     title: `科研双创 · 国创项目 + 一作论文（${panHint('research')}）`,
     meta: `${panLabel('research')}类 · ${scoreLine(panValue('research'), 'research')}`,
-    detail: `加分依据：国家级大学生创新创业训练计划结项（8.00 分）＋ 第一作者论文见刊（6.00 分），合计 ${fmt(panValue('research'))} 分。${scoreLine(panValue('research'), 'research')}。证明材料：国创结项证书 PDF ＋ 论文原文（Nat. Photon. 2025，见锚点第 ${paperAnchor('10.1038/s41566-025-01234-5').pdf_page ?? 4} 页）＋ DOI 可解析性截图。申报状态：已通过科研院验真，锚点核验等级 Level A。`,
-    anchor: paperAnchor('10.1038/s41566-025-01234-5'),
+    detail: `加分依据：国家级大学生创新创业训练计划结项（8.00 分）＋ 第一作者论文见刊（6.00 分），合计 ${fmt(panValue('research'))} 分。${scoreLine(panValue('research'), 'research')}。证明材料：国创结项证书 PDF ＋ 论文原文（Solar RRL 2025，见锚点第 ${paperAnchor('10.1002/solr.202500241').pdf_page ?? 1} 页）＋ DOI 可解析性截图。申报状态：已通过科研院验真，锚点核验等级 Level A。`,
+    anchor: paperAnchor('10.1002/solr.202500241'),
     panId: 'research',
     category: panLabel('research'),
     declared: panValue('research'),

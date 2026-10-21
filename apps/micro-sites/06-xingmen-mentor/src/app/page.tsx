@@ -3,7 +3,7 @@
  * 模板：apps/micro-sites/shared/templates/page.tsx
  * 作用：页面装配（外壳 + 完工台 + 页脚）
  * 站点：06 星门 · 导师五维星象仪
- * 轨道：轨道 4 · 星门 · 域名：mentor.matrixos.edu
+ * 轨道：轨道 4 · 星门 · 域名：mentor.matrixos.cc.cd
  * 改法：改模板 → 跑 `node scripts/wire-workbench.mjs` 重新分发（18 站会一起更新）。
  */
 import { SiteShell } from '../components/site-shell';

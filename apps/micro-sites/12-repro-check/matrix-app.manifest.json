@@ -2,7 +2,7 @@
   "manifest_version": "1.0",
   "app_id": "repro-check",
   "name": "顶刊代码复现核验舱",
-  "entry_url": "https://repro-check.matrixos.edu",
+  "entry_url": "https://repro-check.matrixos.cc.cd",
   "orbit_station": "workshop",
   "accent_color": "#10b981",
   "accepts": [

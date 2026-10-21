@@ -1,6 +1,6 @@
 # 17 · 区块链级学术证据简历工坊
 
-> MatrixOS 微站 · 轨道 7 · 预职 · `evidence-cv.matrixos.edu` · 目录 `apps/micro-sites/17-evidence-cv/`
+> MatrixOS 微站 · 轨道 7 · 预职 · `evidence-cv.matrixos.cc.cd` · 目录 `apps/micro-sites/17-evidence-cv/`
 >
 > 目录名由 [ADR-001](../../../docs/01-plan/00-adr-001-microsite-numbering.md) 裁决：
 > **编号与站点归属取花名册，目录词根取描述性命名**。所以目录名与域名可以不一致
@@ -178,7 +178,7 @@ manifest 的 `accepts` 是五类全收，面板上展示的 `accept.payloadType`
 ```
 
 证据锚点取自每条记录的 `anchor` 字段（seed 行来自 `CV_ENTRIES` / `PAPER_ROWS`，接收行来自上游信封）。
-**台账为空时**投送会退化为站级基线锚点（`https://evidence-cv.matrixos.edu/` + `Level_B_Preprint`），
+**台账为空时**投送会退化为站级基线锚点（`https://evidence-cv.matrixos.cc.cd/` + `Level_B_Preprint`），
 因为虫洞契约的红线是 `evidence_anchors` 至少 1 条 —— 宁可退化，也不发一个非法信封。
 
 只有真嵌在 orbital-hub iframe 内且握手完成（`useHostBridge().connected === true`）才真投送；

@@ -3,7 +3,7 @@
  * 模板：apps/micro-sites/shared/templates/workbench-impl.tsx
  * 作用：完工台实现（台账增删改 / 导出 / 虫洞投送接收），18 站共用
  * 站点：17 区块链级学术证据简历工坊
- * 轨道：轨道 7 · 预职 · 域名：evidence-cv.matrixos.edu
+ * 轨道：轨道 7 · 预职 · 域名：evidence-cv.matrixos.cc.cd
  * 改法：改模板 → 跑 `node scripts/wire-workbench.mjs` 重新分发（18 站会一起更新）。
  */
 'use client';

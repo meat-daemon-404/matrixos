@@ -23,7 +23,8 @@
   --iu-text-strong: #ffffff;
   --iu-text-secondary: #cbd5e1;
   --iu-text-muted: #94a3b8;
-  --iu-text-faint: #7d8ba1; /* V6 修正：与 globals.css --color-text-faint 同步（5.17:1 ✓ AA） */
+  /* 与 globals.css 的 --color-text-faint 同步（V6 修正，见 renderGlobalsCss 注释） */
+  --iu-text-faint: #7d8ba1;
 
   --iu-action: #6366f1;
   --iu-instrument: #06b6d4;

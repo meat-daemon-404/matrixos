@@ -1,6 +1,6 @@
 # 16 · 云衡 · 数字天平综测核算器
 
-> MatrixOS 微站 · 轨道 6 · 云衡 · `yunheng.matrixos.edu` · 目录 `apps/micro-sites/16-yunheng-scale/`
+> MatrixOS 微站 · 轨道 6 · 云衡 · `yunheng.matrixos.cc.cd` · 目录 `apps/micro-sites/16-yunheng-scale/`
 >
 > 目录名由 [ADR-001](../../../docs/01-plan/00-adr-001-microsite-numbering.md) 裁决：
 > **编号与站点归属取花名册，目录词根取描述性命名**，目录名与域名可以不一致
@@ -147,7 +147,7 @@ localStorage key：`mx.yunheng.yunheng-items`（`mx.<appId>.<exportName>`）。
 ```
 
 证据锚点层 `payload.evidence_anchors` **取自每条记录的 `anchor` 字段**，契约红线是
-`minItems: 1`。台账被清空时，投送退化为站级基线锚点 `https://yunheng.matrixos.edu/`
+`minItems: 1`。台账被清空时，投送退化为站级基线锚点 `https://yunheng.matrixos.cc.cd/`
 （`Level_B_Preprint`），并在反馈里明写「台账为空，使用站级基线锚点」—— 不会伪造一条假证据。
 
 真实投送只在 hub iframe 内（`useHostBridge().connected === true`）发生；独立窗口打开时

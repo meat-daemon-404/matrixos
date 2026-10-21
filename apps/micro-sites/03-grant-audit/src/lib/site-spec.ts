@@ -41,7 +41,7 @@ interface GrantColumn {
 
 /* ───────────────────────────── 共享数据的派生量 ───────────────────────────── */
 
-const DOMAIN = 'grant-audit.matrixos.edu';
+const DOMAIN = 'grant-audit.matrixos.cc.cd';
 
 const sum = (values: readonly number[]): number => values.reduce((acc, v) => acc + v, 0);
 

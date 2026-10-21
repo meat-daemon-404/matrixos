@@ -2,7 +2,7 @@
   "name": "@matrixos/microsite-12-repro-check",
   "version": "0.1.0",
   "private": true,
-  "description": "MatrixOS 微站 12 · 顶刊代码复现核验舱（轨道 5 · 工坊 · repro-check.matrixos.edu）",
+  "description": "MatrixOS 微站 12 · 顶刊代码复现核验舱（轨道 5 · 工坊 · repro-check.matrixos.cc.cd）",
   "scripts": {
     "dev": "next dev -p 3021",
     "build": "next build",

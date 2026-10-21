@@ -138,7 +138,7 @@ const SOURCE_PAPER: PaperRow | undefined =
     return typeof page === 'number' && SNIPPET_PAGES.includes(page);
   }) ?? PAPER_ROWS[0];
 
-const SOURCE_DOI = SOURCE_PAPER?.anchor.sourceDoiOrUrl ?? 'https://pdf-sniper.matrixos.edu/';
+const SOURCE_DOI = SOURCE_PAPER?.anchor.sourceDoiOrUrl ?? 'https://pdf-sniper.matrixos.cc.cd/';
 /** 论文本身的验证等级是共享数据里的既成事实，不在这里改判。 */
 const SOURCE_LEVEL = SOURCE_PAPER?.anchor.verificationLevel ?? 'Level_B_Preprint';
 const SOURCE_VENUE = SOURCE_PAPER?.venue ?? '待绑定期刊';
@@ -161,7 +161,7 @@ function cardAnchor(snippetPage: number, bbox: BBox): WormholeEvidenceAnchor {
 /** 尚未绑定 PDF 的新卡：锚点退化到站内待定位清单页（Level B，绝不冒充已定位）。 */
 function pendingAnchor(slug: string): WormholeEvidenceAnchor {
   return {
-    source_doi_or_url: `https://pdf-sniper.matrixos.edu/cards/${slug}`,
+    source_doi_or_url: `https://pdf-sniper.matrixos.cc.cd/cards/${slug}`,
     verification_level: 'Level_B_Preprint',
   };
 }

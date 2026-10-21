@@ -35,7 +35,7 @@ const LEDGER_NAME = '多版本保研/求职证据级简历库';
 
 /** 本站基线锚点：没有任何可用锚点时兜底，保证投送信封永远满足「至少 1 条锚点」。 */
 const STATION_ANCHOR = {
-  source_doi_or_url: 'https://evidence-cv.matrixos.edu/',
+  source_doi_or_url: 'https://evidence-cv.matrixos.cc.cd/',
   verification_level: 'Level_B_Preprint',
 } as const;
 

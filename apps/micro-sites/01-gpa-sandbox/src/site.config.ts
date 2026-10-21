@@ -1,7 +1,7 @@
 /**
  * ⚠️ 自动生成 · scripts/gen-site.mjs
  * 站点：01 学分绩点动态配重台
- * 轨道：轨道 1 · 学阶 · 域名：gpa.matrixos.edu
+ * 轨道：轨道 1 · 学阶 · 域名：gpa.matrixos.cc.cd
  * 命名依据：docs/01-plan/00-adr-001-microsite-numbering.md（目录名与域名可不一致，刻意）
  * 重新生成：pnpm gen:site --id=01 --force
  */
@@ -28,7 +28,7 @@ export interface SiteIdentity {
 export const SITE: SiteIdentity = {
   id: "01",
   name: "学分绩点动态配重台",
-  domain: "gpa.matrixos.edu",
+  domain: "gpa.matrixos.cc.cd",
   appId: "gpa",
   dirName: "01-gpa-sandbox",
   orbitIndex: 1,

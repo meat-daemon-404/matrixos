@@ -1,7 +1,7 @@
 /**
  * ⚠️ 自动生成 · scripts/gen-site.mjs
  * 站点：12 顶刊代码复现核验舱
- * 轨道：轨道 5 · 工坊 · 域名：repro-check.matrixos.edu
+ * 轨道：轨道 5 · 工坊 · 域名：repro-check.matrixos.cc.cd
  * 命名依据：docs/01-plan/00-adr-001-microsite-numbering.md（目录名与域名可不一致，刻意）
  * 重新生成：pnpm gen:site --id=12 --force
  */
@@ -76,15 +76,14 @@ const nextConfig: NextConfig = {
   /**
    * 微站必须能被 orbital-hub 以 iframe 嵌入（架构 A4 / ADR-08）。
    * 不要设 X-Frame-Options: DENY；用 CSP frame-ancestors 精确放行主控台。
-   * 开发期放行 localhost:3000（hub 端口约定见 docs/02-engineering/01-dev-setup.md）。
+   *
+   * 白名单**不在这里手写**：直接取 scripts/lib/pages-headers.mjs 的 FRAME_ANCESTORS，
+   * 与 Cloudflare Pages 的 _headers 同源。曾经这里写死 'https://orbital.matrixos.edu'
+   * （NXDOMAIN 愿景域），而 _headers 里早已换成真实宿主 —— 两份清单漂移，
+   * 静态导出产物（无 next 运行时，headers() 不生效）与线上行为不一致。
    */
   async headers() {
-    const frameAncestors = [
-      "'self'",
-      'https://orbital.matrixos.edu',
-      'http://localhost:3000',
-      'http://127.0.0.1:3000',
-    ].join(' ');
+    const frameAncestors = "'self' https://matrixos.cc.cd https://www.matrixos.cc.cd https://*.matrixos.cc.cd https://mx-orbital-c6y.pages.dev https://*.mx-orbital-c6y.pages.dev https://mx-orbital.pages.dev https://*.mx-orbital.pages.dev http://localhost:3000 http://127.0.0.1:3000";
     return [
       {
         source: '/:path*',

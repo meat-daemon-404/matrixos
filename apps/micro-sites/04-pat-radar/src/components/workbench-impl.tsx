@@ -3,7 +3,7 @@
  * 模板：apps/micro-sites/shared/templates/workbench-impl.tsx
  * 作用：完工台实现（台账增删改 / 导出 / 虫洞投送接收），18 站共用
  * 站点：04 PAT-HOT 学科脉冲雷达
- * 轨道：轨道 3 · 情报 · 域名：pat-hot.matrixos.edu
+ * 轨道：轨道 3 · 情报 · 域名：pat-hot.matrixos.cc.cd
  * 改法：改模板 → 跑 `node scripts/wire-workbench.mjs` 重新分发（18 站会一起更新）。
  */
 'use client';

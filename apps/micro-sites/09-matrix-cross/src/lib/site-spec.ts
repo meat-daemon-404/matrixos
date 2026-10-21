@@ -70,7 +70,7 @@ function anchorOf(paper: PaperRow): WormholeEvidenceAnchor {
 /** 矩阵里新建、尚未绑定 DOI 的行用站内矩阵页兜底（Level B，绝不冒充 Level A）。 */
 function matrixAnchor(slug: string): WormholeEvidenceAnchor {
   return {
-    source_doi_or_url: `https://matrix-cross.matrixos.edu/matrix/${slug}`,
+    source_doi_or_url: `https://matrix-cross.matrixos.cc.cd/matrix/${slug}`,
     verification_level: 'Level_B_Preprint',
   };
 }

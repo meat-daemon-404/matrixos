@@ -122,7 +122,7 @@ function anchorOf(paper: PaperRow): WormholeEvidenceAnchor {
  */
 function labAnchor(slug: string): WormholeEvidenceAnchor {
   return {
-    source_doi_or_url: `https://lab-kanban.matrixos.edu/pipeline/${slug}`,
+    source_doi_or_url: `https://lab-kanban.matrixos.cc.cd/pipeline/${slug}`,
     verification_level: 'Level_B_Preprint',
   };
 }
@@ -288,7 +288,7 @@ export const siteSpec = createRowSpec({
       terminal: false,
       matchScore: 0,
       verificationLevel: 'Level_B_Preprint',
-      evidenceSource: `https://lab-kanban.matrixos.edu/pipeline/pending-${next}`,
+      evidenceSource: `https://lab-kanban.matrixos.cc.cd/pipeline/pending-${next}`,
       deliverable: '尚未进组，暂不可投送',
       missionCode: 'XINGMEN-2026',
     } satisfies RowSeed;

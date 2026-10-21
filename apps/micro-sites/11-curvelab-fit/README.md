@@ -1,6 +1,6 @@
 # 11 · CurveLab 非线性拟合示波器
 
-> MatrixOS 微站 · 轨道 5 · 工坊 · `curvelab.matrixos.edu` · 目录 `apps/micro-sites/11-curvelab-fit/`
+> MatrixOS 微站 · 轨道 5 · 工坊 · `curvelab.matrixos.cc.cd` · 目录 `apps/micro-sites/11-curvelab-fit/`
 >
 > 目录名由 [ADR-001](../../../docs/01-plan/00-adr-001-microsite-numbering.md) 裁决：
 > **编号与站点归属取花名册，目录词根取描述性命名**。所以目录名与域名可以不一致
@@ -143,9 +143,9 @@ BIC 惩罚参数个数，选出的是「解释力 / 复杂度」最划算的模�
 证据锚点取自每条记录的 `anchor`（原文 DOI + 页码 + bbox，**snake_case 四字段** —— 锚点层
 `additionalProperties: false`，多一个 `note` 整个信封就过不了契约校验；共享数据里的
 camelCase 锚点在 `site-spec.ts` 逐字段转换并丢掉 `note`）。未绑定 DOI 的数据集用站内页
-`https://curvelab.matrixos.edu/datasets/<slug>` + `Level_B_Preprint` 兜底，绝不冒充 Level A。
+`https://curvelab.matrixos.cc.cd/datasets/<slug>` + `Level_B_Preprint` 兜底，绝不冒充 Level A。
 
-**台账为空时**投送会退化为站级基线锚点（`https://curvelab.matrixos.edu/`），
+**台账为空时**投送会退化为站级基线锚点（`https://curvelab.matrixos.cc.cd/`），
 因为虫洞契约的红线是 `evidence_anchors` 至少 1 条 —— 宁可退化，也不发一个非法信封。
 
 只有真嵌在 orbital-hub iframe 内且握手完成（`useHostBridge().connected === true`）才真投送；

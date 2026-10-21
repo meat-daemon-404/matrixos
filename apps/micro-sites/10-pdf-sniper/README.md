@@ -1,6 +1,6 @@
 # 10 · PDF 公式与参量狙击镜
 
-> MatrixOS 微站 · 轨道 5 · 工坊 · `pdf-sniper.matrixos.edu` · 目录 `apps/micro-sites/10-pdf-sniper/`
+> MatrixOS 微站 · 轨道 5 · 工坊 · `pdf-sniper.matrixos.cc.cd` · 目录 `apps/micro-sites/10-pdf-sniper/`
 >
 > 目录名由 [ADR-001](../../../docs/01-plan/00-adr-001-microsite-numbering.md) 裁决：
 > **编号与站点归属取花名册，目录词根取描述性命名**。所以目录名与域名可以不一致，
@@ -187,9 +187,9 @@ pnpm --filter @matrixos/microsite-10-pdf-sniper typecheck  # npx tsc --noEmit
 `Level_A_Verified` / `Level_B_Preprint` / `Retracted_Warning`。
 
 尚未绑定 PDF 的新卡用站内待定位清单页兜底：
-`https://pdf-sniper.matrixos.edu/cards/<slug>` + `Level_B_Preprint`（未定位，绝不冒充 Level A）。
+`https://pdf-sniper.matrixos.cc.cd/cards/<slug>` + `Level_B_Preprint`（未定位，绝不冒充 Level A）。
 
-**台账为空时**投送会退化为站级基线锚点（`https://pdf-sniper.matrixos.edu/`），
+**台账为空时**投送会退化为站级基线锚点（`https://pdf-sniper.matrixos.cc.cd/`），
 因为虫洞契约的红线是 `evidence_anchors` 至少 1 条 —— 宁可退化，也不发一个非法信封。
 
 只有真嵌在 orbital-hub iframe 内且握手完成（`useHostBridge().connected === true`）才真投送；

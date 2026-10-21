@@ -1,7 +1,7 @@
 /**
  * ⚠️ 自动生成 · scripts/gen-site.mjs
  * 站点：05 五源跨库引文声呐站
- * 轨道：轨道 3 · 情报 · 域名：lit-sonar.matrixos.edu
+ * 轨道：轨道 3 · 情报 · 域名：lit-sonar.matrixos.cc.cd
  * 命名依据：docs/01-plan/00-adr-001-microsite-numbering.md（目录名与域名可不一致，刻意）
  * 重新生成：pnpm gen:site --id=05 --force
  */
@@ -28,7 +28,7 @@ export interface SiteIdentity {
 export const SITE: SiteIdentity = {
   id: "05",
   name: "五源跨库引文声呐站",
-  domain: "lit-sonar.matrixos.edu",
+  domain: "lit-sonar.matrixos.cc.cd",
   appId: "lit-sonar",
   dirName: "05-lit-sonar",
   orbitIndex: 3,

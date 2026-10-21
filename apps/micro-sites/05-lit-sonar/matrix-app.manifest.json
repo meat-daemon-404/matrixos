@@ -2,7 +2,7 @@
   "manifest_version": "1.0",
   "app_id": "lit-sonar",
   "name": "五源跨库引文声呐站",
-  "entry_url": "https://lit-sonar.matrixos.edu",
+  "entry_url": "https://lit-sonar.matrixos.cc.cd",
   "orbit_station": "pat_hot",
   "accent_color": "#f59e0b",
   "accepts": [

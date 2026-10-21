@@ -93,16 +93,29 @@ function paperAnchor(doi: string, level?: WormholeEvidenceAnchor['verification_l
 /** 撤稿 / 勘误类证据的来源是数据库条目而不是原文，用条目地址承载锚点。 */
 function registryAnchor(registryPath: string, level: WormholeEvidenceAnchor['verification_level']) {
   return {
-    source_doi_or_url: `https://retract-radar.matrixos.edu/registry/${registryPath}`,
+    source_doi_or_url: `https://retract-radar.matrixos.cc.cd/registry/${registryPath}`,
     verification_level: level,
   };
 }
 
 /* ── 演示数据：一条记录 = 一份引文合规体检报告 ────────────────────────── */
 
-const RETRACTED_DOI = '10.1021/jacs.4c0112';
-const VERIFIED_DOI = '10.1038/s41566-025-01234-5';
-const CHIRAL_DOI = '10.1002/adma.202401234';
+/**
+ * 三个 DOI 全部**真实可核验**（Crossref 逐条确认）。
+ *
+ * 2026-10-21 修正：此前这里是三条构造的 DOI（`10.1021/jacs.4c0112` 等，Crossref 404），
+ * 却被写进「撤稿拦截」报告的正文里：「该引文已被撤稿，禁止引用」——
+ * 这等于对一篇不存在的论文下达撤稿判定。撤稿/合规类信息必须指向真实文献。
+ *
+ * - `RETRACTED_DOI` 是一篇**真实被撤稿**的论文（Crossref 记录带 `[Retracted]` 前缀），
+ *   其撤稿声明 DOI 为 `10.1155/2023/9780628`。
+ * - `VERIFIED_DOI` / `CHIRAL_DOI` 取自 04 站已核验的真实论文。
+ */
+const RETRACTED_DOI = '10.1155/2022/4989248';
+/** 该撤稿案例对应的撤稿声明 DOI，用于在报告里给出可核验的撤稿依据。 */
+const RETRACTION_NOTICE_DOI = '10.1155/2023/9780628';
+const VERIFIED_DOI = '10.1002/solr.202500241';
+const CHIRAL_DOI = '10.1093/nsr/nwaf295';
 
 /** 三篇代表文献的核验等级，从共享矩阵里取，不在本地另立一套判断。 */
 const RETRACTED_LEVEL = 'Retracted_Warning' as const;
@@ -124,9 +137,9 @@ const seed: readonly RowSeed[] = [
     bearing: bearingOf('b1'),
   },
   {
-    title: `撤稿拦截 · ${RETRACTED_DOI} 双氟代配体交联`,
+    title: `撤稿拦截 · ${RETRACTED_DOI}`,
     meta: `风险等级 撤稿/勘误 · ${bearingOf('b5')} · 该引文已被撤稿，禁止引用`,
-    detail: `体检对象：JACS 2025 双氟代配体交联（DOI ${RETRACTED_DOI}）。检出：${blipText('b4')}；${blipText('b5')}。判定：该引文已被撤稿，禁止引用 —— 不得进入综述正文、参考文献表与简历证据链；若已写入草稿，须整段替换并加注勘误说明。影响面：该 DOI 在本站绑定 ${CLUSTER_PAPERS} 篇代表作中的 1 篇，按均被引 ${CITATIONS_PER_PAPER} 条估算，需回溯排查约 ${CITATIONS_PER_PAPER} 条二次引用。伦理声明：撤稿引文一律从证据链剔除，不作「技术路线代表文献」使用；如确需讨论该工作，只能以「已撤稿案例」身份出现在方法学局限一节。`,
+    detail: `体检对象：Contrast Media & Molecular Imaging 的「Environmental and Geographical (EG) Image Classification Using FLIM and CNN Algorithms」（DOI ${RETRACTED_DOI}）。检出：Crossref 记录已带 [Retracted] 标记，撤稿声明 DOI ${RETRACTION_NOTICE_DOI}；${blipText('b5')}。判定：该引文已被撤稿，禁止引用 —— 不得进入综述正文、参考文献表与简历证据链；若已写入草稿，须整段替换并加注勘误说明。影响面：该 DOI 在本站绑定 ${CLUSTER_PAPERS} 篇代表作中的 1 篇，按均被引 ${CITATIONS_PER_PAPER} 条估算，需回溯排查约 ${CITATIONS_PER_PAPER} 条二次引用。伦理声明：撤稿引文一律从证据链剔除，不作「技术路线代表文献」使用；如确需讨论该工作，只能以「已撤稿案例」身份出现在方法学局限一节。`,
     anchor: paperAnchor(RETRACTED_DOI, RETRACTED_LEVEL),
     reportKind: '撤稿拦截',
     checkedDois: [RETRACTED_DOI],
@@ -139,17 +152,17 @@ const seed: readonly RowSeed[] = [
     bearing: bearingOf('b4'),
   },
   {
-    title: `图像重复质疑 · ${CHIRAL_DOI} 手性界面`,
-    meta: `风险等级 关注 · ${bearingOf('b3')} · 待作者回应，暂缓引用`,
-    detail: `体检对象：Adv. Mater. 2024 手性 R/S-MBA 界面（DOI ${CHIRAL_DOI}）。检出：${blipText('b3')}，PubPeer 讨论仍在进行，期刊尚未发布 Expression of Concern。判定：暂定「关注」——可以引用方法学描述，但不得把该文的效率数值（25.1%）写进对比矩阵的结论句，待作者回应后复检。伦理声明：处于质疑期的文献在综述中须标注「数据待核实」，不得作为流派代表性证据单独支撑论断。`,
+    title: `质疑待回应（演示项） · ${CHIRAL_DOI}`,
+    meta: `风险等级 关注 · ${bearingOf('b3')} · 演示口径，非真实质疑记录`,
+    detail: `本条是**演示数据**，用于展示「关注」等级在报告里长什么样，**不代表该论文真的存在质疑**。体检对象：Spatial mapping of chiral-induced spin selectivity in chiral perovskite via spin-Schottky junction（DOI ${CHIRAL_DOI}），National Science Review 2025。该文在 Crossref 记录正常，本站**未检出**撤稿、勘误或 Expression of Concern。判定：正常可引。若将来 PubPeer 出现讨论，本条即按「关注」流程处理：方法学描述可引，但在作者回应前不把其数值结论写进对比矩阵的判定句。伦理声明：不得凭本条对具体论文提出未证实的质疑 —— 演示数据与真实质疑记录必须在下游呈现时区分开。`,
     anchor: paperAnchor(CHIRAL_DOI),
-    reportKind: '质疑待回应',
+    reportKind: '质疑待回应（演示）',
     checkedDois: [CHIRAL_DOI],
     riskLevel: '关注',
-    riskItems: [blipText('b3'), blipText('b4')],
-    citationImpact: '1 篇代表作 · 结论句暂缓引用',
-    ethics: '质疑期文献须标注「数据待核实」，不得单独支撑流派论断。',
-    verdict: '暂缓 · 方法学可引',
+    riskItems: [`[演示] ${blipText('b3')}`, `${blipText('b4')}（真实撤稿案例）`],
+    citationImpact: '演示项：不构成本篇引文的真实风险',
+    ethics: '演示数据须显式标注，不得冒充对具体论文的质疑。',
+    verdict: '演示 · 该项无真实风险',
     verification: 'Level_A_Verified',
     bearing: bearingOf('b3'),
   },

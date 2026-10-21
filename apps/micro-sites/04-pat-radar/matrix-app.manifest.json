@@ -2,7 +2,7 @@
   "manifest_version": "1.0",
   "app_id": "pat-hot",
   "name": "PAT-HOT 学科脉冲雷达",
-  "entry_url": "https://pat-hot.matrixos.edu",
+  "entry_url": "https://pat-hot.matrixos.cc.cd",
   "orbit_station": "pat_hot",
   "accent_color": "#f59e0b",
   "accepts": [

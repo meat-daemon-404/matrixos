@@ -1,6 +1,6 @@
 # 14 · 综述拓扑推演与写作舱
 
-> MatrixOS 微站 · 轨道 5 · 工坊 · `review-lab.matrixos.edu` · 目录 `apps/micro-sites/14-review-architect/`
+> MatrixOS 微站 · 轨道 5 · 工坊 · `review-lab.matrixos.cc.cd` · 目录 `apps/micro-sites/14-review-architect/`
 >
 > 目录名由 [ADR-001](../../../docs/01-plan/00-adr-001-microsite-numbering.md) 裁决：
 > **编号与站点归属取花名册，目录词根取描述性命名**。所以目录名与域名可以不一致
@@ -142,7 +142,7 @@ localStorage key：`mx.review-lab.review-outlines`（`mx.<appId>.<exportName>`�
 
 证据锚点层 `payload.evidence_anchors` **取自每条记录的 `anchor` 字段**（不是从
 `payload.data` 里凑），契约红线是 `minItems: 1`。台账被清空时，投送退化为站级基线锚点
-`https://review-lab.matrixos.edu/`（`Level_B_Preprint`），并在反馈里明写
+`https://review-lab.matrixos.cc.cd/`（`Level_B_Preprint`），并在反馈里明写
 「台账为空，使用站级基线锚点」—— 不会伪造一条假证据。
 
 真实投送只在 hub iframe 内（`useHostBridge().connected === true`）发生；独立窗口打开时

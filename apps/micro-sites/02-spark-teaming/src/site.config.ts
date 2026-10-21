@@ -1,7 +1,7 @@
 /**
  * ⚠️ 自动生成 · scripts/gen-site.mjs
  * 站点：02 双创互补组队雷达
- * 轨道：轨道 2 · 星火 · 域名：spark.matrixos.edu
+ * 轨道：轨道 2 · 星火 · 域名：spark.matrixos.cc.cd
  * 命名依据：docs/01-plan/00-adr-001-microsite-numbering.md（目录名与域名可不一致，刻意）
  * 重新生成：pnpm gen:site --id=02 --force
  */
@@ -28,7 +28,7 @@ export interface SiteIdentity {
 export const SITE: SiteIdentity = {
   id: "02",
   name: "双创互补组队雷达",
-  domain: "spark.matrixos.edu",
+  domain: "spark.matrixos.cc.cd",
   appId: "spark",
   dirName: "02-spark-teaming",
   orbitIndex: 2,

@@ -1,6 +1,6 @@
 # 05 · 五源跨库引文声呐站
 
-> MatrixOS 微站 · 轨道 3 · 情报 · `lit-sonar.matrixos.edu` · 目录 `apps/micro-sites/05-lit-sonar/`
+> MatrixOS 微站 · 轨道 3 · 情报 · `lit-sonar.matrixos.cc.cd` · 目录 `apps/micro-sites/05-lit-sonar/`
 >
 > 目录名由 [ADR-001](../../../docs/01-plan/00-adr-001-microsite-numbering.md) 裁决：
 > **编号与站点归属取花名册，目录词根取描述性命名**。所以目录名与域名可以不一致，
@@ -137,7 +137,7 @@ pnpm --filter @matrixos/microsite-05-lit-sonar typecheck
 
 `verification_level` 只取三值：`Level_A_Verified` / `Level_B_Preprint` / `Retracted_Warning`。
 
-**台账为空时**投送会退化为站级基线锚点（`https://lit-sonar.matrixos.edu/`），
+**台账为空时**投送会退化为站级基线锚点（`https://lit-sonar.matrixos.cc.cd/`），
 因为虫洞契约的红线是 `evidence_anchors` 至少 1 条 —— 宁可退化，也不发一个非法信封。
 
 只有真嵌在 orbital-hub iframe 内且握手完成（`useHostBridge().connected === true`）才真投送；

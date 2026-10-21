@@ -2,7 +2,7 @@
   "name": "@matrixos/microsite-11-curvelab-fit",
   "version": "0.1.0",
   "private": true,
-  "description": "MatrixOS 微站 11 · CurveLab 非线性拟合示波器（轨道 5 · 工坊 · curvelab.matrixos.edu）",
+  "description": "MatrixOS 微站 11 · CurveLab 非线性拟合示波器（轨道 5 · 工坊 · curvelab.matrixos.cc.cd）",
   "scripts": {
     "dev": "next dev -p 3020",
     "build": "next build",

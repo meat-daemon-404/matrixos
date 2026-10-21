@@ -81,7 +81,7 @@ function matplotlibOf(style: ChartStyle, figureId: string): string {
 /** 站内脚本页锚点（Level B：站内自存档，未经第三方复核）。 */
 function scriptAnchor(slug: string): WormholeEvidenceAnchor {
   return {
-    source_doi_or_url: `https://chart-foundry.matrixos.edu/scripts/${slug}`,
+    source_doi_or_url: `https://chart-foundry.matrixos.cc.cd/scripts/${slug}`,
     verification_level: 'Level_B_Preprint',
   };
 }

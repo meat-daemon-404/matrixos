@@ -48,7 +48,7 @@ const LEDGER_NAME = '保研直博 / 选调考公 / 大厂 Offer 对比树';
 
 /** 本站基线锚点：台账被清空后投送仍要满足「至少 1 条锚点」的契约红线。 */
 const STATION_ANCHOR = {
-  source_doi_or_url: 'https://prejob.matrixos.edu/',
+  source_doi_or_url: 'https://prejob.matrixos.cc.cd/',
   verification_level: 'Level_B_Preprint',
 } as const;
 

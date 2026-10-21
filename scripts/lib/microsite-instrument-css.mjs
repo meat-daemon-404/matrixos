@@ -100,7 +100,7 @@ export const INSTRUMENT_CSS = String.raw`
   color: var(--color-text-strong);
   line-height: 1.2;
 }
-.gpa-value.accent { color: var(--site-accent); }
+.gpa-value.accent { color: var(--site-accent-text); }
 
 .gpa-course-list {
   margin: 0;
@@ -322,7 +322,7 @@ export const INSTRUMENT_CSS = String.raw`
 .cross-table tbody tr:hover { background: rgba(148, 163, 184, 0.06); }
 .cross-table tbody tr.active { background: rgba(6, 182, 212, 0.08); }
 .cross-table td.accent {
-  color: var(--site-accent);
+  color: var(--site-accent-text);
   font-weight: 600;
 }
 

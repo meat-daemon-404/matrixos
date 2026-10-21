@@ -1,7 +1,7 @@
 /**
  * ⚠️ 自动生成 · scripts/gen-site.mjs
  * 站点：03 大创五科目经费液位仪
- * 轨道：轨道 2 · 星火 · 域名：grant-audit.matrixos.edu
+ * 轨道：轨道 2 · 星火 · 域名：grant-audit.matrixos.cc.cd
  * 命名依据：docs/01-plan/00-adr-001-microsite-numbering.md（目录名与域名可不一致，刻意）
  * 重新生成：pnpm gen:site --id=03 --force
  */
@@ -28,7 +28,7 @@ export interface SiteIdentity {
 export const SITE: SiteIdentity = {
   id: "03",
   name: "大创五科目经费液位仪",
-  domain: "grant-audit.matrixos.edu",
+  domain: "grant-audit.matrixos.cc.cd",
   appId: "grant-audit",
   dirName: "03-grant-audit",
   orbitIndex: 2,

@@ -3,7 +3,7 @@
  * 模板：apps/micro-sites/shared/templates/workbench-impl.tsx
  * 作用：完工台实现（台账增删改 / 导出 / 虫洞投送接收），18 站共用
  * 站点：10 PDF 公式与参量狙击镜
- * 轨道：轨道 5 · 工坊 · 域名：pdf-sniper.matrixos.edu
+ * 轨道：轨道 5 · 工坊 · 域名：pdf-sniper.matrixos.cc.cd
  * 改法：改模板 → 跑 `node scripts/wire-workbench.mjs` 重新分发（18 站会一起更新）。
  */
 'use client';

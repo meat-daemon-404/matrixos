@@ -1,6 +1,6 @@
 # 12 · 顶刊代码复现核验舱
 
-> MatrixOS 微站 · 轨道 5 · 工坊 · `repro-check.matrixos.edu` · 目录 `apps/micro-sites/12-repro-check/`
+> MatrixOS 微站 · 轨道 5 · 工坊 · `repro-check.matrixos.cc.cd` · 目录 `apps/micro-sites/12-repro-check/`
 >
 > 目录名由 [ADR-001](../../../docs/01-plan/00-adr-001-microsite-numbering.md) 裁决：
 > **编号与站点归属取花名册，目录词根取描述性命名**。所以目录名与域名可以不一致
@@ -134,9 +134,9 @@ detail 现算 —— 改共享数据，脚本跟着变。
 证据锚点取自每条清单的 `anchor`（原文 DOI + 页码 + bbox，**snake_case 四字段** —— 锚点层
 `additionalProperties: false`，多一个 `note` 整个信封就过不了契约校验；共享数据里的
 camelCase 锚点在 `site-spec.ts` 逐字段转换并丢掉 `note`）。未绑定 DOI 的清单用站内页
-`https://repro-check.matrixos.edu/checklists/<paperId>` + `Level_B_Preprint` 兜底，绝不冒充 Level A。
+`https://repro-check.matrixos.cc.cd/checklists/<paperId>` + `Level_B_Preprint` 兜底，绝不冒充 Level A。
 
-**台账为空时**投送会退化为站级基线锚点（`https://repro-check.matrixos.edu/`），
+**台账为空时**投送会退化为站级基线锚点（`https://repro-check.matrixos.cc.cd/`），
 因为虫洞契约的红线是 `evidence_anchors` 至少 1 条 —— 宁可退化，也不发一个非法信封。
 
 只有真嵌在 orbital-hub iframe 内且握手完成（`useHostBridge().connected === true`）才真投送；

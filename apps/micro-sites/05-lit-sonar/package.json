@@ -2,7 +2,7 @@
   "name": "@matrixos/microsite-05-lit-sonar",
   "version": "0.1.0",
   "private": true,
-  "description": "MatrixOS 微站 05 · 五源跨库引文声呐站（轨道 3 · 情报 · lit-sonar.matrixos.edu）",
+  "description": "MatrixOS 微站 05 · 五源跨库引文声呐站（轨道 3 · 情报 · lit-sonar.matrixos.cc.cd）",
   "scripts": {
     "dev": "next dev -p 3014",
     "build": "next build",
