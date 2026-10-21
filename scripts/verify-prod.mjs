@@ -150,16 +150,73 @@ const apex = {
 };
 apex.ok = !apex.has1014 && apex.looksLikeHub;
 
+/*
+ * ── 6 canonical / og:url 是否仍指向生产域名 ──
+ *
+ * 为什么要查：`layout.tsx` 里的 SITE_ORIGIN 是 `scripts/site-icons.mjs` 的**生成产物**。
+ * 2026-10-21 迁移时踩过：改生成器不会更新已存在的 18 份，线上 canonical 仍指旧账号域名。
+ * 这类回归不会让页面 500，爬虫才会发现 —— 必须显式断言。
+ *
+ * 判据：每站 canonical 与 og:url 都等于该站自己的生产 URL。
+ */
+function extractMeta(html) {
+  const canonical = /<link[^>]+rel="canonical"[^>]+href="([^"]+)"/i.exec(html)?.[1] ?? null;
+  const ogUrl = /<meta[^>]+property="og:url"[^>]+content="([^"]+)"/i.exec(html)?.[1] ?? null;
+  return { canonical, ogUrl };
+}
+
+const metaChecks = [];
+for (const t of targets) {
+  const html = curlBody(t.url);
+  const { canonical, ogUrl } = extractMeta(html);
+  const norm = (u) => (u ? u.replace(/\/+$/, '') : null);
+  const expect = norm(t.url);
+  metaChecks.push({
+    label: t.label,
+    canonical,
+    ogUrl,
+    ok: norm(canonical) === expect && norm(ogUrl) === expect,
+  });
+}
+
+/*
+ * ── 7 微站 CSP frame-ancestors 必须放行 hub ──
+ *
+ * 为什么要查：微站被 hub 内嵌，CSP frame-ancestors 少一条 hub 来源，
+ * iframe 会直接被浏览器拦掉（表现为内嵌区白屏，非 HTTP 错误，HTTP 层看不出来）。
+ * hub 来源随域名迁移而变，所以这里断言「含 apex 域名」而不是写死完整列表。
+ */
+const cspChecks = [];
+for (const t of targets.slice(1)) {          // 第 0 个是 hub 自己，顶层页不设 frame-ancestors
+  const h = curlHead(t.url, ['-H', 'Accept: text/html']);
+  const csp = /^content-security-policy:\s*(.+)$/im.exec(h.raw)?.[1]?.trim() ?? null;
+  const fa = csp ? (/frame-ancestors\s+([^;]+)/i.exec(csp)?.[1]?.trim() ?? null) : null;
+  cspChecks.push({
+    label: t.label,
+    hasCsp: !!csp,
+    hasFrameAncestors: !!fa,
+    allowsHub: !!fa && fa.includes(ZONE),
+    ok: !!fa && fa.includes(ZONE),
+  });
+}
+
 /* ── 汇总 ── */
 const pass = results.filter((r) => r.ok).length;
+const metaPass = metaChecks.filter((m) => m.ok).length;
+const cspPass = cspChecks.filter((c) => c.ok).length;
 const allOk =
   pass === results.length &&
   tlsChecks.every((t) => t.ok) &&
   wafResults.every((w) => w.ok) &&
-  apex.ok;
+  apex.ok &&
+  metaPass === metaChecks.length &&
+  cspPass === cspChecks.length;
 
 if (jsonOut) {
-  console.log(JSON.stringify({ sites: results, tls: tlsChecks, waf: wafResults, apex, allOk }, null, 2));
+  console.log(JSON.stringify({
+    sites: results, tls: tlsChecks, waf: wafResults, apex,
+    meta: metaChecks, csp: cspChecks, allOk,
+  }, null, 2));
 } else {
   console.log(`生产验证 · zone ${ZONE} · ${targets.length} 个目标\n`);
   console.log('站点'.padEnd(26) + 'HTTP'.padEnd(8) + 'HSTS(includes+preload)');
@@ -182,6 +239,21 @@ if (jsonOut) {
 
   console.log('\napex 1014 检查');
   console.log(`  含 error 1014: ${apex.has1014 ? 'YES <<<' : 'no'}   bodyLen=${apex.bodyLen}   ${apex.ok ? 'OK' : 'FAIL'}`);
+
+  console.log(`\ncanonical / og:url（应等于各站自己的生产 URL）  ${metaPass}/${metaChecks.length}`);
+  for (const m of metaChecks) {
+    if (m.ok) continue;
+    console.log(`  ${m.label.padEnd(24)} canonical=${m.canonical ?? '(缺)'}  og:url=${m.ogUrl ?? '(缺)'}  <<<`);
+  }
+  if (metaPass === metaChecks.length) console.log('  全部正确');
+
+  console.log(`\n微站 CSP frame-ancestors 放行 hub  ${cspPass}/${cspChecks.length}`);
+  for (const c of cspChecks) {
+    if (c.ok) continue;
+    const why = !c.hasCsp ? '无 CSP 头' : !c.hasFrameAncestors ? '无 frame-ancestors 指令' : `未放行 ${ZONE}`;
+    console.log(`  ${c.label.padEnd(24)} ${why}  <<<`);
+  }
+  if (cspPass === cspChecks.length) console.log('  全部放行');
 
   console.log(`\n${allOk ? '✓ 全部通过' : '✗ 存在未通过项'}`);
 }

@@ -121,8 +121,20 @@ npm run verify:prod          # 或 node scripts/verify-prod.mjs
 npm run verify:prod:json     # 机器可读，便于 CI
 ```
 
-判据（任一不符即退出码 1）：19 站 200、HSTS 含 `includeSubDomains`+`preload`、
-TLS 1.0/1.1 被拒且 1.2 可用、WAF 4 类探测被拦、apex 无 `error 1014`。
+判据（任一不符即退出码 1），共 7 项：
+
+| # | 检查 | 为什么必须查 |
+| :--- | :--- | :--- |
+| 1 | 19 站 HTTP 200 | 基本可达 |
+| 2 | HSTS 含 `includeSubDomains` + `preload` | 防 SSL-strip |
+| 3 | TLS 1.0/1.1 被拒、1.2 可用 | 下层协议下限 |
+| 4 | WAF 4 类探测 + TRACE 被拦 | 规则未被人误删 |
+| 5 | apex 无 `error 1014` | 域名归属没掉 |
+| 6 | **canonical / og:url = 各站自己的生产 URL** | `layout.tsx` 是生成产物，改生成器不更新已有文件，极易静默回归 |
+| 7 | **微站 CSP `frame-ancestors` 放行 hub** | 少一条 hub 来源，iframe 被浏览器拦 → 内嵌区白屏，**HTTP 层完全看不出来** |
+
+> 第 6、7 项是后面补的。补第 6 项时它立刻抓出 hub 的 canonical 缺失
+> （`metadataBase` 还写着已废弃的 `orbital.matrixos.edu`，实测 NXDOMAIN）。
 
 ---
 
