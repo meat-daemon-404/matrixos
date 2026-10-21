@@ -34,6 +34,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type ReactNode,
@@ -109,6 +110,10 @@ const WORKBENCH_CSS = `
 .mx-wb-btn {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 6px 12px; border-radius: var(--radius-sm, 8px);
+  /* WCAG 2.5.8 (AA)：指针目标 ≥ 24×24。原 padding 6px 12px + 12px 字号实测
+   * 仅 22px 高，且这是全站使用频率最高的按钮（新增/导出/清空/投送）。
+   * min-height 32px 过 AA 且不破坏工具栏密度。 */
+  min-height: 32px;
   font-family: var(--font-sans, system-ui); font-size: var(--text-xs, 12px); font-weight: 500;
   color: var(--color-text-secondary, #cbd5e1);
   background: var(--color-bg-raised, #0f172a);
@@ -123,6 +128,17 @@ const WORKBENCH_CSS = `
 .mx-wb-btn[data-variant='primary']:hover:not(:disabled) { background: var(--color-action, #6366f1); color: var(--color-bg, #050814); filter: brightness(1.12); }
 .mx-wb-btn[data-variant='danger'] { color: var(--color-danger, #f43f5e); border-color: rgba(244,63,94,.4); }
 .mx-wb-btn[data-variant='danger']:hover:not(:disabled) { color: var(--color-danger, #f43f5e); border-color: var(--color-danger, #f43f5e); }
+/* 撤销：清空之后才出现的短暂救回入口，用警示色吸引注意但不与「清空」同色混淆 */
+.mx-wb-btn[data-variant='undo'] {
+  color: var(--color-warning, #f59e0b);
+  border-color: rgba(245, 158, 11, .5);
+  background: rgba(245, 158, 11, .08);
+}
+.mx-wb-btn[data-variant='undo']:hover:not(:disabled) {
+  color: var(--color-warning, #f59e0b);
+  border-color: var(--color-warning, #f59e0b);
+  background: rgba(245, 158, 11, .16);
+}
 .mx-wb-list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .mx-wb-row {
   display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 12px;
@@ -134,13 +150,13 @@ const WORKBENCH_CSS = `
 }
 .mx-wb-row-main { flex: 1 1 220px; min-width: 0; }
 .mx-wb-row-title { display: block; font-size: var(--text-xs, 12px); font-weight: 600; color: var(--color-text, #f1f5f9); overflow-wrap: anywhere; }
-.mx-wb-row-meta { display: block; margin-top: 2px; font-family: var(--font-mono, monospace); font-size: var(--text-2xs, 10px); color: var(--color-text-faint, #64748b); overflow-wrap: anywhere; }
+.mx-wb-row-meta { display: block; margin-top: 2px; font-family: var(--font-mono, monospace); font-size: var(--text-2xs, 10px); color: var(--color-text-faint, #7d8ba1); overflow-wrap: anywhere; }
 .mx-wb-row-detail { display: block; margin-top: 3px; font-size: var(--text-2xs, 10px); color: var(--color-text-muted, #94a3b8); overflow-wrap: anywhere; }
 .mx-wb-row-actions { display: flex; flex-shrink: 0; gap: 6px; }
-.mx-wb-row-actions .mx-wb-btn { padding: 3px 8px; font-size: var(--text-2xs, 10px); }
+.mx-wb-row-actions .mx-wb-btn { padding: 3px 8px; min-height: 24px; font-size: var(--text-2xs, 10px); }
 .mx-wb-empty {
   padding: 18px 12px; text-align: center;
-  font-size: var(--text-xs, 12px); color: var(--color-text-faint, #64748b);
+  font-size: var(--text-xs, 12px); color: var(--color-text-faint, #7d8ba1);
   border: 1px dashed var(--color-border-strong, #334155);
   border-radius: var(--radius-sm, 8px);
 }
@@ -282,15 +298,67 @@ export function Workbench<T>(props: WorkbenchProps<T>) {
     [ledger, spec, say],
   );
 
-  /* ── 清空 ── */
+  /* ── 清空（破坏性，可撤销） ── */
+  /**
+   * 为什么清空要留撤销：
+   *   它**不可撤销** —— 一次误点就丢掉整站台账（答辩前夜的实验数据也在里面）。
+   *
+   *   不用 `confirm()`：iframe 里模态行为不一致（部分容器禁用）。
+   *   不用「二次点击确认」：验收器的 ledger-clear 是单次点击后断言计数归 0，
+   *   改成两段式会破坏这个契约，也会让老用户觉得点不动。
+   *
+   *   方案：清空前把当前台账**快照到内存**，反馈条旁给一个「撤销」按钮（8 秒有效）。
+   *   单次点击语义、计数立即归 0，但误点有真实回退路径 —— 既不破坏契约也不丢数据。
+   */
+  const undoRef = useRef<{ data: T; label: string } | null>(null);
+  const [undoAvailable, setUndoAvailable] = useState(false);
+
+  useEffect(() => {
+    if (!undoAvailable) return;
+    const timer = setTimeout(() => {
+      undoRef.current = null;
+      setUndoAvailable(false);
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [undoAvailable]);
+
   const handleClear = useCallback(() => {
     try {
+      const before = ledger.read();
+      const removed = spec.records(before.data).length;
       const next = ledger.write(spec.createEmpty());
       setSnapshot(next);
       const count = spec.records(next.data).length;
-      say(count === 0 ? '已清空台账（持久化已同步）' : `已重置台账 · 剩余 ${count} 条`, 'ok');
+      if (removed > 0) {
+        undoRef.current = { data: before.data, label: `清空（${removed} 条）` };
+        setUndoAvailable(true);
+        say(
+          count === 0
+            ? `已清空台账 · 删除 ${removed} 条 · 8 秒内可点「撤销」恢复`
+            : `已重置台账 · 剩余 ${count} 条`,
+          'warn',
+        );
+      } else {
+        undoRef.current = null;
+        setUndoAvailable(false);
+        say('台账本来就是空的，无需清空', 'info');
+      }
     } catch (error) {
       say(`清空失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+    }
+  }, [ledger, spec, say]);
+
+  const handleUndo = useCallback(() => {
+    const pending = undoRef.current;
+    if (!pending) return;
+    undoRef.current = null;
+    setUndoAvailable(false);
+    try {
+      const next = ledger.write(pending.data);
+      setSnapshot(next);
+      say(`已撤销${pending.label} · 恢复 ${spec.records(next.data).length} 条`, 'ok');
+    } catch (error) {
+      say(`撤销失败：${error instanceof Error ? error.message : String(error)}`, 'error');
     }
   }, [ledger, spec, say]);
 
@@ -479,6 +547,18 @@ export function Workbench<T>(props: WorkbenchProps<T>) {
         >
           清空台账
         </button>
+        {undoAvailable ? (
+          <button
+            type="button"
+            className="mx-wb-btn"
+            data-variant="undo"
+            data-testid="ledger-undo"
+            onClick={handleUndo}
+            aria-label="撤销上一次清空，恢复被删除的记录"
+          >
+            ↷ 撤销清空
+          </button>
+        ) : null}
         <button
           type="button"
           className="mx-wb-btn"

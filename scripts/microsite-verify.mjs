@@ -311,8 +311,11 @@ async function verifySite(browser, site, options) {
         }
       }
 
-      /* ── 清空 → 刷新 → 归零 ── */
+      /* ── 清空 → 撤销 → 清空 → 刷新归零 ──
+       * 撤销是「误点不丢数据」的真实保障，必须验证它真的把数据放回来，
+       * 而不只是按钮出现了（只验按钮存在 = 验了个空壳）。 */
       if ((await page.locator('[data-testid="ledger-clear"]').count()) > 0) {
+        const beforeClear = (await countOf(page)) ?? 0;
         await page.locator('[data-testid="ledger-clear"]').first().click();
         try {
           await waitForCount(page, 0);
@@ -320,6 +323,32 @@ async function verifySite(browser, site, options) {
           const actual = await countOf(page);
           issues.push(`点击 ledger-clear 后台账计数未归零（实际 ${actual}）`);
         }
+
+        // 撤销：清空后应出现「撤销」按钮，点它必须把条数恢复回来
+        if (beforeClear > 0) {
+          if ((await page.locator('[data-testid="ledger-undo"]').count()) === 0) {
+            issues.push('清空有数据的台账后未出现 data-testid="ledger-undo" 撤销入口');
+          } else {
+            await page.locator('[data-testid="ledger-undo"]').first().click();
+            try {
+              await waitForCount(page, beforeClear);
+              evidence.undoRestored = true;
+            } catch {
+              const actual = await countOf(page);
+              issues.push(`点击 ledger-undo 后计数未恢复到 ${beforeClear}（实际 ${actual}）`);
+              evidence.undoRestored = false;
+            }
+            // 再清空一次，回到「归零 + 刷新仍归零」的主断言
+            await page.locator('[data-testid="ledger-clear"]').first().click();
+            try {
+              await waitForCount(page, 0);
+            } catch {
+              const actual = await countOf(page);
+              issues.push(`撤销后再次清空，计数未归零（实际 ${actual}）`);
+            }
+          }
+        }
+
         await page.reload({ waitUntil: 'load' });
         await page.waitForTimeout(900);
         const afterClearReload = (await countOf(page)) ?? -1;
