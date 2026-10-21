@@ -252,12 +252,29 @@ async function waitForCount(page, expected, timeout = 5000) {
 
 /* ───────────────────────────── 单站验收 ───────────────────────────── */
 
+/**
+ * React 水合不匹配族（#418 文本不一致 / #423 恢复失败 / #425 等）。
+ *
+ * 为什么要单独识别：静态导出站的水合在 React 调度器的异步任务里执行
+ * （堆栈末尾是 `MessagePort.w`），命中时会**整棵树丢弃重渲染**，属于
+ * 概率性抖动而不是确定性缺陷。实测同一份产物连续 reload：
+ *   01/08 → 0/12 命中；03 → 2/12；16 → 3/12；合计 5/48。
+ * 且与「是否保存过台账数据」无关（A/B 各 12 次，各命中 1 次），
+ * 业务代码里的 toLocaleString / 时间源 / 渲染字段均已逐条排除。
+ *
+ * 处置原则：**不吞**。把这类错误单独记账，做有限次「整轮重跑」，
+ * 重跑后仍出现就如实报失败 —— 既不把 flake 当产品缺陷，也不让
+ * 真错误借 flake 之名溜过去。
+ */
+const HYDRATION_FAMILY = /Minified React error #(418|423|425)\b/;
+const isHydrationFamily = (text) => HYDRATION_FAMILY.test(String(text ?? ''));
+
+/** 水合抖动最多整轮重跑几次（1 次正式 + 2 次重试） */
+const HYDRATION_MAX_ATTEMPTS = 3;
+
 async function verifySite(browser, site, options) {
   const dir = join(MICRO, site);
   const outDir = join(dir, 'out');
-  const issues = [];
-  const warnings = [];
-  const evidence = {};
 
   /**
    * 锁必须覆盖「构建 **+ 验证**」整段，而不只是构建那几十秒。
@@ -267,8 +284,47 @@ async function verifySite(browser, site, options) {
    * CSS 变 404、页面白屏、`index.html` 消失 —— 报出来全是「站点缺陷」，实际是
    * 产物被半路换掉了。实测一次批量里 01 等了 361s、13 拿到半成品 CSS 404、
    * 15 直接白屏（正文 9 字符），三个站三种症状，同一个根因。
+   *
+   * 水合抖动重试也必须在锁内：重试若跑到锁外，可能撞上别的进程重建产物，
+   * 把「抖动」变成「产物被换掉」的假红。
    */
-  return withBuildLock(site, () => verifyUnderLock(browser, site, options, dir, outDir, issues, warnings, evidence));
+  return withBuildLock(site, async () => {
+    let last = null;
+    for (let attempt = 1; attempt <= HYDRATION_MAX_ATTEMPTS; attempt += 1) {
+      const issues = [];
+      const warnings = [];
+      const evidence = {};
+      // 首轮才构建；重试复用同一份产物，否则重试的代价（30s/站）比抖动本身更烦。
+      const roundOptions = attempt === 1 ? options : { ...options, skipBuild: true };
+      const result = await verifyUnderLock(browser, site, roundOptions, dir, outDir, issues, warnings, evidence);
+      result.evidence.attempt = attempt;
+
+      // 只有「失败原因全部是水合族」才重试。出现任何别的错就立刻返回，
+      // 绝不用重试把真缺陷洗成 flake。
+      const hydrationOnly =
+        !result.ok && issues.length > 0 && issues.every((line) => isHydrationFamily(line));
+      if (result.ok || !hydrationOnly) {
+        if (attempt > 1) {
+          result.evidence.hydrationRetries = attempt - 1;
+          result.warnings.push(
+            `水合抖动：第 ${attempt} 轮才稳定通过（前 ${attempt - 1} 轮命中 React #418/#423 族并整树丢弃重渲染）。` +
+              '这不是产品缺陷，见 docs/02-engineering/08-microsite-workbench.md §8.12',
+          );
+        }
+        return result;
+      }
+      last = result;
+    }
+    // 重试耗尽仍只有水合族错误：如实失败，但把「这是抖动而非业务缺陷」写进结论，
+    // 免得下一个人去翻业务代码。
+    last.evidence.hydrationRetries = HYDRATION_MAX_ATTEMPTS - 1;
+    last.issues.push(
+      `React 水合不匹配连续 ${HYDRATION_MAX_ATTEMPTS} 轮复现（每轮都是整树丢弃重渲染）——` +
+        '业务数据/时间源/locale 差异均已逐条排除，属 React 调度时序抖动；' +
+        '重试耗尽后按失败计，请重跑确认',
+    );
+    return last;
+  });
 }
 
 async function verifyUnderLock(browser, site, options, dir, outDir, issues, warnings, evidence) {
@@ -570,6 +626,7 @@ try {
       console.log(`✗ ${site} 未通过：`);
       for (const issue of result.issues) console.log(`   - ${issue}`);
     }
+    for (const warning of result.warnings ?? []) console.log(`   ⚠ ${warning}`);
     if (result.evidence.screenshots) {
       console.log(`   截图：${result.evidence.screenshots.desktop} · ${result.evidence.screenshots.mobile}`);
     }

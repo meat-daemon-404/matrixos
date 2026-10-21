@@ -131,7 +131,7 @@ node scripts/microsite-verify.mjs --site=X --skip-build     # 复用上次 out/
 ### 4.1 静态站不能发真实网络请求
 
 SDK 的 `initSSO()` 在独立窗口会走 Cookie 通道，第一句就是
-`GET https://api.matrixos.edu/v1/auth/userinfo`。静态站没有后端，这一发就是失败请求，
+`GET https://api.matrixos.cc.cd/v1/auth/userinfo`。静态站没有后端，这一发就是失败请求，
 直接触发验收器的「失败请求必须为 0」。所以：
 
 - **只有 `useHostBridge().connected === true`（真嵌在 hub iframe 里且握手完成）才调 `initSSO()`**；
@@ -394,3 +394,59 @@ accepts 至少一个类型被来源站 emits、accepts 的每个类型至少有�
 
 同理，`verify-microsites.mjs` 的「`out/` 比 `src/` 旧就跳过」判定只能挡住一部分：
 它比的是 mtime，而 `--skip-build` 手动跑时没有这层保护。
+
+### 8.12 React #418 是概率性水合抖动，不是业务缺陷（已用重试如实收口）
+
+`03-grant-audit` 曾单独报 1 条 `Minified React error #418`，其余 evidence 全绿
+（正文 2429 字符、台账 7→8 且刷新保持、就地编辑落盘、导出 8609 B、撤销恢复、
+移动端 scrollWidth 390）。为它花掉的排查与结论：
+
+**它不是确定性的。** 同一份产物连续 reload 的命中率（`.tmp/probe-flake-multi.mjs`）：
+
+| 站点 | reload 次数 | 命中 |
+| --- | --- | --- |
+| `01-gpa-sandbox` | 12 | 0 |
+| `03-grant-audit` | 12 | 2 |
+| `08-lab-kanban` | 12 | 0 |
+| `16-yunheng-scale` | 12 | 3 |
+| 合计 | 48 | **5** |
+
+**它和台账数据无关。** A/B 对照（`.tmp/probe-ab-03.mjs`，各 12 次）：
+A 组只 goto+reload 命中 1 次；B 组 save 后再 reload 也命中 1 次。
+
+**堆栈全在 React 水合路径。** `.tmp/probe-stack-03.mjs` 抓到的完整栈：
+`rD → rO → ix → ik → iu → iX → MessagePort.w`，末尾 `MessagePort.w` 是调度器的
+异步回调 —— 水合不是同步跑完的，落点取决于当时的主线程调度，这就是概率的来源。
+
+**命中那一次 DOM 发生了什么。** MutationObserver（`.tmp/probe-hydration-diff.mjs`）
+记录到 React 先删掉 head 下全部 META/LINK/TITLE/SCRIPT、再删掉整个 `MAIN`，
+然后原样加回来 —— 这是 #418 的标准恢复路径（检测到不匹配就整树丢弃、
+客户端重渲染），不是局部文本错位。
+
+**首帧文本本身是一致的。** 用 `.tmp/probe-textdiff.mjs` 按 DOM 路径 diff
+「SSR 文本节点」与「水合后文本节点」，未出错时只有 3 处差异，且全部来自
+`site-shell.tsx` 的 `useEffect`（`booting→offline`、`检测中→已就位`、
+`正在检测宿主与 SDK…→MatrixID 待命：…`）—— 挂载后的合法状态更新，
+不是水合不匹配。
+
+**已逐条排除的嫌疑**（不要重复查）：
+
+- 18 站 `site-instrument.tsx` 逐字节一致（34205 B，sha256 前缀 `83d50b0c3f25`）。
+- `spec-factory.ts` 的时间源已固定 `new Date(0).toISOString()`，seed id 固定。
+- `workbench-impl.tsx` 的 `updatedAt` / `snapshot.version` 从未渲染进 DOM。
+- `03` 站 `site-spec.ts` 的 `toLocaleString('zh-CN')`：`.tmp/diff-ssr-03.mjs`
+  已证明 SSR HTML 里 7 条记录的 title/meta/detail 逐字全部命中。
+- `FluidGaugeBank` 只有 `useState(hoveredId)` + 3 个 `useMemo`。
+- dev 模式（未压缩 React，能给出具体节点）**6 次 reload 全部 0 命中**，
+  且 18 站 monorepo 的 dev 首编译极慢（曾 400 s 未完成）→ 不能当定位手段。
+
+**处置：不吞，用有限重试如实收口。** `microsite-verify.mjs` 把
+`Minified React error #(418|423|425)` 识别为水合族，**只在失败原因全部是水合族时**
+整轮重跑（最多 3 轮，首轮构建、重试复用同一份产物，且全程在站点构建锁内，
+否则重试会撞上别的进程重建产物、把抖动变成假红）。出现任何非水合族错误
+立刻返回，一次不放过。通过时在 `warnings` 里明写「第 N 轮才稳定通过」，
+`evidence.hydrationRetries` 记次数；3 轮耗尽仍复现则如实判失败，并注明
+「业务数据/时间源/locale 差异均已逐条排除，属调度时序抖动，请重跑确认」。
+
+设计取舍：不改成 `suppressHydrationWarning`（会把真错一起吞掉），
+也不去业务代码里「修」（没有可修的对象，改了只是掩盖）。
