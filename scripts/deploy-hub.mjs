@@ -12,10 +12,16 @@
  *   1. **清掉代理环境变量** —— 本机 HTTP_PROXY 指向 127.0.0.1:7897，
  *      wrangler 会走它，而 Cloudflare 的 auth 校验经代理会失败
  *      （报「auth token has expired... could not be reached」，实为网络问题）。
- *   2. **从 D:\tmp\matrixos-cloudflare.env 读 token** —— 不能只依赖 wrangler 的
- *      本地 OAuth 缓存（可能过期）。
+ *   2. **默认走新账号的 wrangler OAuth**。
  *
- * 用法：node scripts/deploy-hub.mjs [--dry-run]
+ * ⚠️ 2026-10-21 账号迁移后，凭据策略已反转：
+ *   本文件原来会从 D:\tmp\matrixos-cloudflare.env 读**旧账号**的 API Token
+ *   并写进 process.env.CLOUDFLARE_API_TOKEN。wrangler 的环境变量优先于 OAuth，
+ *   于是命令会「成功退出、打印 ✓」，但产物实际写进旧账号，
+ *   新账号线上纹丝不动 —— 静默写错账号，最危险的一类错误。
+ *   现在默认清除该变量；确需回滚旧账号时显式加 --legacy-account。
+ *
+ * 用法：node scripts/deploy-hub.mjs [--dry-run] [--legacy-account]
  */
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
@@ -27,6 +33,12 @@ const HUB = join(ROOT, 'apps', 'orbital-hub');
 const ENV_FILE = 'D:\\tmp\\matrixos-cloudflare.env';
 const PROJECT = 'mx-orbital';
 const DRY = process.argv.includes('--dry-run');
+const LEGACY = process.argv.includes('--legacy-account');
+
+/** 当前生产账号（新账号）。 */
+const PROD_ACCOUNT = 'e6bf8ab2cbb8475c1ba6d6570332c18d';
+/** 旧账号（仅回滚用）。 */
+const LEGACY_ACCOUNT = '002738a579821a06c4ee9241babe99f0';
 
 /* ── 清理代理（关键） ── */
 for (const k of [
@@ -36,24 +48,27 @@ for (const k of [
   delete process.env[k];
 }
 
-/* ── 凭据 ── */
-let token = process.env.CLOUDFLARE_API_TOKEN;
-let account = process.env.CLOUDFLARE_ACCOUNT_ID;
-if (!token || !account) {
+/* ── 凭据：默认新账号 OAuth，绝不静默用旧 token ── */
+if (LEGACY) {
   if (!existsSync(ENV_FILE)) {
-    console.error(`✗ 无凭据：环境变量未设置，且 ${ENV_FILE} 不存在`);
+    console.error(`✗ --legacy-account 需要 ${ENV_FILE}，文件不存在`);
     process.exit(1);
   }
   const txt = readFileSync(ENV_FILE, 'utf8');
-  token = token || /CLOUDFLARE_API_TOKEN=(.+)/.exec(txt)?.[1]?.trim();
-  account = account || /CLOUDFLARE_ACCOUNT_ID=(.+)/.exec(txt)?.[1]?.trim();
+  const token = /CLOUDFLARE_API_TOKEN=(.+)/.exec(txt)?.[1]?.trim();
+  if (!token) {
+    console.error('✗ 凭据解析失败');
+    process.exit(1);
+  }
+  process.env.CLOUDFLARE_API_TOKEN = token;
+  process.env.CLOUDFLARE_ACCOUNT_ID = LEGACY_ACCOUNT;
+  console.log(`⚠️  回滚模式：目标 = 旧账号 ${LEGACY_ACCOUNT.slice(0, 8)}…`);
+} else {
+  delete process.env.CLOUDFLARE_API_TOKEN;
+  delete process.env.CF_API_TOKEN;
+  process.env.CLOUDFLARE_ACCOUNT_ID = PROD_ACCOUNT;
+  console.log(`目标账号 = 新账号 ${PROD_ACCOUNT.slice(0, 8)}…（wrangler OAuth）`);
 }
-if (!token || !account) {
-  console.error('✗ 凭据解析失败');
-  process.exit(1);
-}
-process.env.CLOUDFLARE_API_TOKEN = token;
-process.env.CLOUDFLARE_ACCOUNT_ID = account;
 
 /* ── 产物前置检查 ── */
 const outIndex = join(HUB, 'out', 'index.html');
@@ -95,10 +110,27 @@ function scanJs(dir) {
     process.exit(1);
   }
   if (!/mx-\{appId\}\.pages\.dev|mx-[a-z-]+\.pages\.dev/.test(js)) {
-    console.error('✗ hub 产物未含 pages.dev 地址模板 —— 地址注入异常，拒绝部署');
-    process.exit(1);
+    /*
+     * 微站 URL 是**运行时**由 `NEXT_PUBLIC_MICROSITE_ORIGIN_TEMPLATE` 拼出来的
+     * （`hub-config.ts` 读 env），不一定以字面量出现在产物里。
+     * 所以这里不能硬要求 pages.dev 字面量，改为检查「产物里有没有 URL 模板机制」：
+     *   - 有 `{appId}` / `{port}` 占位符（模板字符串被打进产物）
+     *   - 或直接有具体域名（较老的构建方式）
+     * 两者都没有才是真的地址注入异常。
+     *
+     * 教训：初始版本硬要求 pages.dev 字面量，导致「用 tunnel 地址构建的 hub」
+     * 被误判为「地址注入异常」而拒绝部署 —— 断言写得比事实更严也会挡住正确的东西。
+     */
+    const hasTemplate =
+      /\{appId\}|\{port\}/.test(js) || /https:\/\/[a-z0-9-]+\.matrixos\.(edu|cc\.cd)/.test(js);
+    if (!hasTemplate) {
+      console.error('✗ hub 产物既无 URL 模板占位符，也无具体域名 —— 地址注入异常，拒绝部署');
+      process.exit(1);
+    }
+    console.log('✓ 产物 URL 自检通过（无 localhost，含 URL 模板占位符 · 运行时拼接）');
+  } else {
+    console.log('✓ 产物 URL 自检通过（无 localhost，含 pages.dev 模板）');
   }
-  console.log('✓ 产物 URL 自检通过（无 localhost，含 pages.dev 模板）');
 }
 
 const outHeaders = join(HUB, 'out', '_headers');
@@ -147,7 +179,9 @@ try {
   const out = wrangler(['pages', 'deploy', 'out', `--project-name=${PROJECT}`, '--branch=main', '--commit-dirty=true']);
   const preview = out.match(/https:\/\/[a-z0-9]+\.([a-z0-9-]+)\.pages\.dev/);
   console.log(`  ✓ 已部署${preview ? ' · ' + preview[0] : ''}`);
-  console.log(`\n生产地址：https://${PROJECT}.pages.dev`);
+  console.log(`\n生产地址：${LEGACY
+    ? `https://${PROJECT}.pages.dev`
+    : `https://${process.env.MATRIXOS_ZONE ?? 'matrixos.cc.cd'}`}`);
   process.exit(0);
 } catch (e) {
   const msg = `${e.stdout || ''}${e.stderr || ''}${e.message || ''}`;

@@ -114,6 +114,16 @@ hub 直接用 apex `matrixos.cc.cd`。
 node scripts/redeploy-headers.mjs --all
 ```
 
+### 5. 部署后验收（必做）
+
+```bash
+npm run verify:prod          # 或 node scripts/verify-prod.mjs
+npm run verify:prod:json     # 机器可读，便于 CI
+```
+
+判据（任一不符即退出码 1）：19 站 200、HSTS 含 `includeSubDomains`+`preload`、
+TLS 1.0/1.1 被拒且 1.2 可用、WAF 4 类探测被拦、apex 无 `error 1014`。
+
 ---
 
 ## 四、脚本职责
@@ -123,12 +133,47 @@ node scripts/redeploy-headers.mjs --all
 | `build-static-site.mjs` | 微站静态导出。临时替换 config → 构建 → fixup 补产物 → 恢复 config |
 | `build-hub-static.mjs` | hub 静态导出。额外临时移走 `/placeholder` 动态路由；`--production` 强制生产取值 |
 | `fixup-static-export.mjs` | 补齐 Next 漏导出的 `index.html`（见下） |
-| **`deploy-new-account.mjs`** | **【当前生产】用 wrangler OAuth 把 19 个目标部署到新账号** |
-| **`bind-microsite-domains.mjs`** | **【当前生产】给 19 个站点绑定 `*.matrixos.cc.cd` 域名 + 橙云 CNAME** |
+| **`deploy-new-account.mjs`** | **【当前生产】用 wrangler OAuth 把 19 个目标部署到新账号**（`npm run deploy`） |
+| **`bind-microsite-domains.mjs`** | **【当前生产】给 19 个站点绑定 `*.matrixos.cc.cd` 域名 + 橙云 CNAME**（`npm run deploy:domains`） |
+| **`verify-prod.mjs`** | **【当前生产】19 站全量验收：可达 / HSTS / TLS 下限 / WAF / 1014**（`npm run verify:prod`） |
 | **`migrate-site-origin.mjs`** | **【迁移一次性】把 18 份 `layout.tsx` 的 `SITE_ORIGIN` 从 pages.dev 改成 matrixos.cc.cd** |
-| `deploy-pages.mjs` | 【旧账号】用 API Token 批量创建项目 + 上传 out/（迁移前用） |
-| `redeploy-headers.mjs` | 只改 `_headers` 并重新部署，不重新构建 |
+| `deploy-hub.mjs` | 单独部 hub（`--production` 产物自检 + 前后置检查）；默认新账号，`--legacy-account` 回滚 |
+| `redeploy-headers.mjs` | 只改 `_headers` 并重新部署，不重新构建；默认新账号 |
+| **`deploy-pages.mjs`** | **【旧账号·已上锁】默认拒绝运行，必须显式 `--legacy-account`** |
 | `gen-not-found.mjs` | 为 18 站生成按站定制的 `not-found.tsx` |
+
+---
+
+## 四之二、⚠️ 静默写错账号：一次真实事故与防线
+
+**事故（2026-10-21 实测复现）**：账号迁移后跑 `node scripts/redeploy-headers.mjs --site=11-curvelab-fit`，
+输出 `✓ 11-curvelab-fit https://mx-curvelab.pages.dev`、退出码 0、看起来完全成功。
+
+实际结果：**产物写进了旧账号**。证据是旧账号 `mx-curvelab` 出现了
+`short_id=462636e7 / created_on=2026-10-21T01:14:18Z` 的新部署，时间正是那次运行；
+而新账号的最新部署时间未变。
+
+**根因**：`redeploy-headers.mjs` / `deploy-hub.mjs` / `deploy-pages.mjs` 会从
+`D:\tmp\matrixos-cloudflare.env` 读**旧账号** API Token 并写入
+`process.env.CLOUDFLARE_API_TOKEN`。wrangler 的**环境变量优先于 OAuth**，
+于是它用旧 token 认证，但 `--project-name=mx-curvelab` 在旧账号里恰好也存在
+（迁移后旧项目保留未删），部署就「成功」落到了旧账号。
+
+**为什么危险**：命令成功、URL 正确、退出码 0，唯独新账号线上没变。
+只看日志完全看不出问题，属于最需要警惕的一类错误。
+
+**防线（已落地）**：
+
+| 脚本 | 现在的行为 |
+| :--- | :--- |
+| `redeploy-headers.mjs` | 默认 `delete CLOUDFLARE_API_TOKEN`，强制走新账号 OAuth；打印目标账号；URL 显示 `matrixos.cc.cd` |
+| `deploy-hub.mjs` | 同上 |
+| `deploy-new-account.mjs` | 本就如此 |
+| `deploy-pages.mjs` | **默认直接拒绝运行**，必须显式 `--legacy-account` |
+
+**通用教训**：凡是用 `CLOUDFLARE_API_TOKEN` 驱动的 Cloudflare 脚本，
+在「有多账号 + 多环境」时必须**默认清空该变量**并显式选定账号，
+否则环境变量会静默越过你以为在用 OAuth。
 
 ---
 

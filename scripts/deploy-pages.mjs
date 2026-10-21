@@ -35,6 +35,35 @@ const args = process.argv.slice(2);
 const all = args.includes('--all');
 const siteArg = args.find((a) => a.startsWith('--site='))?.slice(7);
 const dryRun = args.includes('--dry-run');
+const forceLegacy = args.includes('--legacy-account');
+
+/* ══════════════════════════════════════════════════════════════════
+ * ⛔ 这是一个【旧账号】脚本，默认拒绝运行。
+ *
+ * 2026-10-21 起，19 个站点的生产部署已迁到新账号 e6bf8ab2…，
+ * 入口脚本是 `deploy-new-account.mjs`（走 wrangler OAuth）。
+ *
+ * 本文件仍保留，只因它是**回滚到旧账号**的唯一路径。
+ * 但它会从 D:\tmp\matrixos-cloudflare.env 注入旧账号 API Token，
+ * 而 wrangler 的环境变量优先于 OAuth —— 误跑一次就会把产物写进旧账号，
+ * 且命令成功退出、打印 ✓，线上新账号纹丝不动（静默写错账号）。
+ *
+ * 所以要运行它，必须显式加 --legacy-account 承认意图。
+ * ══════════════════════════════════════════════════════════════════ */
+if (!forceLegacy) {
+  console.error([
+    '✗ 本脚本部署到【旧账号】，已停止执行。',
+    '',
+    '  生产部署请改用：',
+    '    node scripts/deploy-new-account.mjs --all',
+    '',
+    '  确实需要回滚旧账号时，显式加旗标：',
+    '    node scripts/deploy-pages.mjs --all --legacy-account',
+  ].join('\n'));
+  process.exit(1);
+}
+
+console.log('⚠️  回滚模式：目标 = 旧账号 002738a5…（会覆盖旧账号的 mx-* 项目）');
 
 /* ── 项目名策略 ── */
 /**
