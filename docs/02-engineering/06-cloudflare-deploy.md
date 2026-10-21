@@ -761,8 +761,8 @@ node .tmp/verify-new-account.mjs
 ### 10.2 上线后验收（真浏览器，不是查 HTML 字符串）
 
 `scripts/verify-prod.mjs` 查的是 HTTP/TLS/WAF/canonical/CSP，**看不到「按钮点了有没有反应」**。
-所以补了一层线上 Playwright 验收（临时脚本 `.tmp/verify-online-all.mjs`，与
-`scripts/microsite-verify.mjs` 同一套断言）：真的点「新增 → 刷新 → 编辑 → 刷新 → 导出 CSV →
+所以补了一层线上 Playwright 验收：`scripts/verify-online.mjs`（与
+`scripts/microsite-verify.mjs` 同一套断言，可复跑）：真的点「新增 → 刷新 → 编辑 → 刷新 → 导出 CSV →
 清空 → 撤销 → 虫洞投送」，再切 390×844 量横向溢出。
 
 结果 **18/18 通过**（明细 `.tmp/microsite-verify/online-summary-*.json`）：
@@ -779,6 +779,12 @@ node .tmp/verify-new-account.mjs
 其中 16 站命中 1 次 React #418，按与本地验收器相同的策略重试一轮后通过
 （`hydrationRetries: 1`，见 `08-microsite-workbench.md` §8.12）；其余 17 站首轮通过。
 
+> **2026-10-21 15:39 复跑**：脚本已从临时文件固化为 `scripts/verify-online.mjs`，
+> 直接 `node scripts/verify-online.mjs`（或 `node scripts/verify-online.mjs 01 16` 只跑几站）
+> 即可复现上表。这一轮 **18/18 首轮通过，0 次水合重试**（`hydrationRetries` 全 0，
+> 明细 `.tmp/microsite-verify/online-summary-1792568347728.json`）——
+> 说明 #418 确实是概率性抖动，不是每次都在。
+
 ### 10.3 线上验收的两个坑（写进脚本注释了）
 
 1. **不能用条件渲染的 testid 判新旧**。第一版用 `data-testid="ledger-undo"` 和
@@ -789,6 +795,21 @@ node .tmp/verify-new-account.mjs
 2. **Cloudflare 的 bot-challenge 脚本会被记成失败请求**。
    `https://<site>/cdn-cgi/challenge-platform/h/b/jsd/oneshot/…` 被浏览器 `ERR_ABORTED`
    是 Cloudflare 注入的，不是本站资源；不过滤会让每站都假红。判据里排除 `/cdn-cgi/`。
+
+### 10.3.1 为什么线上验收脚本要进仓库（而不是留在 .tmp/）
+
+第一版是 `.tmp/verify-online-all.mjs` —— 临时文件、不进 git、下次要用得重写。
+后果很具体：文档里「线上 18/18 通过」这句话**别人无法复现**，只能选择相信。
+一个不可复跑的验收结论，和没有结论在工程上等价。
+
+所以固化为 `scripts/verify-online.mjs`（约 250 行），并做了三件在临时脚本里不会做的事：
+
+| 固化项 | 临时脚本 | 现在 |
+| :--- | :--- | :--- |
+| 站点清单来源 | 硬编码 18 个 id 的数组 | 读 `specs/microsites.json` 花名册，改花名册自动跟随 |
+| 部署域推导 | 手拼 `mx-${appId}` | 同左，但注释写明「逻辑域没有 A 记录，见 §2.1」，防止有人改回无前缀 |
+| 参数 | 无 | `01 16` 只跑指定站 / `--list` 只列地址 / 无参跑全量 |
+| 缺 playwright 时 | 直接抛模块解析错误 | 打印可执行的安装命令后退出 1 |
 
 ### 10.4 仍未上线 / 已知边界
 
