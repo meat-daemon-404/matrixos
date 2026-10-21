@@ -269,11 +269,14 @@ const visibleRecords = hydrated ? records : hydrationRecords;
 共享层（ledger / spec-factory / 7 个模板 / 仪器样式表）已全部就位，18 站完工层逐字节一致
 （`node scripts/wire-workbench.mjs --check` 全绿）。
 
-最近一次全量结果（2026-10-21 12:42）：
+最近一次全量结果（2026-10-21 14:48，域名口径收口 + 演示数据换成真实 DOI 之后）：
 
-- `node scripts/microsite-verify.mjs --all` → **18/18 通过**
+- `node scripts/microsite-verify.mjs --all` → **18/18 通过**（全部首轮，无一次水合重试）
 - `node .tmp/tsc-all.mjs`（逐站 `tsc --noEmit`）→ **18/18 通过**
 - `node --test apps/micro-sites/shared/test/*.test.ts` → **26/26 通过**
+- `node scripts/verify-pat-hot-dois.mjs` → **6/6 个 DOI 经 Crossref 可核验**
+- `node scripts/wire-workbench.mjs --check` → 完工层 18/18 与模板一致 + 虫洞契约自检通过
+- `pnpm typecheck` → 27/27；`turbo run build --filter="./apps/micro-sites/*" --filter="./apps/orbital-hub"` → 22/22
 
 ## 8. 完工过程中修掉的共享层缺陷
 
