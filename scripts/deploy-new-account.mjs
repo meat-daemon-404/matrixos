@@ -18,6 +18,8 @@ import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { clearProxyEnv, assertWranglerReady, PROD_ACCOUNT } from './lib/cf-preflight.mjs';
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const MICRO = join(ROOT, 'apps', 'micro-sites');
 const HUB = join(ROOT, 'apps', 'orbital-hub');
@@ -32,14 +34,15 @@ const PROJECT_PREFIX = process.env.MATRIXOS_PAGES_PREFIX ?? 'mx-';
 const projectNameFor = (appId) => `${PROJECT_PREFIX}${appId}`;
 
 /* 代理必须清掉（wrangler 走本地代理会 TLS 失败） */
-for (const k of ['HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'NO_PROXY', 'http_proxy', 'https_proxy', 'all_proxy', 'no_proxy']) {
-  delete process.env[k];
-}
+clearProxyEnv();
 /* 关键：清掉旧账号 token，强制 wrangler 用 OAuth 登录态 */
 delete process.env.CLOUDFLARE_API_TOKEN;
 delete process.env.CF_API_TOKEN;
 
 const NEW_ACCOUNT = 'e6bf8ab2cbb8475c1ba6d6570332c18d';
+
+/* 部署走 wrangler OAuth，与 cf 的凭据链无关，所以只检查 wrangler。
+   放在解析完 argv 之后调用（dry-run 也要先确认登录态，否则会给出误导性的“成功”）。 */
 
 function wrangler(wrArgs, cwd) {
   return execFileSync('npx', ['wrangler', ...wrArgs], {
@@ -129,6 +132,9 @@ if (!targets.length) {
 
 console.log(`目标账号 ${NEW_ACCOUNT.slice(0, 8)}… · ${targets.length} 个目标${dryRun ? ' · DRY RUN' : ''}`);
 
+/* 真正上传前确认 wrangler 登录态与账号，避免跑一半才因认证失败中断 */
+if (!dryRun) assertWranglerReady({ cwd: ROOT, quiet: true });
+
 const results = [];
 for (const t of targets) results.push(deployOne(t));
 
@@ -137,7 +143,11 @@ const fail = results.length - ok;
 console.log('\n' + '─'.repeat(64));
 console.log(`成功 ${ok}，失败 ${fail}`);
 for (const r of results) {
-  if (r.ok) console.log(`  ✓ ${r.label.padEnd(24)} https://${r.projectName}.pages.dev`);
+  // 生产地址是自有域名；pages.dev 那个是 Cloudflare 自动改名的内部主机名，不该当入口展示
+  const publicUrl = r.projectName === projectNameFor('orbital')
+    ? `https://${process.env.MATRIXOS_ZONE ?? 'matrixos.cc.cd'}`
+    : `https://${r.projectName}.${process.env.MATRIXOS_ZONE ?? 'matrixos.cc.cd'}`;
+  if (r.ok) console.log(`  ✓ ${r.label.padEnd(24)} ${publicUrl}`);
   else console.log(`  ✗ ${r.label.padEnd(24)} ${r.error}`);
 }
 process.exit(fail > 0 ? 1 : 0);

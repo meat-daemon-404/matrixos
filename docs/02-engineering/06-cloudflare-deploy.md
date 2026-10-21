@@ -271,6 +271,32 @@ wrangler 会走它，导致 TLS 握手失败或连不上 Cloudflare API。
 > 两条 OAuth 链**各自独立**：`cf auth login` 与 `npx wrangler login` 要分别做。
 > `cf` 的凭据不复用 wrangler 的，反之亦然。
 
+### 六之二、凭据会过期，且报错不看这套文档就会误判
+
+| 链 | 文件 | 是否自动续期 | 过期后报错 |
+| :--- | :--- | :--- | :--- |
+| `cf` | `~/.config/cloudflare/config/default.enc` | **否**（实测约 24h） | `[9106] Authentication failed (status: 400)` |
+| `wrangler` | `~/.config/.wrangler/config/default.toml` | 是（含 `refresh_token`） | `Not logged in` |
+
+**`cf` 的报错尤其容易误判**：`Authentication failed` 既不提「过期」也不提「未登录」，
+第一反应会去查网络 / 权限 / Account ID，实际只需 `cf auth login`。
+
+**排查第一步永远是**：
+
+```bash
+cf auth whoami      # 看 authenticated / tokenValid / expiresAt
+```
+
+所以两个依赖 cf 的脚本（`bind-microsite-domains.mjs`、`deploy-new-account.mjs`）
+已在启动时调用 `scripts/lib/cf-preflight.mjs` 的前置检查，会：
+
+- 拦住残留的 `CLOUDFLARE_API_TOKEN` 环境变量（它会覆盖 OAuth，导致打到别的账号）
+- 校验能看到目标账号，看不到就直说「你登录的是另一个账号」并给出换号命令
+- 剩余有效期 < 2 小时时打印告警（长任务可能中途失效）
+
+> **注意 `verify:prod` 不依赖 cf**：它只用 `curl` + `node tls`，
+> 所以即使 CLI 凭据全过期，线上验收依然可跑。这是刻意设计。
+
 ### 旧（旧账号，仅回滚用）
 
 | 项 | 位置 |

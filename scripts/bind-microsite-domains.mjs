@@ -24,21 +24,23 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 
+import { clearProxyEnv, assertCfReady } from './lib/cf-preflight.mjs';
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const MICRO = join(ROOT, 'apps', 'micro-sites');
 const ZONE = process.env.MATRIXOS_ZONE ?? 'matrixos.cc.cd';
 const DOMAIN_SUFFIX = process.env.MATRIXOS_SITE_SUFFIX ?? `.${ZONE}`;
-
-for (const k of ['HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'NO_PROXY', 'http_proxy', 'https_proxy', 'all_proxy', 'no_proxy']) {
-  delete process.env[k];
-}
-delete process.env.CLOUDFLARE_API_TOKEN;
 
 const args = process.argv.slice(2);
 const all = args.includes('--all');
 const siteArg = args.find((a) => a.startsWith('--site='))?.slice(7);
 const dryRun = args.includes('--dry-run');
 const onlyHub = args.includes('--hub-only');
+
+/* 本脚本全程依赖 cf CLI；先确认登录态与账号，否则后面每一步都会以
+   `[9106] Authentication failed` 这种不含「过期/未登录」字样的错误收场。 */
+clearProxyEnv();
+assertCfReady({ quiet: true });
 
 const PROJECT_PREFIX = process.env.MATRIXOS_PAGES_PREFIX ?? 'mx-';
 const projectNameFor = (appId) => `${PROJECT_PREFIX}${appId}`;
