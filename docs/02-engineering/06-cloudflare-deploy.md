@@ -297,6 +297,20 @@ cf auth whoami      # 看 authenticated / tokenValid / expiresAt
 > **注意 `verify:prod` 不依赖 cf**：它只用 `curl` + `node tls`，
 > 所以即使 CLI 凭据全过期，线上验收依然可跑。这是刻意设计。
 
+### 六之三、凭据过期时的能力边界
+
+`cf` 过期后**不是所有事都不能做**。按依赖链分成三档：
+
+| 能力 | 依赖 | cf 过期后 |
+| :--- | :--- | :--- |
+| `npm run verify:prod` | curl + node tls | ✅ **照常可用** |
+| `npm run deploy` / `deploy:hub` | wrangler OAuth（自动续） | ✅ 照常可用 |
+| `npm run deploy:domains` | cf CLI | ❌ 需 `cf auth login` |
+
+也就是说**日常部署与验收不依赖 cf**；只有「绑自有域名」这一步需要，
+而那是**已完成的一次性操作**（19/19 已绑完并验证）。
+cf 过期唯一影响的是：将来要新增站点绑域名时，先跑一次 `cf auth login`。
+
 ### 旧（旧账号，仅回滚用）
 
 | 项 | 位置 |
