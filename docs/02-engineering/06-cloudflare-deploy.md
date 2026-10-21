@@ -121,7 +121,7 @@ npm run verify:prod          # 或 node scripts/verify-prod.mjs
 npm run verify:prod:json     # 机器可读，便于 CI
 ```
 
-判据（任一不符即退出码 1），共 7 项：
+判据（任一不符即退出码 1），共 8 项：
 
 | # | 检查 | 为什么必须查 |
 | :--- | :--- | :--- |
@@ -132,9 +132,12 @@ npm run verify:prod:json     # 机器可读，便于 CI
 | 5 | apex 无 `error 1014` | 域名归属没掉 |
 | 6 | **canonical / og:url = 各站自己的生产 URL** | `layout.tsx` 是生成产物，改生成器不更新已有文件，极易静默回归 |
 | 7 | **微站 CSP `frame-ancestors` 放行 hub** | 少一条 hub 来源，iframe 被浏览器拦 → 内嵌区白屏，**HTTP 层完全看不出来** |
+| 8 | **信任白名单无第三方域名** | 白名单是信任声明；列进陌生 origin = 允许它投递伪造的 `mx_idt`（见 §四之三） |
 
-> 第 6、7 项是后面补的。补第 6 项时它立刻抓出 hub 的 canonical 缺失
-> （`metadataBase` 还写着已废弃的 `orbital.matrixos.edu`，实测 NXDOMAIN）。
+> 第 6/7/8 项是逐轮补的，且每补一项都立刻抓出过真问题：
+> - 补第 6 项 → 抓出 hub canonical 缺失（`metadataBase` 还写着已废弃的 `orbital.matrixos.edu`）
+> - 补第 7 项 → 用于确认迁移后 CSP 仍放行新 hub 域名
+> - 补第 8 项 → 抓出 `orbital.pages.dev` 是第三方站点（见 §四之三）
 
 ---
 
@@ -186,6 +189,72 @@ npm run verify:prod:json     # 机器可读，便于 CI
 **通用教训**：凡是用 `CLOUDFLARE_API_TOKEN` 驱动的 Cloudflare 脚本，
 在「有多账号 + 多环境」时必须**默认清空该变量**并显式选定账号，
 否则环境变量会静默越过你以为在用 OAuth。
+
+---
+
+## 四之三、⚠️ 信任白名单里的第三方域名（2026-10-21 清理）
+
+### 发现
+
+逐条验证 `HUB_ORIGINS` 里每个域名的**归属**时，查出三条不该在信任白名单里的条目：
+
+| 域名 | 实测 | 判定 |
+| :--- | :--- | :--- |
+| `orbital.pages.dev` | HTTP 200，`<title>Orbital Trails</title>` | **第三方站点** |
+| `orbital-hub.pages.dev` | HTTP 302，非本项目 | 不属于本项目 |
+| `orbital.matrixos.edu` | NXDOMAIN | 已废弃愿景域名 |
+
+`orbital.pages.dev` 只是当年第一次写 CSP 白名单时**写错的域名**
+（本文件 §五「坑 6」记的就是那次事故），后来被当成「历史兼容」一直留着。
+
+用 SDK 真实的 `OriginAllowList` 验证过：
+
+```js
+new OriginAllowList(['https://orbital.pages.dev']).allows('https://orbital.pages.dev') // true
+```
+
+### 为什么这是安全问题
+
+`packages/matrix-sdk/src/security/origin.ts` 开头写着原因：`postMessage` 的
+`event.origin` 是发送方**声明**的，不是认证的。不校验就能被恶意页面
+塞伪造的 `mx_idt` 或 `WormholeEnvelope`，让目标站把假数据写进自己的台账。
+
+**把陌生 origin 列进白名单 = 主动给第三方开信任通道。**
+
+### 修复（三处真正的注入源）
+
+| 文件 | 改动 |
+| :--- | :--- |
+| `scripts/lib/pages-headers.mjs` | `HUB_ORIGINS` 删除上述 3 条 |
+| `apps/micro-sites/shared/templates/sdk-facade.ts` | `DEFAULT_HUB_ORIGINS` 只留 loopback |
+| `apps/micro-sites/*/src/lib/sdk-facade.ts` | 18 份副本同步（模板生成物，改模板不自动更新） |
+
+### 防线
+
+1. **`check-host-origins.mjs`**：负样本从 4 条扩到 7 条，把这三个域名列为
+   「必须被拒」，防止将来又被顺手加回来。
+2. **`verify-prod` 第 8 项**：逐站解析线上 CSP `frame-ancestors`，
+   每条 host 必须是自有域名 / loopback / 已知 `mx-*` 项目，
+   并硬编码已知第三方黑名单。
+
+### 有意未改
+
+`packages/matrix-sdk` 的 `DEFAULT_ALLOWED_ORIGINS` 仍含
+`'https://orbital.matrixos.edu'`。它是 SDK **公共 API 的默认值**，
+微站全部显式传 `allowedOrigins` 覆盖它；改它属于库语义变更，
+还需同步改 `test/resize.test.ts`。风险与收益不成比例，留待单独评估。
+
+### 通用教训
+
+**CSP `frame-ancestors` 与 SDK `allowedOrigins` 是信任声明，不是 URL 注释。**
+每加一条都要能回答：这个 origin **现在**真的属于我吗？
+
+验证方式：
+
+```bash
+curl -s https://<host>/ | grep <本站特征词>   # 归属确认
+npm run verify:prod                            # 第 8 项会自动查
+```
 
 ---
 
