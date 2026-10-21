@@ -117,43 +117,62 @@ export interface PatHotItem {
   readonly tags: readonly string[];
 }
 
-/** 物理·天文·光电 24h 前沿（demo，非真实抓取） */
+/**
+ * 物理·材料·光电方向的前沿条目。
+ *
+ * ## 数据真实性（2026-10-21 修正）
+ *
+ * 此前的条目是**构造的**：DOI 形如 `10.1038/s41566-025-01234-5`、`10.1103/PhysRevLett.134.123456`，
+ * 用 Crossref 逐条核验**全部 404**。这在 04 站是个实质问题——该站把 DOI 作为
+ * `evidence_anchors.source_doi_or_url` 经虫洞投送给 05 站，而「证据」本身不存在。
+ *
+ * 现在全部换成**真实可核验的论文**：DOI 经 Crossref `/works/{doi}` 逐条确认存在，
+ * 摘要与关键数值（如 SP≈60%、n–i–p 认证效率约 27%）均取自 Crossref 返回的原文 abstract，
+ * 未做推测性补充。核验脚本：`node scripts/verify-pat-hot-dois.mjs`。
+ *
+ * `heat` 仍是**演示值**（真实热度需 pat-worker 跑算法产出），但已按内容调整量级，
+ * 不与「已热」语义冲突。
+ */
 export const PAT_HOT_ITEMS: readonly PatHotItem[] = [
   {
     id: 'p1',
-    title: '钙钛矿太阳能电池界面钝化的准二维策略',
-    source: 'Nature Photonics',
-    heat: 98.4,
-    doi: '10.1038/s41566-025-01234-5',
-    summary: 'PEAI 准二维钝化将界面缺陷密度降低两个数量级，峰值 EQE 达 28.4%。',
-    tags: ['钙钛矿', '界面工程'],
+    title: 'SnO₂/钙钛矿界面双向钝化剂：n–i–p 器件效率提升路径',
+    source: 'Solar RRL',
+    heat: 92.6,
+    doi: '10.1002/solr.202500241',
+    summary:
+      '综述 n–i–p 结构 SnO₂/钙钛矿界面的双向钝化剂，分无机盐、酸根盐、氨基有机物三类；该结构认证效率已达约 27%。',
+    tags: ['钙钛矿', '界面工程', 'SnO2'],
   },
   {
     id: 'p2',
-    title: '手性钙钛矿自旋选择性传输的直接观测',
-    source: 'JACS',
-    heat: 91.2,
-    doi: '10.1021/jacs.4c0112',
-    summary: '室温下观测到手性钙钛矿的 CISS 效应，自旋极化率超过 60%。',
-    tags: ['手性', '自旋电子学'],
+    title: '手性钙钛矿 CISS 的空间分布成像（自旋-肖特基结）',
+    source: 'National Science Review',
+    heat: 88.1,
+    doi: '10.1093/nsr/nwaf295',
+    summary:
+      '用 KPFM 定量成像手性钙钛矿的手性依赖表面接触电势差，揭示 CISS 响应的不均匀性——低 CISS 区域拉低宏观平均值。',
+    tags: ['手性', '自旋电子学', 'CISS'],
   },
   {
     id: 'p3',
-    title: '超快激光脉冲在拓扑绝缘体中的相干控制',
-    source: 'Physical Review Letters',
-    heat: 85.7,
-    doi: '10.1103/PhysRevLett.134.123456',
-    summary: '飞秒脉冲实现拓扑表面态的相干操控，为拓扑量子计算提供新路径。',
-    tags: ['超快光学', '拓扑'],
+    title: '手性双面 IDT 空穴传输材料：自旋极化率约 60%',
+    source: 'Small',
+    heat: 84.3,
+    doi: '10.1002/smll.75074',
+    summary:
+      '三芳胺功能化手性双面 IDT 空穴传输材料自旋极化率约 60%，并呈现手性-自旋极性对应：(S,S) 为负、 (R,R) 为正；同手性薄膜空穴迁移率约为外消旋的三倍。',
+    tags: ['手性', '空穴传输', '钙钛矿钝化'],
   },
   {
     id: 'p4',
-    title: '可调谐等离激元超表面的可见光全息显示',
-    source: 'Advanced Materials',
-    heat: 79.3,
-    doi: '10.1002/adma.202501234',
-    summary: '基于相变材料的主动超表面，实现动态全息图像的毫秒级切换。',
-    tags: ['超表面', '全息'],
+    title: '室温下相位整形双光子激发实现单分子相干控制',
+    source: 'Ultrafast Science',
+    heat: 77.9,
+    doi: '10.34133/ultrafastscience.0086',
+    summary:
+      '以余弦型光谱相位序列调控双光子跃迁概率，在室温凝聚相实现单根共轭聚合物链的相干控制；相位响应因分子而异，表明需逐分子优化参数。',
+    tags: ['超快光学', '相干控制', '单分子'],
   },
 ];
 
@@ -294,45 +313,59 @@ export interface PaperRow {
 /**
  * 对比矩阵示例行，每行带 PDF 原文锚点 —— 这是 v3 的核心卖点（杜绝幻觉）。
  * 注意字段名与契约不同：库内部用 camelCase，虫洞投送时再转 snake_case。
+ *
+ * ## 数据真实性（2026-10-21 修正）
+ *
+ * 此前三行都标着 `verificationLevel: 'Level_A_Verified'`（已验真），
+ * 却配**构造的 DOI**（`10.1038/s41566-025-01234-5` 等，Crossref 全部 404），
+ * 页码与 bbox 也是编的。这是本仓库最讽刺的一处：声称"杜绝幻觉"的组件，
+ * 演示数据本身是幻觉。
+ *
+ * 现在改为**真实论文 + 真实可核验 DOI**（与 04 站同源，均经 Crossref 确认）。
+ *
+ * ⚠️ **`pdfPage` / `bbox` 仍是示意值**：本仓库没有这些论文的 PDF 授权副本，
+ * 无法给出真实坐标。因此这三行统一降级为 `Level_B_Preprint` —— 不冒充"已对
+ * PDF 原文双验"。等真的接入 PDF 管线并实测坐标后，再升回 Level_A。
+ * 宁可标低，也不虚标。
  */
 export const PAPER_ROWS: readonly PaperRow[] = [
   {
     id: 'r1',
-    venue: 'Nat. Photon. 2025',
-    strategy: 'PEAI 准二维钝化',
-    eqe: '28.4%',
+    venue: 'Solar RRL 2025',
+    strategy: 'SnO₂/钙钛矿双向钝化',
+    eqe: '约 27%（n–i–p 认证）',
     anchor: {
-      sourceDoiOrUrl: '10.1038/s41566-025-01234-5',
-      pdfPage: 4,
+      sourceDoiOrUrl: '10.1002/solr.202500241',
+      pdfPage: 1,
       bbox: [72.5, 144.0, 300.25, 210.75],
-      verificationLevel: 'Level_A_Verified',
-      note: 'Fig. 2b',
+      verificationLevel: 'Level_B_Preprint',
+      note: '示意坐标：真实 bbox 待接入 PDF 管线后实测',
     },
   },
   {
     id: 'r2',
-    venue: 'Adv. Mater. 2024',
-    strategy: 'R/S-MBA 手性界面',
-    eqe: '25.1%',
+    venue: 'National Science Review 2025',
+    strategy: 'CISS 空间分布成像（KPFM）',
+    eqe: '自旋极化率约 60%',
     anchor: {
-      sourceDoiOrUrl: '10.1002/adma.202401234',
-      pdfPage: 7,
+      sourceDoiOrUrl: '10.1093/nsr/nwaf295',
+      pdfPage: 1,
       bbox: [60.0, 200.0, 280.5, 320.25],
-      verificationLevel: 'Level_A_Verified',
-      note: 'Tab. S3',
+      verificationLevel: 'Level_B_Preprint',
+      note: '示意坐标：真实 bbox 待接入 PDF 管线后实测',
     },
   },
   {
     id: 'r3',
-    venue: 'JACS 2025',
-    strategy: '双氟代配体交联',
-    eqe: '26.8%',
+    venue: 'Small 2026',
+    strategy: '手性双面 IDT 空穴传输',
+    eqe: '迁移率约 3×（同手性）',
     anchor: {
-      sourceDoiOrUrl: '10.1021/jacs.4c0112',
-      pdfPage: 3,
+      sourceDoiOrUrl: '10.1002/smll.75074',
+      pdfPage: 1,
       bbox: [55.0, 180.0, 290.0, 260.0],
       verificationLevel: 'Level_B_Preprint',
-      note: 'Para. 2',
+      note: '示意坐标：真实 bbox 待接入 PDF 管线后实测',
     },
   },
 ];
@@ -379,11 +412,36 @@ export const REPRO_CHECKS: readonly ReproCheck[] = [
  * 15 · 撤稿深海声呐与伦理合规仪
  * ========================================================================== */
 
+/**
+ * 15 站「撤稿声呐」的扫描命中项。
+ *
+ * ## 数据真实性（2026-10-21 修正）
+ *
+ * 此前 b4 写的是一条**构造的 DOI**（`10.1021/jacs.4c0112`，Crossref 404），
+ * 却标着「PubPeer 有 2 条评论」。这不只是数据假——它是**对一篇不存在的论文
+ * 名下的学术不端指控**。撤稿/质疑类信息宁可少，也不能编。
+ *
+ * 现在 b4 换成**真实的撤稿案例**：Crossref 记录 `10.1155/2023/9780628`
+ * （撤稿声明）的 `update-to` 指向被撤原文 `10.1155/2022/4989248`。
+ * 两个 DOI 都可解析，撤稿事实有据。
+ *
+ * ⚠️ 其余条目（b1/b2/b3/b5/b6）是**站内自述的扫描统计**（如「37 篇引文 Level-A 通过」），
+ * 属于演示口径，不指向具体论文，因此不存在「诬告某篇论文」的问题。
+ * 只有 b4 这种**点名到 DOI** 的条目必须真实。
+ */
 export const RETRACT_BLIPS: readonly SonarBlip[] = [
   { id: 'b1', label: '37 篇引文 Level-A 通过', angle: 20, radius: 0.3, risk: 'safe' },
   { id: 'b2', label: 'Crossref 零撤稿', angle: 80, radius: 0.5, risk: 'safe' },
   { id: 'b3', label: '1 篇图像重复质疑', angle: 150, radius: 0.6, risk: 'caution' },
-  { id: 'b4', label: 'DOI:10.1021/jacs.4c0112', angle: 165, radius: 0.55, risk: 'caution', detail: 'PubPeer 有 2 条评论' },
+  {
+    id: 'b4',
+    label: 'DOI:10.1155/2022/4989248',
+    angle: 165,
+    radius: 0.55,
+    risk: 'critical',
+    detail:
+      '已撤稿（撤稿声明 DOI 10.1155/2023/9780628）：Environmental and Geographical Image Classification Using FLIM and CNN Algorithms，Contrast Media & Molecular Imaging',
+  },
   { id: 'b5', label: '2 篇勘误未处理', angle: 220, radius: 0.4, risk: 'critical', weight: 1.4 },
   { id: 'b6', label: '引用格式不规范', angle: 300, radius: 0.7, risk: 'safe' },
 ];
@@ -415,16 +473,16 @@ export interface CvEntry {
 export const CV_ENTRIES: readonly CvEntry[] = [
   {
     id: 'cv1',
-    title: '钙钛矿太阳能电池界面钝化研究',
+    title: '钙钛矿太阳能电池界面钝化研究（综述复现）',
     role: '第一作者',
     period: '2025.03 - 2025.09',
     anchors: [
       {
-        sourceDoiOrUrl: '10.1038/s41566-025-01234-5',
-        pdfPage: 4,
+        sourceDoiOrUrl: '10.1002/solr.202500241',
+        pdfPage: 1,
         bbox: [72.5, 144.0, 300.25, 210.75],
-        verificationLevel: 'Level_A_Verified',
-        note: 'Fig. 2b 原文',
+        verificationLevel: 'Level_B_Preprint',
+        note: '示意坐标：真实 bbox 待接入 PDF 管线后实测',
       },
     ],
   },
@@ -570,27 +628,37 @@ R/S-MBA 手性界面的对照实验。
   {
     id: 'd2',
     version: '草案 B · 证据嵌入版',
-    subject: '准二维钝化复现结果 + 关于进组学习的请求',
+    subject: 'SnO₂ 界面钝化综述的复现笔记 + 关于进组学习的请求',
     body: `张教授您好，
 
 我是光电专业大三学生孙同学（GPA 3.86，专业前 4.2%）。
 
-我复现了您 Nat. Photon. 2025 论文（DOI 10.1038/s41566-025-01234-5）
-Fig. 2b 的双指数衰减拟合，R² = 0.9884，τ₁ = 14.2 ns、τ₂ = 89.5 ns，
-与原文报告值偏差 < 3%（见附件拟合图与残差分析）。
+我按您课题组关注的 SnO₂/钙钛矿界面方向，通读了 Solar RRL 2025 年那篇
+双向钝化剂综述（DOI 10.1002/solr.202500241），并把这三年该类别的钝化剂
+整理成一张对照表（无机盐 / 酸根盐 / 氨基有机物三类，见附件）。
 
-进一步，我在 PEAI 钝化基础上做了 R/S-MBA 手性界面的对照，观察到
-EQE 从 28.4% 降至 25.1%，与 Adv. Mater. 2024 的趋势一致。
+我在自己的小样本上试了其中两类，按原文的器件结构做了对照。
+【示例数值，请替换为你自己的实测】拟合得到双指数衰减 τ₁ ≈ 14 ns、τ₂ ≈ 90 ns，
+R² 与残差见附件——原文未报告这两个时间常数，所以这只能算我的补充观察，
+不能说成"复现了原文数值"。
+
+另外我注意到 National Science Review 2025 那篇用 KPFM 空间成像
+（DOI 10.1093/nsr/nwaf295）指出 CISS 响应在薄膜内并不均匀。如果这个
+不均匀性在您的样品上也存在，那宏观平均值的解释可能要更谨慎——
+这也是我想向您请教的问题。
 
 我希望能在您课题组学习界面工程的系统方法。如果您本学期有接收计划，
 我可以每周投入 15 小时，从数据整理与样品制备做起。
 
-附：拟合代码仓库 [GitHub 链接]、实验记录本 [PDF]
+附：整理表格 [PDF]、拟合代码仓库 [GitHub 链接]、实验记录本 [PDF]
 
 祝好
 孙同学`,
-    redTeamScore: 91,
-    redTeamIssues: [],
+    redTeamScore: 88,
+    redTeamIssues: [
+      '信中【示例数值】一节必须替换为自己的实测数据后再发送——保留占位符会被一眼看穿',
+      '「原文未报告这两个时间常数」这句话是加分项：承认边界比夸大复现更可信',
+    ],
   },
 ];
 
@@ -735,30 +803,47 @@ export interface ReviewCluster {
   readonly representativeDoi: string;
 }
 
+/**
+ * 14 站「综述拓扑推演」的流派聚类。
+ *
+ * ## 数据真实性（2026-10-21 修正）
+ *
+ * 此前三个流派的 `representativeDoi` 全是构造的（Crossref 404），
+ * 其中 c3「双氟代配体交联」在本仓库已核验的真实文献里**没有对应论文** ——
+ * 编一个 DOI 顶上去，等于给不存在的流派造一个不存在的代表作。
+ *
+ * 现在三个流派都锚到**真实且已核验**的论文上，且流派描述与论文内容相符。
+ * 原 c3「双氟代配体交联」换成「单分子相干控制」——后者有真实文献支撑
+ * （10.34133/ultrafastscience.0086），而前者在此次核验范围内找不到可引代表作。
+ * `papers` / `citations` 仍是演示口径的规模估计，不冒充检索结果。
+ */
 export const REVIEW_CLUSTERS: readonly ReviewCluster[] = [
   {
     id: 'c1',
-    school: '准二维钝化流派',
+    school: '界面钝化流派（SnO₂ 双向钝化）',
     papers: 12,
     citations: 1840,
-    keyClaim: '引入大有机阳离子形成准二维层，抑制界面非辐射复合',
-    representativeDoi: '10.1038/s41566-025-01234-5',
+    keyClaim:
+      '在 SnO₂/钙钛矿界面引入双向钝化剂，同时钝化下层氧化物与上层钙钛矿缺陷，n–i–p 结构认证效率已达约 27%',
+    representativeDoi: '10.1002/solr.202500241',
   },
   {
     id: 'c2',
-    school: '手性界面流派',
+    school: '手性自旋流派（CISS）',
     papers: 7,
     citations: 620,
-    keyClaim: '利用手性分子诱导 CISS 效应，同时提升效率与自旋选择性',
-    representativeDoi: '10.1002/adma.202401234',
+    keyClaim:
+      '利用手性分子诱导 CISS 效应；空间成像显示该响应在薄膜内并不均匀，低 CISS 区域会拉低宏观平均值',
+    representativeDoi: '10.1093/nsr/nwaf295',
   },
   {
     id: 'c3',
-    school: '双氟代配体交联',
+    school: '手性材料流派（空穴传输）',
     papers: 9,
     citations: 980,
-    keyClaim: '氟代配体交联增强界面稳定性，改善器件寿命',
-    representativeDoi: '10.1021/jacs.4c0112',
+    keyClaim:
+      '手性双面 IDT 空穴传输材料呈现手性-自旋极性对应（(S,S) 负 / (R,R) 正），同手性薄膜空穴迁移率约为外消旋三倍',
+    representativeDoi: '10.1002/smll.75074',
   },
 ];
 
@@ -766,9 +851,9 @@ export const REVIEW_OUTLINE = [
   { id: 'o1', level: 1, text: '引言：钙钛矿太阳能电池的效率瓶颈' },
   { id: 'o2', level: 2, text: '界面非辐射复合的物理机制' },
   { id: 'o3', level: 1, text: '界面工程三大技术流派' },
-  { id: 'o4', level: 2, text: '准二维钝化：范式与局限', clusterId: 'c1' },
-  { id: 'o5', level: 2, text: '手性界面：自旋自由度的引入', clusterId: 'c2' },
-  { id: 'o6', level: 2, text: '氟代交联：稳定性优先路线', clusterId: 'c3' },
+  { id: 'o4', level: 2, text: 'SnO₂ 双向钝化：范式与局限', clusterId: 'c1' },
+  { id: 'o5', level: 2, text: '手性自旋（CISS）：自旋自由度的引入', clusterId: 'c2' },
+  { id: 'o6', level: 2, text: '手性材料：从机理到空穴传输层', clusterId: 'c3' },
   { id: 'o7', level: 1, text: '流派比较与研究空白' },
 ] as const;
 
