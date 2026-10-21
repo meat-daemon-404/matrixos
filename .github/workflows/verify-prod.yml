@@ -1,0 +1,76 @@
+name: 线上巡检
+
+# 目的：对**已部署的生产环境**做外部黑盒验收，与代码 CI（verify.yml）互补。
+#
+# 为什么单独一个 workflow：
+#   verify.yml 校验的是「仓库内容」（契约、文档链接、无敏感文件）。
+#   本 workflow 校验的是「线上现在到底通不通」——它不构建、不部署，
+#   只从公网打 19 个站点，所以每次跑都是对真实用户视角的一次体检。
+#
+# 设计取舍：
+#   - 不依赖任何凭据：verify-prod.mjs 只用 curl + node tls，
+#     不读 CLOUDFLARE_API_TOKEN、不用 cf/wrangler。这样即使凭据轮换、
+#     过期（cf 的 OAuth 约 24h 就过期），巡检依然能跑。
+#   - 定时 + 手动：没有「部署后自动触发」，因为部署在本机做，不在 CI。
+#     想做部署后门禁，本地跑 `npm run verify:prod` 即可。
+#
+# 判据见 scripts/verify-prod.mjs（共 8 项：可达/HSTS/TLS下限/WAF/1014/
+# canonical/CSP放行hub/信任白名单无第三方域名）。
+
+on:
+  schedule:
+    # 每天 09:00 UTC（北京时间 17:00）巡检一次
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      # 只有「验收逻辑本身」或「线上地址来源」变了才需要重跑，
+      # 避免每次提交文档都触发一次全量外网请求
+      - 'scripts/verify-prod.mjs'
+      - 'scripts/lib/pages-headers.mjs'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    name: 19 站线上验收
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 确认脚本不依赖 Cloudflare 凭据
+        run: |
+          set -euo pipefail
+          # 巡检必须能在「凭据全部过期」的情况下运行。
+          # 一旦有人给 verify-prod 加了 cf/wrangler 依赖，这条会失败。
+          if grep -nE "execFileSync\(\s*'(cf|npx)'" scripts/verify-prod.mjs; then
+            echo "::error::verify-prod.mjs 不应依赖 cf / wrangler 凭据，巡检必须无凭据可跑"
+            exit 1
+          fi
+          echo "无凭据依赖 ✓"
+
+      - name: 线上验收
+        run: node scripts/verify-prod.mjs
+
+      - name: 上传 JSON 结果
+        if: always()
+        run: node scripts/verify-prod.mjs --json > verify-prod.json || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verify-prod-result
+          path: verify-prod.json
+          retention-days: 14

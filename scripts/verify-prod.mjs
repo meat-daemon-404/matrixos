@@ -35,11 +35,24 @@ for (const k of ['HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'NO_PROXY', 'http_pro
   delete process.env[k];
 }
 
-/** 用 curl 取状态码 + 响应头（curl 在 Windows 上是现成的，避免 node 代理差异） */
+/*
+ * curl 可执行名按平台选。
+ *
+ * Windows 自带 curl.exe；Linux/macOS 是 curl。原实现写死 'curl.exe'，
+ * 导致本脚本在 CI（ubuntu-latest）上**根本跑不起来** —— 而它的定位正是
+ * 「部署后自动门禁」，必须跨平台。
+ *
+ * 另：Windows 上 curl 的 -o NUL 与 Linux 的 -o /dev/null 也不同，一并处理。
+ */
+const IS_WIN = process.platform === 'win32';
+const CURL = IS_WIN ? 'curl.exe' : 'curl';
+const NULL_DEVICE = IS_WIN ? 'NUL' : '/dev/null';
+
+/** 用 curl 取状态码 + 响应头 */
 function curlHead(url, extraArgs = []) {
   try {
-    const out = execFileSync('curl.exe', [
-      '-sS', '-o', 'NUL', '-D', '-', '--max-time', '30', '-A', UA, ...extraArgs, url,
+    const out = execFileSync(CURL, [
+      '-sS', '-o', NULL_DEVICE, '-D', '-', '--max-time', '30', '-A', UA, ...extraArgs, url,
     ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
     const statusMatch = /^HTTP\/[\d.]+\s+(\d{3})/m.exec(out);
     const hsts = /^strict-transport-security:\s*(.+)$/im.exec(out);
@@ -53,7 +66,7 @@ function curlHead(url, extraArgs = []) {
 
 function curlBody(url) {
   try {
-    return execFileSync('curl.exe', ['-sS', '--max-time', '30', '-A', UA, url],
+    return execFileSync(CURL, ['-sS', '--max-time', '30', '-A', UA, url],
       { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   } catch (e) {
     return `${e.stdout || ''}`;

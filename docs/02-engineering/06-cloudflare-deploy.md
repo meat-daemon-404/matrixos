@@ -121,6 +121,18 @@ npm run verify:prod          # 或 node scripts/verify-prod.mjs
 npm run verify:prod:json     # 机器可读，便于 CI
 ```
 
+**CI 已接入**：`.github/workflows/verify-prod.yml`
+- 每天 09:00 UTC 定时巡检 + 手动触发
+- 只在 `verify-prod.mjs` / `pages-headers.mjs` 变更时随 push 跑
+- **不依赖任何 Cloudflare 凭据**（只用 curl + node tls）——
+  这样即使 cf 的 OAuth 过期，巡检依然能跑
+- 有个守卫步骤：一旦有人给 `verify-prod.mjs` 加了 `cf` / `npx wrangler` 调用，
+  CI 会直接失败并提示「巡检必须无凭据可跑」
+
+> 跨平台注意：脚本按 `process.platform` 选 `curl.exe` / `curl` 与 `NUL` / `/dev/null`。
+> 早期版本写死 `curl.exe` + `NUL`，在 ubuntu-latest 上根本跑不起来 —— 而它的定位
+> 就是部署后门禁，必须跨平台。
+
 判据（任一不符即退出码 1），共 8 项：
 
 | # | 检查 | 为什么必须查 |
