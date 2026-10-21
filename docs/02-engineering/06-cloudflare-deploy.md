@@ -735,5 +735,65 @@ node .tmp/verify-new-account.mjs
 | 部署时报「out/index.html 不存在」 | 产物刚被并行会话清掉 |
 
 **做法**：批量构建/部署前先查并发进程，构建完立刻回读 `out/index.html` 的 canonical 确认；
-发现站点被清空就单独重跑该站（脚本本身是幂等的）。
+发现站点被清掉就单独重跑该站（脚本本身是幂等的）。
+
+---
+
+## 十、完工层上线（2026-10-21 15:00）
+
+18 个微站的「完工层」（本地持久化台账 / 就地编辑 / 清空撤销 / CSV+JSON 导出 /
+虫洞投送与接收 / 资产图谱写入）在本地验收 18/18 通过后，已用
+`node scripts/deploy-new-account.mjs --all` 部署到生产，**19/19 成功**。
+
+### 10.1 为什么必须重部署，而不是「代码提交了就算上线」
+
+提交只进 git，Cloudflare Pages 是纯静态托管 —— 不发 `wrangler pages deploy`，
+线上永远是上一版产物。本轮实测到的差距：
+
+| 项 | 部署前线上 | 部署后线上 |
+| :--- | :--- | :--- |
+| 就地编辑（`data-testid="ledger-edit"`） | 0/18 | **18/18** |
+| CSV 导出 | 0/18 | **18/18** |
+| 虫洞接收面板 | 0/18 | **18/18** |
+| 资产图谱写入 | 0/18 | **18/18** |
+| 站点域名文字 | 仍显示 `*.matrixos.edu`（4 处/站） | **0 处** |
+
+### 10.2 上线后验收（真浏览器，不是查 HTML 字符串）
+
+`scripts/verify-prod.mjs` 查的是 HTTP/TLS/WAF/canonical/CSP，**看不到「按钮点了有没有反应」**。
+所以补了一层线上 Playwright 验收（临时脚本 `.tmp/verify-online-all.mjs`，与
+`scripts/microsite-verify.mjs` 同一套断言）：真的点「新增 → 刷新 → 编辑 → 刷新 → 导出 CSV →
+清空 → 撤销 → 虫洞投送」，再切 390×844 量横向溢出。
+
+结果 **18/18 通过**（明细 `.tmp/microsite-verify/online-summary-*.json`）：
+
+| 断言 | 结果 |
+| :--- | :--- |
+| 新增后刷新计数保持 | 18/18 |
+| 就地编辑保存后可见 + 刷新仍在 | 18/18 |
+| CSV 真下载（513–1921 B） | 18/18 |
+| 清空归零 + 撤销恢复原值 | 18/18 |
+| 虫洞投送反馈非空 | 18/18 |
+| 移动端 390px 横向溢出 | 全部 0 px |
+
+其中 16 站命中 1 次 React #418，按与本地验收器相同的策略重试一轮后通过
+（`hydrationRetries: 1`，见 `08-microsite-workbench.md` §8.12）；其余 17 站首轮通过。
+
+### 10.3 线上验收的两个坑（写进脚本注释了）
+
+1. **不能用条件渲染的 testid 判新旧**。第一版用 `data-testid="ledger-undo"` 和
+   `ledger-edit-form` 判断线上是否为新版，结果 18 站全判「旧版」—— 这两个元素
+   只在「清空后」「点编辑后」才出现，SSR HTML 里本来就没有。改用
+   `ledger-edit` / `导出 CSV` / `wormhole-emit` / `接收演示信封` / `写入资产图谱`
+   这 5 个首屏就存在的标记后才是真判据。
+2. **Cloudflare 的 bot-challenge 脚本会被记成失败请求**。
+   `https://<site>/cdn-cgi/challenge-platform/h/b/jsd/oneshot/…` 被浏览器 `ERR_ABORTED`
+   是 Cloudflare 注入的，不是本站资源；不过滤会让每站都假红。判据里排除 `/cdn-cgi/`。
+
+### 10.4 仍未上线 / 已知边界
+
+- `api.matrixos.cc.cd` 无 DNS 记录 → 虫洞投送在线上只能走「端侧信封」，
+  UI 如实写「本地演示 · 未实际投送」，**没有伪造投递成功**。
+- 台账存在浏览器 `localStorage`，换设备需用导出文件搬运（UI 上有说明）。
+
 
