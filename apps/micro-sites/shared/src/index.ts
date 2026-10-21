@@ -917,6 +917,7 @@ export type {
 export type {
   SiteIdentityLike,
   RecordView,
+  RecordDraft,
   EnvelopePayloadLike,
   ConsumableEnvelope,
   SdkBridge,

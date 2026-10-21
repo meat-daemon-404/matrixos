@@ -78,6 +78,25 @@ interface RowSeed {
 - 一节「本地开发」：`pnpm --filter <包名> dev` 的端口。
 - 「下一步（S3 功能完备化）」一节删掉 —— 已完工，改为「验收」一节，写怎么跑验收器。
 
+### 2.3 完工台白送的能力（不用各站写）
+
+`workbench-impl.tsx` 是共享的，所以下面这些每站自动就有：
+
+| 能力 | `data-testid` | 说明 |
+| :--- | :--- | :--- |
+| 新增 | `ledger-save` | 走 `spec.add()`；计数 `ledger-count` 同步 |
+| 就地编辑 | `ledger-edit` → `ledger-edit-form` / `-title` / `-meta` / `-detail` / `-save` | 走 `spec.patch()`：**用户输入原样保存**，不追加「已编辑 N 次」后缀（那是 `spec.edit()` 的职责），空串不覆盖原值 |
+| 删除 | `ledger-remove` | 走 `spec.remove()` |
+| 导出 | `ledger-export-json` / CSV | 带 UTF-8 BOM，Excel 直接打开不乱码 |
+| 清空 + **撤销** | `ledger-clear` / `ledger-undo` | 清空存内存快照，8 秒内可一键恢复；过期或刷新后快照失效 |
+| 虫洞投送 | `wormhole-emit` / `wormhole-feedback` | 无宿主时明写「本地演示 · 未实际投送」，不伪造成功 |
+| 接收演示信封 | `wormhole-accept` / `wormhole-accept-feedback` | 走 `spec.accept.consume()`，把外部 payload 落成本站一条记录 |
+| 写入资产图谱 | `asset-emit` | 有宿主才真写，否则明说「未实际写入」 |
+
+撤销为什么不用 `confirm()`：iframe 里原生模态在各浏览器表现不一致，且会卡住验收器。
+也不用「点两次确认」：那会破坏验收器「点一次 `ledger-clear` 就断言归零」的契约。
+8 秒窗口 + 快照恢复是唯一同时满足「防误点」和「可自动化验收」的形态。
+
 ## 3. 验收契约（`scripts/microsite-verify.mjs` 实际断言）
 
 跑法：
@@ -95,12 +114,15 @@ node scripts/microsite-verify.mjs --site=X --skip-build     # 复用上次 out/
 3. 七个 `data-testid` 全部存在：
    `primary-tool` / `ledger-count` / `ledger-save` / `ledger-export-json` / `ledger-clear` / `wormhole-emit` / `wormhole-feedback`
 4. 点 `ledger-save` → 计数 +1；刷新后计数保持
-5. 点 `ledger-export-json` → 真的触发下载且文件 > 8 字节
-6. 点 `ledger-clear` → 计数归 0；刷新后仍为 0
-7. 点 `wormhole-emit` → `wormhole-feedback` 非空（**注意：此时台账已被清空，
+5. 点 `ledger-edit` → 出现 `ledger-edit-form`；改标题 → 保存 → 页面可见；
+   **刷新后仍在**（落盘才算数；只验表单出现等于没验）
+6. 点 `ledger-export-json` → 真的触发下载且文件 > 8 字节
+7. 点 `ledger-clear` → 计数归 0；出现 `ledger-undo`；点撤销 → **计数恢复原值**；
+   再清空 → 刷新后仍为 0（只验撤销按钮存在 = 验了个空壳）
+8. 点 `wormhole-emit` → `wormhole-feedback` 非空（**注意：此时台账已被清空，
    所以投送必须在空台账下也能产出反馈 —— 靠站级基线锚点兜底**）
-8. console error = 0、未捕获异常 = 0、失败请求 = 0
-9. 390×844 移动端无横向溢出
+9. console error = 0、未捕获异常 = 0、失败请求 = 0
+10. 390×844 移动端无横向溢出
 
 截图落在 `.tmp/microsite-verify/<site>-{desktop,mobile}.png`。
 
@@ -131,6 +153,25 @@ useEffect(() => { setSnap(ledger.read()); }, []);               // 客户端再�
 ```
 
 `ledger.readDefault()` 是专供 SSR/首帧的纯函数，不读 localStorage。
+
+**但这还不够 —— 2026-10-21 又踩了第二次。** `useState(() => ledger.readDefault())` 的
+初始化函数**在浏览器首次渲染时也会执行**；只要存储里已有用户数据（条数不同、标题被就地
+编辑过），首帧渲染出的文本就和服务端 HTML 对不上 → 依然是 #418。而它只在
+「先 save + reload，再 edit + save，再 reload」这种累积路径上稳定复现 —— 单独 save
+或单独 edit 都不触发，所以很容易被误判成「已经修好了」。
+
+修法：**显式水合闸门**，不依赖 effect 的执行时机。
+
+```tsx
+const [hydrated, setHydrated] = useState(false);
+useEffect(() => { setSnapshot(ledger.read()); setStorage(...); setHydrated(true); }, [ledger]);
+
+const hydrationRecords = useMemo(() => spec.records(ledger.readDefault().data), [spec, ledger]);
+const visibleRecords = hydrated ? records : hydrationRecords;
+```
+
+渲染层（计数与列表）一律走 `visibleRecords`，业务逻辑（导出/投送/新增/编辑）仍用
+真实 `records`。水合期渲染的分支因此是**确定的**：就是服务端那一份。
 
 ### 4.3 中文文件不能用 PowerShell 管道回写
 
@@ -202,7 +243,7 @@ useEffect(() => { setSnap(ledger.read()); }, []);               // 客户端再�
 ## 7. 当前进度
 
 18 站全部完工：每站都有手写 `src/lib/site-spec.ts`（933 B 骨架 → 4–53 KB 真实业务）、
-完工形态 `README.md`（含「数据模型」「虫洞契约」两节）、并通过 9 项端到端验收。
+完工形态 `README.md`（含「数据模型」「虫洞契约」两节）、并通过 10 项端到端验收。
 
 | 站点 | site-spec.ts | README | 验收 |
 | :--- | :--- | :--- | :--- |
@@ -221,12 +262,18 @@ useEffect(() => { setSnap(ledger.read()); }, []);               // 客户端再�
 | 13 Nature 级出版图表熔炉 | ✅ 13.5 KB | ✅ | ✅ 通过 |
 | 14 综述拓扑推演与写作舱 | ✅ 12.3 KB | ✅ | ✅ 通过 |
 | 15 撤稿深海声呐与伦理合规仪 | ✅ 15.7 KB | ✅ | ✅ 通过（`Retracted_Warning` 已落地） |
-| 16 云衡 · 数字天平综测核算器 | ✅ 15.6 KB | ✅ | ✅ 通过（水合 #418 已修，见 §8） |
+| 16 云衡 · 数字天平综测核算器 | ✅ 15.6 KB | ✅ | ✅ 通过（水合 #418 已修，见 §4.2） |
 | 17 区块链级学术证据简历工坊 | ✅ 22.9 KB（五类 payload 分流） | ✅ | ✅ 通过 |
 | 18 生涯多重宇宙期望决策树 | ✅ 23.5 KB（含学职平台真实数据） | ✅ | ✅ 通过 |
 
 共享层（ledger / spec-factory / 7 个模板 / 仪器样式表）已全部就位，18 站完工层逐字节一致
 （`node scripts/wire-workbench.mjs --check` 全绿）。
+
+最近一次全量结果（2026-10-21 12:42）：
+
+- `node scripts/microsite-verify.mjs --all` → **18/18 通过**
+- `node .tmp/tsc-all.mjs`（逐站 `tsc --noEmit`）→ **18/18 通过**
+- `node --test apps/micro-sites/shared/test/*.test.ts` → **26/26 通过**
 
 ## 8. 完工过程中修掉的共享层缺陷
 
@@ -331,3 +378,19 @@ accepts 至少一个类型被来源站 emits、accepts 的每个类型至少有�
 表现为随机 ENOENT、CSS 404、React #418 —— 全是假红，单跑立刻绿。
 修法：`microsite-verify.mjs` 加站点级构建锁（`<站>/.verify-build.lock` 目录做原子互斥，
 等锁上限 8 分钟，超时明确报错而不是无限等）。
+
+### 8.11 `--skip-build` 复用旧产物时，`#418` 可能是假红
+
+实测：03 站 `--skip-build` 报「未捕获异常 1 条：#418」，但用同一个 `out/` 跑
+逐步探针（`.tmp/probe-any.mjs`，完整复刻验收器 11 步）却是 11/11 全绿 ——
+因为那次 `out/` 是**水合修复之前**构建的，HTML 里还是旧的服务端渲染结果，
+而页面引的 JS 已经是新产物。源码、`out/` 里 JS、`out/` 里 HTML 三者版本不一致。
+
+处置顺序（不要反过来）：
+
+1. 先跑不带 `--skip-build` 的验收。绿 → 就是产物陈旧，收工。
+2. 仍红 → 才是真的代码问题，再用逐步探针定位到具体第几步。
+3. 探针与验收器结论不一致时，**优先信验收器**（它是门禁），但先确认两者的产物同源。
+
+同理，`verify-microsites.mjs` 的「`out/` 比 `src/` 旧就跳过」判定只能挡住一部分：
+它比的是 mtime，而 `--skip-build` 手动跑时没有这层保护。

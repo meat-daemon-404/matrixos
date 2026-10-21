@@ -15,6 +15,7 @@ import type {
   CsvTable,
   ConsumableEnvelope,
   EnvelopePayloadLike,
+  RecordDraft,
   RecordView,
   SiteWorkbenchSpec,
 } from './types.js';
@@ -217,6 +218,36 @@ export function createRowSpec(config: RowSpecConfig): SiteWorkbenchSpec<RowLedge
             ...row,
             edits,
             title: `${baseTitle(String(row.title))} · 已编辑 ${edits} 次`,
+            updatedAt: nowIso,
+          };
+        }),
+      };
+    },
+
+    /**
+     * 用**用户输入**改写一条记录。
+     *
+     * 与 `edit` 的分工：`edit` 是「系统按规则改」（追加编辑次数标记，用于验收与演示），
+     * `patch` 是「用户填自己的内容」。两者都刷新 updatedAt，但 patch **不**动标题后缀 ——
+     * 用户输入的标题应当原样保存，不该被系统追加「已编辑 N 次」。
+     *
+     * 裁剪规则：只接受 title/meta/detail 三个字段，字符串两端空白去掉；
+     * 结果为空串时**保持原值**（不允许把标题清成空，否则列表里就只剩一串空白行）。
+     */
+    patch(data: RowLedgerData, id: string, patch: RecordDraft, nowIso: string): RowLedgerData {
+      const pick = (next: string | undefined, current: string): string => {
+        if (typeof next !== 'string') return current;
+        const trimmed = next.trim();
+        return trimmed === '' ? current : trimmed;
+      };
+      return {
+        rows: rowsOf(data).map((row) => {
+          if (String(row.id) !== id) return row;
+          return {
+            ...row,
+            title: pick(patch.title, String(row.title)),
+            meta: pick(patch.meta, String(row.meta)),
+            detail: pick(patch.detail, String(row.detail)),
             updatedAt: nowIso,
           };
         }),

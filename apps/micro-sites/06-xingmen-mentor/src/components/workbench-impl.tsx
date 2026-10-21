@@ -46,6 +46,7 @@ import {
   type EnvelopePayloadLike,
   type Ledger,
   type LedgerSnapshot,
+  type RecordDraft,
   type RecordView,
   type SdkBridge,
   type SiteIdentityLike,
@@ -154,6 +155,36 @@ const WORKBENCH_CSS = `
 .mx-wb-row-detail { display: block; margin-top: 3px; font-size: var(--text-2xs, 10px); color: var(--color-text-muted, #94a3b8); overflow-wrap: anywhere; }
 .mx-wb-row-actions { display: flex; flex-shrink: 0; gap: 6px; }
 .mx-wb-row-actions .mx-wb-btn { padding: 3px 8px; min-height: 24px; font-size: var(--text-2xs, 10px); }
+/* 就地编辑：整行换成表单，宽度占满（不要再挤在 220px 的 flex 里） */
+.mx-wb-row-editing { display: block; }
+.mx-wb-form { display: flex; flex-direction: column; gap: 8px; width: 100%; min-width: 0; }
+.mx-wb-field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.mx-wb-field > span {
+  font-size: var(--text-2xs, 10px);
+  color: var(--color-text-faint, #64748b);
+  letter-spacing: .04em;
+}
+.mx-wb-field input,
+.mx-wb-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border-radius: var(--radius-xs, 4px);
+  border: 1px solid var(--color-border-strong, #334155);
+  background: var(--color-bg-sunken, #020617);
+  color: var(--color-text, #f1f5f9);
+  font-family: var(--font-sans, system-ui);
+  font-size: var(--text-xs, 12px);
+  line-height: 1.5;
+  resize: vertical;
+}
+.mx-wb-field input:focus,
+.mx-wb-field textarea:focus {
+  outline: none;
+  border-color: var(--color-action, #6366f1);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, .2);
+}
+.mx-wb-form-actions { display: flex; gap: 6px; }
 .mx-wb-empty {
   padding: 18px 12px; text-align: center;
   font-size: var(--text-xs, 12px); color: var(--color-text-faint, #7d8ba1);
@@ -233,7 +264,23 @@ export function Workbench<T>(props: WorkbenchProps<T>) {
     [ledgerKey, ledgerVersion],
   );
 
-  /* 首帧必须与服务端一致：先用默认值，挂载后再读真实存储。 */
+  /**
+   * 首帧必须与服务端逐字一致，所以用一个 `hydrated` 闸门：
+   *
+   *   hydrated === false → 渲染 `readDefault()` 的结果（= 服务端渲染的那一份）
+   *   hydrated === true  → 渲染存储里的真实台账
+   *
+   * 为什么不能只靠 `useState(() => readDefault())` + `useEffect(setSnapshot(read()))`：
+   *   在浏览器里 `useState` 的初始化函数**在首次渲染时就执行**，而 React 18 的
+   *   hydration 会把这次渲染的产出与服务端 HTML 比对。若此时存储里已有用户数据
+   *   （条数不同、标题被编辑过），首帧文本就与服务端对不上 —— 直接 React #418。
+   *
+   *   单独 `save` 或单独 `edit` 时条数变化往往被别的重排掩盖，所以只在「新增一条
+   *   ＋编辑过标题」这种组合下稳定复现（实测 16 站），因此特别难查。
+   *
+   * 用显式 `hydrated` 状态而不是依赖 effect 的执行时机，水合期渲染的分支是确定的。
+   */
+  const [hydrated, setHydrated] = useState(false);
   const [snapshot, setSnapshot] = useState<LedgerSnapshot<T>>(() => ledger.readDefault());
   /* 存储可用性是三态，避免服务端/客户端首帧渲染不一致造成 hydration 警告。 */
   const [storage, setStorage] = useState<'pending' | 'ok' | 'unavailable'>('pending');
@@ -242,6 +289,7 @@ export function Workbench<T>(props: WorkbenchProps<T>) {
   useEffect(() => {
     setSnapshot(ledger.read());
     setStorage(ledger.available ? 'ok' : 'unavailable');
+    setHydrated(true);
   }, [ledger]);
 
   const data = snapshot.data;
@@ -252,6 +300,23 @@ export function Workbench<T>(props: WorkbenchProps<T>) {
       return [];
     }
   }, [spec, data]);
+
+  /**
+   * 水合期专用视图：与 `snapshot` 无关，永远取 `readDefault()`。
+   *
+   * 渲染层用它而不是直接用 `records`，是为了让「hydration 那一次渲染」的输出
+   * 与服务端 HTML **逐字节一致**，从而彻底消除 #418 的可能。
+   * `hydrated` 变 true 后（effect 已把真实台账写进 snapshot）才切到 `records`。
+   */
+  const hydrationRecords = useMemo<readonly RecordView[]>(() => {
+    try {
+      return spec.records(ledger.readDefault().data);
+    } catch {
+      return [];
+    }
+  }, [spec, ledger]);
+
+  const visibleRecords = hydrated ? records : hydrationRecords;
 
   const say = useCallback((text: string, tone: Tone = 'info') => {
     setFeedback({ text, tone });
@@ -270,18 +335,55 @@ export function Workbench<T>(props: WorkbenchProps<T>) {
   }, [ledger, spec, say]);
 
   /* ── 改 ── */
-  const handleEdit = useCallback(
-    (id: string) => {
-      try {
-        const next = ledger.update((prev) => spec.edit(prev, id, nowIso()));
-        setSnapshot(next);
-        say(`已修改 ${shortId(id)} 并持久化`, 'ok');
-      } catch (error) {
-        say(`修改失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+  /**
+   * 就地编辑。
+   *
+   * 这里分两种情况，**不假装能力**：
+   *   - 站点提供了 `spec.patch` → 打开内联表单，用户能改标题/摘要/详情这三个展示位，
+   *     改的是真业务字段（`patch` 会写回台账并落盘）。
+   *   - 站点没提供 `patch` → 退化成原来的「系统标记一次编辑」，并在反馈里明说
+   *     「本站暂不支持就地编辑」，不让用户以为填了却没保存。
+   */
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<RecordDraft>({});
+
+  const beginEdit = useCallback(
+    (record: RecordView) => {
+      if (!spec.patch) {
+        try {
+          const next = ledger.update((prev) => spec.edit(prev, record.id, nowIso()));
+          setSnapshot(next);
+          say('本站暂不支持就地编辑业务字段 · 已记录一次编辑标记', 'warn');
+        } catch (error) {
+          say(`修改失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+        }
+        return;
       }
+      setEditingId(record.id);
+      setDraft({ title: record.title, meta: record.meta, detail: record.detail ?? '' });
     },
     [ledger, spec, say],
   );
+
+  const cancelEdit = useCallback(() => {
+    setEditingId(null);
+    setDraft({});
+  }, []);
+
+  const commitEdit = useCallback(() => {
+    const id = editingId;
+    const patch = spec.patch;
+    if (id === null || !patch) return;
+    try {
+      const next = ledger.update((prev) => patch(prev, id, draft, nowIso()));
+      setSnapshot(next);
+      setEditingId(null);
+      setDraft({});
+      say(`已保存修改并持久化`, 'ok');
+    } catch (error) {
+      say(`保存失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+    }
+  }, [ledger, spec, draft, editingId, say]);
 
   /* ── 删 ── */
   const handleRemove = useCallback(
@@ -492,7 +594,9 @@ export function Workbench<T>(props: WorkbenchProps<T>) {
     say('本地演示 · 未写入资产图谱（当前不在 hub iframe 内）', 'warn');
   }, [bridge, identity, spec, data, records.length, say]);
 
-  const recordCount = records.length;
+  /* 渲染层一律走 visibleRecords：水合期给默认视图、挂载后给真实台账。
+     业务逻辑（导出 / 投送 / 计数）仍用 records（真实数据）—— 那是用户操作时才跑的。 */
+  const recordCount = visibleRecords.length;
   const styleVars = { '--site-accent': identity.accent } as CSSProperties;
 
   return (
@@ -596,28 +700,81 @@ export function Workbench<T>(props: WorkbenchProps<T>) {
         </p>
       ) : (
         <ul className="mx-wb-list">
-          {records.map((record) => (
-            <li className="mx-wb-row" key={record.id}>
-              <span className="mx-wb-row-main">
-                <span className="mx-wb-row-title">{record.title}</span>
-                <span className="mx-wb-row-meta">{record.meta}</span>
-                {record.detail ? <span className="mx-wb-row-detail">{record.detail}</span> : null}
-              </span>
-              <span className="mx-wb-row-actions">
-                <button type="button" className="mx-wb-btn" onClick={() => handleEdit(record.id)}>
-                  编辑
-                </button>
-                <button
-                  type="button"
-                  className="mx-wb-btn"
-                  data-variant="danger"
-                  onClick={() => handleRemove(record.id)}
-                >
-                  删除
-                </button>
-              </span>
-            </li>
-          ))}
+          {visibleRecords.map((record) =>
+            record.id === editingId ? (
+              /* 就地编辑表单：三个展示位各自可改，空值保持原值（见 spec-factory.patch） */
+              <li className="mx-wb-row mx-wb-row-editing" key={record.id}>
+                <div className="mx-wb-form" data-testid="ledger-edit-form">
+                  <label className="mx-wb-field">
+                    <span>标题</span>
+                    <input
+                      data-testid="ledger-edit-title"
+                      value={draft.title ?? ''}
+                      onChange={(event) => setDraft((prev) => ({ ...prev, title: event.target.value }))}
+                      autoFocus
+                    />
+                  </label>
+                  <label className="mx-wb-field">
+                    <span>摘要</span>
+                    <input
+                      data-testid="ledger-edit-meta"
+                      value={draft.meta ?? ''}
+                      onChange={(event) => setDraft((prev) => ({ ...prev, meta: event.target.value }))}
+                    />
+                  </label>
+                  <label className="mx-wb-field">
+                    <span>详情</span>
+                    <textarea
+                      data-testid="ledger-edit-detail"
+                      rows={3}
+                      value={draft.detail ?? ''}
+                      onChange={(event) => setDraft((prev) => ({ ...prev, detail: event.target.value }))}
+                    />
+                  </label>
+                  <div className="mx-wb-form-actions">
+                    <button
+                      type="button"
+                      className="mx-wb-btn"
+                      data-variant="primary"
+                      data-testid="ledger-edit-save"
+                      onClick={commitEdit}
+                    >
+                      保存
+                    </button>
+                    <button type="button" className="mx-wb-btn" onClick={cancelEdit}>
+                      取消
+                    </button>
+                  </div>
+                </div>
+              </li>
+            ) : (
+              <li className="mx-wb-row" key={record.id}>
+                <span className="mx-wb-row-main">
+                  <span className="mx-wb-row-title">{record.title}</span>
+                  <span className="mx-wb-row-meta">{record.meta}</span>
+                  {record.detail ? <span className="mx-wb-row-detail">{record.detail}</span> : null}
+                </span>
+                <span className="mx-wb-row-actions">
+                  <button
+                    type="button"
+                    className="mx-wb-btn"
+                    data-testid="ledger-edit"
+                    onClick={() => beginEdit(record)}
+                  >
+                    编辑
+                  </button>
+                  <button
+                    type="button"
+                    className="mx-wb-btn"
+                    data-variant="danger"
+                    onClick={() => handleRemove(record.id)}
+                  >
+                    删除
+                  </button>
+                </span>
+              </li>
+            ),
+          )}
         </ul>
       )}
 

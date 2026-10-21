@@ -120,21 +120,85 @@ function listSites() {
  * 表现为随机 ENOENT（`.nft.json` / `pages-manifest.json`）或 CSS 404 —— 全是假红，
  * 单跑立刻绿。多个 teammate / 多个验收进程同时跑同一站时要挡一下。
  *
- * 实现：在站点目录下用一个 `.verify-build.lock` 目录做原子互斥（mkdir 失败 = 已被占），
- * 拿到锁才构建，构建完删锁；等锁有上限，超时就明确报错而不是无限等。
+ * 实现：站点目录下 `.verify-build.lock` 目录做原子互斥（mkdir 失败 = 已被占）。
+ * **必须带陈旧锁回收**，否则一次 Ctrl-C / kill 就会留下永久锁，之后每次构建都要
+ * 白等满超时——这比没有锁更糟（实测被这个坑到过一次：报「另一构建进程正在持有锁」，
+ * 而那个 pid 早已不存在）。
+ *
+ * 陈旧判定（任一成立即回收）：
+ *   1. 锁目录里有 `owner.json` 且其中的 pid 已不存在（进程没了 = 锁是遗物）
+ *   2. 锁的 mtime 超过 staleMs（构建 6 分钟上限 + 余量），且 owner 不可解析
  */
+const LOCK_STALE_MS = 10 * 60 * 1000;
+
+function isLockStale(lockDir) {
+  const ownerFile = join(lockDir, 'owner.json');
+  try {
+    const st = statSync(lockDir);
+    if (Date.now() - st.mtimeMs > LOCK_STALE_MS) return '锁超过 10 分钟未释放';
+  } catch {
+    return '锁目录已消失';
+  }
+  if (!existsSync(ownerFile)) return '锁缺少 owner.json（可能是上次异常退出）';
+  try {
+    const owner = JSON.parse(readFileSync(ownerFile, 'utf8'));
+    const pid = Number(owner.pid);
+    if (!Number.isFinite(pid) || pid <= 0) return 'owner.pid 不可解析';
+    try {
+      // 信号 0：只探测进程是否存在，不真的发信号
+      process.kill(pid, 0);
+      return null; // 进程还活着 → 锁是有效的
+    } catch (error) {
+      if (error && error.code === 'ESRCH') return `持有锁的进程 ${pid} 已不存在`;
+      return null; // EPERM 等 = 进程存在但无权限探测，保守地认为锁有效
+    }
+  } catch {
+    return 'owner.json 损坏';
+  }
+}
+
 async function withBuildLock(site, fn, { waitMs = 8 * 60 * 1000, pollMs = 1500 } = {}) {
   const lockDir = join(MICRO, site, '.verify-build.lock');
   const started = Date.now();
+  let reclaimed = 0;
   for (;;) {
     try {
       mkdirSync(lockDir);
+      // 写入持有者信息，供后续判断陈旧锁用
+      try {
+        writeFileSync(
+          join(lockDir, 'owner.json'),
+          JSON.stringify({ pid: process.pid, site, at: new Date().toISOString() }),
+          'utf8',
+        );
+      } catch {
+        /* owner 写不进去不影响互斥本身 */
+      }
       break;
     } catch (error) {
       if (error && error.code !== 'EEXIST') throw error;
+
+      // 先看是不是遗物锁；是就回收掉再抢一次
+      const staleReason = isLockStale(lockDir);
+      if (staleReason !== null || reclaimed > 3) {
+        if (reclaimed <= 3) {
+          try {
+            rmSync(lockDir, { recursive: true, force: true });
+            reclaimed += 1;
+            console.log(`  （回收陈旧构建锁：${staleReason ?? '强制重置'}）`);
+            continue;
+          } catch {
+            /* 回收失败就继续按等待处理 */
+          }
+        }
+      }
+
       if (Date.now() - started > waitMs) {
         throw new Error(
-          `等待站点构建锁超时（${Math.round(waitMs / 1000)}s）：${site} 可能被其他进程占用中`,
+          `等待站点构建锁超时（${Math.round(waitMs / 1000)}s）：${site} 仍被占用。` +
+            '若确认没有其他构建在跑，删掉 ' +
+            lockDir +
+            ' 后重试',
         );
       }
       await new Promise((done) => setTimeout(done, pollMs));
@@ -195,11 +259,24 @@ async function verifySite(browser, site, options) {
   const warnings = [];
   const evidence = {};
 
+  /**
+   * 锁必须覆盖「构建 **+ 验证**」整段，而不只是构建那几十秒。
+   *
+   * 为什么：验证要读 `out/` 里的 HTML/CSS/chunk，而并发验收（或并行会话）会在别的
+   * 进程里 `next build`，把同一个 `out/` 目录整个删掉重建。表现是验证跑到一半
+   * CSS 变 404、页面白屏、`index.html` 消失 —— 报出来全是「站点缺陷」，实际是
+   * 产物被半路换掉了。实测一次批量里 01 等了 361s、13 拿到半成品 CSS 404、
+   * 15 直接白屏（正文 9 字符），三个站三种症状，同一个根因。
+   */
+  return withBuildLock(site, () => verifyUnderLock(browser, site, options, dir, outDir, issues, warnings, evidence));
+}
+
+async function verifyUnderLock(browser, site, options, dir, outDir, issues, warnings, evidence) {
   if (!options.skipBuild) {
     try {
       // 站点级互斥：并发跑同站 next build 会互相删写 .next/，产生一族假红
       // （随机 ENOENT / CSS 404 / React #418）。加锁后并发验收也稳定。
-      await withBuildLock(site, () => buildSite(site));
+      buildSite(site);
     } catch (error) {
       const tail = String(error.stdout ?? '') + String(error.stderr ?? '');
       issues.push(`静态导出构建失败：${tail.split('\n').filter(Boolean).slice(-6).join(' | ')}`);
@@ -292,6 +369,47 @@ async function verifySite(browser, site, options) {
       evidence.ledgerCountAfterReload = afterReload;
       if (evidence.ledgerSaved && afterReload !== before + 1) {
         issues.push(`刷新后台账计数未保持（期望 ${before + 1}，实际 ${afterReload}）`);
+      }
+
+      /* ── 就地编辑：改标题 → 保存 → 刷新后内容仍在 ──
+       * 这是「台账能装用户自己的内容」的核心验证。只验表单出现等于没验，
+       * 必须真的写进去、并且**刷新后还在**（落盘才算数）。
+       *
+       * 注意诊断精度：若保存后页面已不可访问（构建残留导致 404/白屏），
+       * 「内容丢失」是误导性结论 —— 要把这两种情况分开报，否则会去修一个不存在的 bug。 */
+      if ((await page.locator('[data-testid="ledger-edit"]').count()) > 0) {
+        const marker = `验收标记-${Date.now().toString(36)}`;
+        await page.locator('[data-testid="ledger-edit"]').first().click();
+        const formOpen = (await page.locator('[data-testid="ledger-edit-form"]').count()) > 0;
+        if (!formOpen) {
+          issues.push('点击 ledger-edit 后未出现 ledger-edit-form 就地编辑表单');
+        } else {
+          const titleInput = page.locator('[data-testid="ledger-edit-title"]').first();
+          await titleInput.fill(marker);
+          await page.locator('[data-testid="ledger-edit-save"]').first().click();
+          await page.waitForTimeout(500);
+
+          const afterSaveText = await page.evaluate(() => document.body.innerText || '');
+          evidence.editVisible = afterSaveText.includes(marker);
+          if (!evidence.editVisible) issues.push('保存就地编辑后，页面上看不到新标题');
+
+          await page.reload({ waitUntil: 'load' });
+          await page.waitForTimeout(900);
+          // 先确认页面还活着：白屏/404 时不能断言「内容丢失」
+          const reloadBodyLength = (await page.evaluate(() => (document.body.innerText || '').trim().length));
+          if (reloadBodyLength < 300) {
+            issues.push(
+              `刷新后页面正文只有 ${reloadBodyLength} 字符（疑似产物 404/白屏）——` +
+                '就地编辑是否落盘无法判定，请先修复产物完整性再跑',
+            );
+          } else {
+            const afterReloadText = await page.evaluate(() => document.body.innerText || '');
+            evidence.editPersisted = afterReloadText.includes(marker);
+            if (!evidence.editPersisted) {
+              issues.push('刷新后就地编辑的内容丢失（未真正落盘）');
+            }
+          }
+        }
       }
 
       /* ── 导出：必须真的产生下载 ── */

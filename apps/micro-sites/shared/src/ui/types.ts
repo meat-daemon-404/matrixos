@@ -34,6 +34,13 @@ export interface RecordView {
   readonly detail?: string;
 }
 
+/** 用户可就地编辑的三个展示位。字段缺省 = 保持原值。 */
+export interface RecordDraft {
+  readonly title?: string;
+  readonly meta?: string;
+  readonly detail?: string;
+}
+
 /** 虫洞信封里 `payload` 的最小形状（与 specs/contracts/wormhole-envelope.schema.json 对齐）。 */
 export interface EnvelopePayloadLike {
   readonly data: Readonly<Record<string, unknown>>;
@@ -102,6 +109,20 @@ export interface SiteWorkbenchSpec<T> {
 
   /** 编辑指定记录。必须改变数据内容（Workbench 用指纹变化证明「改」真的生效）。 */
   readonly edit: (data: T, id: string, nowIso: string) => T;
+
+  /**
+   * 可选：用**用户输入**改写一条记录。
+   *
+   * 为什么需要它（而不是只用 `edit`）：
+   *   `edit` 是「系统按规则改一下」（比如标题追加「已编辑 N 次」），适合演示与验收，
+   *   但用户真正需要的是**把自己的内容填进台账** —— 否则 18 个「记录库」站
+   *   只能存演示数据，价值等于零。
+   *
+   * 三个字段对应 `RecordView` 的展示位。未提供的字段保持原值。
+   * 不实现时 Workbench 会退化成只能改名（并在 UI 上标注「本站暂不支持就地编辑」），
+   * 绝不假装能编辑业务字段。
+   */
+  readonly patch?: (data: T, id: string, patch: RecordDraft, nowIso: string) => T;
 
   /** 删除指定记录。 */
   readonly remove: (data: T, id: string) => T;

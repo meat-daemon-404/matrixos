@@ -18,7 +18,7 @@
 | orbital-hub「无队列接收器」（全量搜 pocket/queue 零命中） | `src/lib/queue-client.ts`（fetch/WebSocket/timer 全注入）+ `components/QueueReceiver.tsx`，挂在 `app/page.tsx` 与 OrbitalHub 平级；**21 用例全绿** | `cd apps/orbital-hub; node --test src/lib/queue-client.test.mjs` |
 | instrument-ui「test 指向不存在的 self-test.mjs，pnpm test 直接失败」 | 改用仓库既有约定 `node --test "test/**/*.test.ts"`；**77 用例**覆盖 math/stats/contrast | `cd packages/instrument-ui; node --test "test/**/*.test.ts"` |
 
-**通过测试总数：385 → 679**（385 + instrument-ui 77 + matrix-core 196 + hub 21）。
+**通过测试总数：385 → 705**（385 + instrument-ui 77 + matrix-core 196 + hub 21 + micro-sites shared 26）。
 mock-server 的 63 条是独立自测脚本，不经 turbo，未计入该总数。
 
 两处**源码缺陷**是补测试过程中发现并修掉的，不是测试写错：
@@ -40,17 +40,17 @@ mock-server 的 63 条是独立自测脚本，不经 turbo，未计入该总数�
 **脚手架已经铺满 9 个模块，但"能构建"不等于"有功能"。**
 
 - 逻辑层（类型契约、鉴权、SDK、设计系统、路由分发）**已实现且质量不错**
-- 业务层（18 个微站的实际工具、小程序页面、pocket 接口）**基本是骨架**
-- 有真实测试的只有 4 个模块，其中 3 个是纯函数/契约层
+- 业务层：**18 个微站已全部完工**（2026-10-21），小程序页面已补齐但 pocket 客户端仍指 mock
+- 有真实测试的 5 个模块，其中 4 个是纯函数/契约层
 
 | 维度 | 实测 |
 | :--- | :--- |
 | 工作区包 | 23 个（3 packages + 19 apps + 1 非 workspace 的 wechat-pocket） |
 | typecheck | **25/25 通过**（23 个包 + 2 个依赖前置 build） |
 | build | **22/22 通过，但默认并发下不稳定**（详见 §4） |
-| 自动化测试 | **385 个通过**，集中在 4 个模块 |
+| 自动化测试 | **385 个通过**，集中在 4 个模块（另有 2026-10-21 新增的 micro-sites shared 26 个，见上表增量） |
 | Python 源码 | 96 文件语法全部正确 |
-| 有测试的模块 | 4 / 9 |
+| 有测试的模块 | 4 / 9（+ micro-sites shared 26 个，见上表增量） |
 | 能构建的模块 | 7 / 9（matrix-core、copilot-router、pat-worker 是 Python，无 turbo build） |
 
 ---
@@ -67,7 +67,7 @@ mock-server 的 63 条是独立自测脚本，不经 turbo，未计入该总数�
 | 6 | `services/openalex-pat-worker` | 🔶 **部分实现** | 32 | 27 | 2 | **43** | n/a（Python） | 有热度计算逻辑与测试，但**未接入 matrix-core** |
 | 7 | `apps/orbital-hub` | 🔶 **部分实现** | 27 | 27 | 0 | 0 | ⚠️ 不稳定 | 总控台组件齐全，但**无队列接收器**，干跑 22 站数据 |
 | 8 | `apps/wechat-pocket` | 🔶 **部分实现** | 20 | 20 | 0 | 0 | ❌ 无 build 任务 | 逻辑层完整，**视图层 0 个页面** |
-| 9 | `apps/micro-sites`（18 站） | 🔶 **仅骨架** | 306 | 270 | 0 | 0 | ⚠️ 不稳定 | 18 站均由 `gen-site.mjs` 生成，页面是占位骨架 |
+| 9 | `apps/micro-sites`（18 站） | ✅ **已完工** | 306 | 270 | 26 | **26** | ✅ | 18 站均有真实业务台账与仪器，端到端验收 18/18 通过（详见 §9） |
 
 **合计通过测试：162 + 1 + 179 + 43 = 385。**
 
@@ -264,7 +264,53 @@ mock-server 的 63 条是独立自测脚本，不经 turbo，未计入该总数�
 
 ---
 
-### 9. `apps/micro-sites`（18 站）— 🔶 仅骨架
+### 9. `apps/micro-sites`（18 站）— ✅ 已完工（2026-10-21）
+
+> **本节原文写于 2026-10-20，判定「🔶 仅骨架」已过期。** 下面是复核后的实测状态，
+> 原文保留在「历史判定」小节备查。完工规范见
+> [08-microsite-workbench.md](./08-microsite-workbench.md)。
+
+| 项 | 2026-10-20 判定 | 现在的实测 |
+| :--- | :--- | :--- |
+| 站点状态 | 🔶 仅骨架（占位柱状图） | ✅ **18 站全部完工** |
+| 每站业务代码 | 无（只有 900 B 占位 page.tsx） | ✅ 手写 `src/lib/site-spec.ts`，4.1–52.9 KB/站 |
+| 持久化台账 | 无 | ✅ **18 站**全有独立 localStorage 台账（版本化信封 + 增删改清空撤销 + JSON/CSV 导出） |
+| 虫洞投送 | 无（accepts/emits 多为空） | ✅ 18 站全有 emits，`auditContracts()` 生态自检 0 问题 |
+| 仪器 UI | 占位柱状图 `GAUGE_HEIGHTS` | ✅ 18 个真实仪器（推子/旋钮/示波器/声呐/天平等），且**补齐了 139 个类名的样式表** |
+| 测试 | 0 个 | ✅ shared 26 个（ledger 全分支 + `patch` 边界）+ instrument-ui 77 个 |
+| 端到端验收 | 无 | ✅ `scripts/microsite-verify.mjs` 10 项断言 × 18 站，**18/18 通过** |
+| README | 骨架说明（56 行） | ✅ 完工形态（含数据模型 / 虫洞契约 / 验收） |
+| typecheck | — | ✅ **18/18 通过** |
+
+**完工层的架构**（这是让 18 站能一次性做完的关键）：
+
+- **共享一份实现**：`apps/micro-sites/shared/src/ledger.ts`（版本化 localStorage 台账）、
+  `src/ui/types.ts`（`SiteWorkbenchSpec` 契约）、`src/ui/spec-factory.ts`（`createRowSpec`）
+- **共享一套模板**：`apps/micro-sites/shared/templates/` 下 6 个 React/TS 模板
+  （sdk-facade / matrix-sdk.shim / site-shell / workbench-impl / site-workbench-wrapper / page），
+  由 `scripts/wire-workbench.mjs` 分发到 18 站，文件头注明「请勿直接修改」
+- **共享一份契约**：`scripts/lib/microsite-contracts.mjs`（18 站 accepts/emits/投送目标 + 生态自检）
+  与 `scripts/lib/microsite-templates.mjs`（分发清单），被生成器与分发器共用
+- **站点唯一手写**：`src/lib/site-spec.ts` + `README.md`
+
+**每站验收断言**（`node scripts/microsite-verify.mjs --site=<dir>`）：
+正文 ≥300 字符 · 7 个 `data-testid` 齐全（`primary-tool` / `ledger-count` / `ledger-save` /
+`ledger-export-json` / `ledger-clear` / `wormhole-emit` / `wormhole-feedback`）·
+新增后计数 +1 且刷新保持 · **就地编辑改标题后刷新仍在** · 导出 JSON 真的产生下载（>8 B）·
+清空后归 0、**点撤销计数恢复原值**、再清空后刷新仍 0 ·
+投送后反馈非空 · console error / pageerror / 失败请求全 0 · 390×844 无横向溢出。
+
+**完工过程中修掉的共享层缺陷**（详见 workbench 文档 §8）：
+18 站仪器类名从未有样式表（139 个 class 零命中）· `.iu-evidence__badge` nowrap 撑破 390 px ·
+03 站红线分母用错（合规的 12.5% 被判 62.5% 超限）· `PrecisionBalance` 计数器导致 React #418 ·
+静态导出把半成品当成功 · `gen:site` 的 site-spec 骨架语法错 · 虫洞契约三处副本漂移。
+
+命名符合 ADR-001：`01-gpa-sandbox` … `18-prejob-multiverse`，目录名用版本 B 的描述性词根，编号与站点归属用版本 A 的花名册，域名与目录名刻意可不同（如 `04-pat-radar` 对 `pat-hot.matrixos.edu`、`14-review-architect` 对 `review-lab.matrixos.edu`）。**这一点是对的。**
+
+#### 历史判定（2026-10-20，已过期，保留备查）
+
+<details>
+<summary>展开原文</summary>
 
 | 项 | 值 |
 | :--- | :--- |
@@ -299,7 +345,7 @@ mock-server 的 63 条是独立自测脚本，不经 turbo，未计入该总数�
 1. **18 站 ≠ 18 个可用工具**。每站渲染的是同一套「占位仪器」——柱状图高度写死为 `[38, 62, 47, 81, 55, 70, 44, 92, 66, 51]`，与 GPA、经费、声呐等业务毫无关系。ADR-001 规定的 UI 形态（精密推子配重仪、五柱流体压差计、360° 极坐标声呐盘…）**一个都没实现**。
 2. **`apps/micro-sites` 的 3,092 KB 里，约 2.1 MB 是 `.next` 构建产物**。真实源码只有 306 个文件。仓库"约 2MB 代码"的说法把构建产物算进去了。
 
-命名符合 ADR-001：`01-gpa-sandbox` … `18-prejob-multiverse`，目录名用版本 B 的描述性词根，编号与站点归属用版本 A 的花名册，域名与目录名刻意可不同（如 `04-pat-radar` 对 `pat-hot.matrixos.edu`、`14-review-architect` 对 `review-lab.matrixos.edu`）。**这一点是对的。**
+</details>
 
 ---
 
@@ -338,7 +384,7 @@ npx turbo run build --concurrency=2
 
 | # | 问题 | 影响 |
 | :-- | :--- | :--- |
-| 1 | `pnpm test` = `turbo run test`，但 23 个工作区包里只有 **3 个**声明了 `test` 脚本（twin-schema / matrix-sdk / instrument-ui） | 3 个 Python 服务 + orbital-hub + 18 微站 + wechat-pocket 完全不在 `pnpm test` 覆盖内 |
+| 1 | `pnpm test` = `turbo run test`，但 23 个工作区包里只有 **4 个**声明了 `test` 脚本（twin-schema / matrix-sdk / instrument-ui / micro-sites shared） | 3 个 Python 服务 + orbital-hub + wechat-pocket 完全不在 `pnpm test` 覆盖内 |
 | 2 | `instrument-ui` 的 `test` 脚本指向 **不存在的** `scripts/self-test.mjs` | 该包跑测试直接失败 |
 | 3 | `services/copilot-router` 没有 `pyproject.toml`、不在 workspace | 179 个测试只能手动跑，`pnpm test` 永远看不见 |
 
@@ -375,7 +421,7 @@ npx turbo run build --concurrency=2
 | **P2** | 修 `scripts/self-test.mjs` 缺失 / 或改 instrument-ui 的 test 脚本 | 让 `pnpm test` 不再撒谎 |
 | **P2** | `copilot-router` 补 `api.py` / `api_models.py` 测试 | 两个文件 0% 覆盖，是 81% 的主要拖累 |
 | **P2** | 给 `instrument-ui` 的 `lib/stats.ts` / `math.ts` 补测试 | 纯函数，成本极低 |
-| **P3** | 18 微站接入真实业务逻辑 | 当前是占位骨架，需先定各站的数据模型 |
+| **P3** | ~~18 微站接入真实业务逻辑~~ | ✅ 2026-10-21 已完成：18 站均有真实业务台账与仪器，端到端验收 18/18 通过（详见 §9） |
 | **P3** | `orbital-hub` 补队列接收器 | 跨端协同的桌面半边 |
 
 ---
