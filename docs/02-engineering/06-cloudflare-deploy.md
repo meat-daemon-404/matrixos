@@ -246,7 +246,7 @@ wrangler 会走它，导致 TLS 握手失败或连不上 Cloudflare API。
 | 域名 | 生产用 `matrixos.cc.cd` 下的 `mx-<appId>.matrixos.cc.cd`；`matrixos.edu` 不在用户账号 |
 | 后端未部署 | `matrix-core` 仍在本地。hub/微站会请求 `https://api.matrixos.edu/v1/...`，该域未解析（`ERR_CONNECTION_CLOSED`），SSO/资产写入走本地 mock |
 | DNSSEC | Cloudflare 侧 `pending`，需在 dnshe 注册商加 DS 记录 |
-| 托管 WAF | Managed Free Ruleset 需在 Dashboard 手动开启（API 405） |
+| 托管 WAF | ✅ 已启用 Managed Free Ruleset（`cf rulesets entrypoint update`，见 7.5.7） |
 | `/placeholder` 路由 | 静态导出时被临时移走（它是动态路由）。线上由 `NEXT_PUBLIC_MICROSITE_PLACEHOLDER=false` 禁用 |
 | 构建耗时 | 18 站串行约 20 分钟。并行会更慢（`.next` 目录竞态，见 safe-build.mjs） |
 | 旧账号项目 | 19 个 `mx-*` 仍留在旧账号，未删除（可回滚，也仍可访问） |
@@ -339,10 +339,37 @@ matrixos.cc.cd. 3600 IN DS 2371 13 2 7BE09117A8C41896E368B87DDDC99CB91ADD8AF69E7
 
 ### 7.5.7 Free 套餐的硬限制（踩坑记录）
 
-Cloudflare Managed Free Ruleset / DDoS L7 / Normalization 三个托管规则集在 zone 上**本来就有规则**，
-但 `POST /zones/{Z}/rulesets/phases/http_request_firewall_managed/entrypoint` 返回
-`405 Method not allowed for this authentication scheme` —— 无法通过 API 切换托管规则集的开关，
-需要到 Dashboard 手动开（Managed Ruleset 在 Free 上可免费开启）。
+Cloudflare Managed Free Ruleset / DDoS L7 / Normalization 三个托管规则集在 zone 上**本来就有规则**。
+
+**⚠️ 曾误判为「只能手动开」**：用 MCP OAuth token 调
+`POST /zones/{Z}/rulesets/phases/http_request_firewall_managed/entrypoint` 会得到
+`405 Method not allowed for this authentication scheme`。但这**不是套餐限制、也不是必须手动** ——
+真实原因是那个 MCP OAuth token 缺 `zone-waf.write` scope。
+
+换 `cf` CLI（scope 里带 `zone-waf.write`）直接就能写：
+
+```bash
+cf rulesets entrypoint update http_request_firewall_managed \
+  --zone matrixos.cc.cd --body @managed-entrypoint.json
+```
+
+body 内容（execute 托管规则集，`expression: "true"` 表示全量匹配）：
+
+```json
+{"rules":[{"action":"execute","description":"Execute Cloudflare Managed Free Ruleset",
+  "enabled":true,"action_parameters":{"id":"77454fe2d30c4220b5701f6fdfb893ba"},
+  "expression":"true"}]}
+```
+
+2026-10-21 已按此启用，entrypoint id `24ada2e011e94ad3ac038ef714e9d47c`，
+规则 id `e29461cacaa540e5af7db61293a9ff61`。
+
+实测：Log4j 特征（请求头 `X-Api-Version: ${jndi:ldap://...}` 与查询参数两种形态）
+全部 **403**，正常路径仍 **200**，19 站复验无回归。
+
+> **BOM 陷阱**：`cf ... --body @file` 要求文件**无 BOM**。
+> PowerShell 的 `Set-Content -Encoding UTF8` 会写 BOM，导致 `Invalid JSON in --body`。
+> 必须用 `[System.IO.File]::WriteAllText($p, $s, (New-Object System.Text.UTF8Encoding($false)))`。
 
 Free 套餐自定义 WAF 的限制：
 
@@ -400,8 +427,8 @@ Free 套餐自定义 WAF 的限制：
 2. **DNSSEC 收尾**：在父域注册商 dnshe 后台添加 DS 记录
    （`matrixos.cc.cd. 3600 IN DS 2371 13 2 7BE09117A8C41896E368B87DDDC99CB91ADD8AF69E729A308E186E5B78F40604`），
    Cloudflare 侧状态才会从 `pending` 转 `active`
-3. **托管 WAF 手动开启**：Dashboard 里启用 *Cloudflare Managed Free Ruleset*
-   （API 返回 `405 Method not allowed for this authentication scheme`，只能手动）
+3. **~~托管 WAF 手动开启~~ ✅ 已完成**：见 7.5.7。cf CLI 可直接写 entrypoint，
+   无需 Dashboard；先前「只能手动」的判断是 MCP token 缺 scope 导致的误判。
 4. **CI 部署**：把 `deploy-new-account.mjs` + `bind-microsite-domains.mjs` 接进 GitHub Actions
    （需要把新账号 token 存成 secret；注意不要复用旧账号 token）
 
@@ -457,8 +484,10 @@ node .tmp/verify-new-account.mjs
 | CSP frame-ancestors | **18/18** 含 `matrixos.cc.cd` |
 | SDK HUB_ORIGINS | **18/18** 产物注入新域名 |
 | hub 跨源内嵌 | ✅ 实测挂载 `mx-curvelab.matrixos.cc.cd`，`textLen=7281`，0 CSP 拦截 |
-| WAF 命中 | `/.env` `/wp-admin` `/.git` `/cgi-bin` 全部 403 |
-| 遗留 | `api.matrixos.edu` 未解析（后端未部署）；DNSSEC pending；托管 WAF 需手动开 |
+| WAF 自定义 5 规则 | 敏感路径 / CMS / 危险方法 / 路径穿越 / 扫描器探测 全部 403 |
+| WAF 托管规则集 | ✅ 已启用，Log4j 特征 403，19 站复验无回归 |
+| 旧账号处置 | **保留不删**（回滚退路，不产生费用）；新站已确认无产物引用旧域名 |
+| 遗留 | `api.matrixos.edu` 未解析（后端未部署）；DNSSEC pending 待注册商加 DS |
 
 ### 9.5 产物 URL 模板变更（三处）
 
