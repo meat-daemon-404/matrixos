@@ -14,6 +14,7 @@
 import { cardApi } from '../../api/index';
 import type { AcademicCard, VerificationLevel } from '../../api/types';
 import { toApiError } from '../../core/errors';
+import { reportFirstPaint } from '../../core/logger';
 import { encodeQr, drawQrToCanvas } from '../../utils/qr';
 
 const QR_CSS_PX = 220;
@@ -99,6 +100,11 @@ Page<CardData, CardMethods>({
 
   onLoad() {
     void this.load();
+  },
+
+  /** 首屏可交互时打点，度量冷启动是否在 COLD_START_BUDGET_MS 预算内。 */
+  onReady() {
+    reportFirstPaint('pages/card/index');
   },
 
   onPullDownRefresh() {
