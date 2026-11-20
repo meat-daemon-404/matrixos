@@ -28,7 +28,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -46,6 +46,17 @@ function sh(cmd, args = []) {
     const detail = String(e.stdout || e.stderr || e.message).trim().split("\n").slice(0, 4).join("\n  ");
     die(`命令失败：${cmd} ${args.join(" ")}\n  ${detail}`, 2);
   }
+}
+
+/**
+ * 定位主仓库根目录（Issue #36）：
+ * 若在 .worktrees/<branch> 子工作区内运行 scripts/claim.mjs，ROOT 会指向当前子 worktree，
+ * 直接使用相对路径 .worktrees/<new> 会把新 worktree 嵌套进旧 worktree 内。
+ * 通过 git rev-parse --git-common-dir 获取主仓库 .git 目录并取其父目录，确保所有 worktree 统一平铺在主工作区 .worktrees/ 下。
+ */
+function mainRoot() {
+  const commonDir = sh("git", ["rev-parse", "--git-common-dir"]);
+  return dirname(resolve(ROOT, commonDir));
 }
 
 function gh(args) {
@@ -452,9 +463,10 @@ function cmdBranch(n, flags, slugArg) {
   const base = flags.base || "main";
   sh("git", ["fetch", "origin", base]);
   if (branchExists(branch)) die(`分支 ${branch} 已存在。切过去继续做：git checkout ${branch}`);
-  sh("git", ["worktree", "add", `.worktrees/${branch}`, "-b", branch, `origin/${base}`]);
+  const worktreeDir = join(mainRoot(), ".worktrees", branch);
+  sh("git", ["worktree", "add", worktreeDir, "-b", branch, `origin/${base}`]);
   console.log(`\n✓ 已在独立 worktree 建分支：${branch}`);
-  console.log(`  进入：cd .worktrees/${branch}`);
+  console.log(`  进入：cd "${worktreeDir}"`);
   console.log(`  独立 worktree 的约定见 CONTRIBUTING 2.3「多会话 / 多代理并行」——不动别人正在改的工作区\n`);
 }
 
